@@ -1,0 +1,19 @@
+steps:
+  # Install dependencies
+  - name: 'python:3.12'
+    entrypoint: 'pip'
+    args: ['install', '-r', 'requirements.txt', '--user']
+    env:
+      - 'PIP_USER=true'
+
+  # Run tests
+  - name: 'python:3.12'
+    entrypoint: 'python'
+    args: ['-m', 'unittest', 'discover', 'tests']
+    env:
+      - 'PYTHONPATH=.'
+      - 'PIP_USER=true'
+
+timeout: '1200s'
+options:
+  logging: CLOUD_LOGGING_ONLY
