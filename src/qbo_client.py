@@ -1,4 +1,9 @@
 import requests
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class QBOClient:
     def __init__(self, client_id, client_secret, refresh_token, realm_id):
@@ -14,8 +19,15 @@ class QBOClient:
         Refreshes the access token using the refresh token.
         """
         # Placeholder for OAuth2 refresh logic
-        print("Refreshing access token...")
-        self.access_token = "new_access_token"
+        logger.info("Refreshing access token...")
+        try:
+            # Simulate token refresh logic
+            # response = requests.post(...)
+            # response.raise_for_status()
+            self.access_token = "new_access_token"
+        except Exception as e:
+            logger.error(f"Failed to refresh access token: {e}")
+            raise
 
     def get_headers(self):
         return {
@@ -30,9 +42,24 @@ class QBOClient:
         url = f"{self.base_url}/{self.realm_id}/{endpoint}"
         headers = self.get_headers()
 
-        # In a real scenario, we would use requests here
-        # response = requests.request(method, url, headers=headers, params=params, json=data)
-        # return response.json()
+        logger.info(f"Making {method} request to {url}")
 
-        print(f"Making {method} request to {url}")
-        return {}
+        try:
+            # In a real scenario, we would use requests here
+            # response = requests.request(method, url, headers=headers, params=params, json=data)
+            # response.raise_for_status()
+            # return response.json()
+
+            # Simulated response for now
+            return {}
+
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP Error: {e}")
+            # Depending on status code, might want to retry or re-raise
+            return {}
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e}")
+            return {}
+        except Exception as e:
+            logger.error(f"An unexpected error occurred: {e}")
+            return {}

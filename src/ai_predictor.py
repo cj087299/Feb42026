@@ -1,10 +1,13 @@
 import pandas as pd
+import logging
 from datetime import datetime, timedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
+
+logger = logging.getLogger(__name__)
 
 class PaymentPredictor:
     def __init__(self):
@@ -30,32 +33,49 @@ class PaymentPredictor:
             - due_date (YYYY-MM-DD)
             - payment_date (YYYY-MM-DD)
         """
-        df = pd.DataFrame(historical_invoices)
+        try:
+            df = pd.DataFrame(historical_invoices)
 
-        if df.empty:
-            print("No data to train on.")
-            return
+            if df.empty:
+                logger.warning("No data provided to train on.")
+                return
 
-        # Calculate target: days delayed (payment_date - due_date)
-        # If payment_date is missing, we can't use it for training (or assume today/overdue logic, but let's stick to paid ones)
-        df = df.dropna(subset=['payment_date', 'due_date'])
+            required_cols = {'customer_id', 'amount', 'due_date', 'payment_date'}
+            if not required_cols.issubset(df.columns):
+                logger.error(f"Missing required columns in training data: {required_cols - set(df.columns)}")
+                return
 
-        if df.empty:
-            print("No valid paid invoices to train on.")
-            return
+            # Calculate target: days delayed (payment_date - due_date)
+            # If payment_date is missing, we can't use it for training
+            df = df.dropna(subset=['payment_date', 'due_date'])
 
-        df['due_date_dt'] = pd.to_datetime(df['due_date'])
-        df['payment_date_dt'] = pd.to_datetime(df['payment_date'])
+            if df.empty:
+                logger.warning("No valid paid invoices (with payment_date and due_date) to train on.")
+                return
 
-        df['days_delayed'] = (df['payment_date_dt'] - df['due_date_dt']).dt.days
+            df['due_date_dt'] = pd.to_datetime(df['due_date'], errors='coerce')
+            df['payment_date_dt'] = pd.to_datetime(df['payment_date'], errors='coerce')
 
-        # Features: customer_id, amount
-        X = df[['customer_id', 'amount']]
-        y = df['days_delayed']
+            # Drop rows where date parsing failed
+            df = df.dropna(subset=['due_date_dt', 'payment_date_dt'])
 
-        self.model.fit(X, y)
-        self.is_trained = True
-        print("Model trained successfully.")
+            if df.empty:
+                logger.warning("All dates failed parsing.")
+                return
+
+            df['days_delayed'] = (df['payment_date_dt'] - df['due_date_dt']).dt.days
+
+            # Features: customer_id, amount
+            X = df[['customer_id', 'amount']]
+            y = df['days_delayed']
+
+            self.model.fit(X, y)
+            self.is_trained = True
+            logger.info("Model trained successfully.")
+
+        except Exception as e:
+            logger.error(f"Error during model training: {e}")
+            self.is_trained = False
 
     def predict_expected_date(self, invoice):
         """
@@ -66,16 +86,25 @@ class PaymentPredictor:
             - amount
             - due_date
         """
-        if not self.is_trained:
-            # Fallback if model isn't trained
+        try:
+            if not self.is_trained:
+                logger.debug("Model not trained, returning original due date.")
+                return invoice.get('due_date')
+
+            if not all(k in invoice for k in ['customer_id', 'amount', 'due_date']):
+                logger.warning("Invoice missing keys for prediction, returning due date.")
+                return invoice.get('due_date')
+
+            # Create DataFrame for single prediction
+            X_pred = pd.DataFrame([invoice])[['customer_id', 'amount']]
+
+            predicted_delay = self.model.predict(X_pred)[0]
+
+            due_date = datetime.strptime(invoice['due_date'], '%Y-%m-%d')
+            predicted_date = due_date + timedelta(days=predicted_delay)
+
+            return predicted_date.strftime('%Y-%m-%d')
+
+        except Exception as e:
+            logger.error(f"Error during prediction: {e}")
             return invoice.get('due_date')
-
-        # Create DataFrame for single prediction
-        X_pred = pd.DataFrame([invoice])[['customer_id', 'amount']]
-
-        predicted_delay = self.model.predict(X_pred)[0]
-
-        due_date = datetime.strptime(invoice['due_date'], '%Y-%m-%d')
-        predicted_date = due_date + timedelta(days=predicted_delay)
-
-        return predicted_date.strftime('%Y-%m-%d')

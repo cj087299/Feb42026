@@ -1,5 +1,8 @@
 from datetime import datetime
 from src.qbo_client import QBOClient
+import logging
+
+logger = logging.getLogger(__name__)
 
 class InvoiceManager:
     def __init__(self, qbo_client: QBOClient):
@@ -9,10 +12,16 @@ class InvoiceManager:
         """
         Fetches a list of invoices from QBO.
         """
-        query = "select * from Invoice"
-        response = self.client.make_request("query", params={"query": query})
-        # Placeholder for parsing response
-        return []
+        try:
+            query = "select * from Invoice"
+            logger.info("Fetching invoices from QBO.")
+            response = self.client.make_request("query", params={"query": query})
+            # Placeholder for parsing response
+            # In reality, check for errors in response structure
+            return []
+        except Exception as e:
+            logger.error(f"Failed to fetch invoices: {e}")
+            return []
 
     def _parse_date(self, date_str):
         if not date_str:
@@ -20,6 +29,7 @@ class InvoiceManager:
         try:
             return datetime.strptime(date_str, '%Y-%m-%d')
         except ValueError:
+            logger.debug(f"Failed to parse date: {date_str}")
             return None
 
     def filter_invoices(self, invoices, **kwargs):
@@ -46,6 +56,8 @@ class InvoiceManager:
                     inv for inv in filtered
                     if (d := self._parse_date(inv.get('due_date'))) and d >= s_date
                 ]
+            else:
+                logger.warning(f"Invalid start_date provided: {start_date}")
 
         end_date = kwargs.get('end_date')
         if end_date:
@@ -55,6 +67,8 @@ class InvoiceManager:
                     inv for inv in filtered
                     if (d := self._parse_date(inv.get('due_date'))) and d <= e_date
                 ]
+            else:
+                logger.warning(f"Invalid end_date provided: {end_date}")
 
         customer_id = kwargs.get('customer_id')
         if customer_id:
@@ -78,11 +92,19 @@ class InvoiceManager:
 
         min_amount = kwargs.get('min_amount')
         if min_amount is not None:
-             filtered = [inv for inv in filtered if float(inv.get('amount', 0)) >= float(min_amount)]
+             try:
+                 min_val = float(min_amount)
+                 filtered = [inv for inv in filtered if float(inv.get('amount', 0)) >= min_val]
+             except ValueError:
+                 logger.warning(f"Invalid min_amount: {min_amount}")
 
         max_amount = kwargs.get('max_amount')
         if max_amount is not None:
-             filtered = [inv for inv in filtered if float(inv.get('amount', 0)) <= float(max_amount)]
+             try:
+                 max_val = float(max_amount)
+                 filtered = [inv for inv in filtered if float(inv.get('amount', 0)) <= max_val]
+             except ValueError:
+                 logger.warning(f"Invalid max_amount: {max_amount}")
 
         return filtered
 
