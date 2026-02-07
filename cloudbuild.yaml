@@ -14,6 +14,29 @@ steps:
       - 'PYTHONPATH=.'
       - 'PIP_USER=true'
 
+  # Build the container image using Buildpacks
+  - name: 'gcr.io/k8s-skaffold/pack'
+    args:
+      - 'build'
+      - 'gcr.io/$PROJECT_ID/feb42026'
+      - '--builder=gcr.io/buildpacks/builder:v1'
+      - '--path=.'
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'feb42026'
+      - '--image=gcr.io/$PROJECT_ID/feb42026'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated' # Optional, depends on security requirements, but standard for public web apps
+
+images:
+  - 'gcr.io/$PROJECT_ID/feb42026'
+
 timeout: '1200s'
 options:
   logging: CLOUD_LOGGING_ONLY
