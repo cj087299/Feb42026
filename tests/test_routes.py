@@ -28,7 +28,7 @@ class TestRoutes(unittest.TestCase):
         # Test HTML response
         response_html = self.client.get('/', headers={'Accept': 'text/html'})
         self.assertEqual(response_html.status_code, 200)
-        self.assertIn(b'QBO Cash Flow', response_html.data)
+        self.assertIn(b'VZT Accounting', response_html.data)
 
     def test_health_route(self):
         """Test that the health route returns healthy status"""

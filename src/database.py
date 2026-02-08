@@ -44,7 +44,7 @@ class Database:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 flow_type TEXT NOT NULL,  -- 'inflow' or 'outflow'
                 amount REAL NOT NULL,
-                date TEXT NOT NULL,
+                date TEXT,  -- Optional for recurring
                 description TEXT,
                 is_recurring INTEGER DEFAULT 0,  -- 0 = one-time, 1 = recurring
                 recurrence_type TEXT,  -- 'weekly', 'monthly', 'custom_days'
