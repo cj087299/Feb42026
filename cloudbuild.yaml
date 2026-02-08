@@ -14,13 +14,14 @@ steps:
       - 'PYTHONPATH=.'
       - 'PIP_USER=true'
 
-  # Build the container image using Buildpacks
+  # Build the container image using Buildpacks and publish directly to Registry
   - name: 'gcr.io/k8s-skaffold/pack'
     args:
       - 'build'
       - 'gcr.io/$PROJECT_ID/feb42026'
       - '--builder=gcr.io/buildpacks/builder:v1'
       - '--path=.'
+      - '--publish'  # Ensure image is pushed to GCR so Step 3 can find it
 
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -32,8 +33,10 @@ steps:
       - '--image=gcr.io/$PROJECT_ID/feb42026'
       - '--region=us-central1'
       - '--platform=managed'
-      - '--allow-unauthenticated' # Optional, depends on security requirements, but standard for public web apps
+      - '--allow-unauthenticated'
 
+# 'images' field is technically redundant if we use --publish in pack,
+# but keeping it doesn't hurt for Cloud Build tracking.
 images:
   - 'gcr.io/$PROJECT_ID/feb42026'
 
