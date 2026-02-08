@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Management - QBO Cash Flow</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">💰 QBO Cash Flow</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/health">Status</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1 style="margin-bottom: 1rem;">Invoice Management</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">View and manage your QuickBooks Online invoices</p>
+
+        <div class="table-container">
+            <h2 style="margin-bottom: 1.5rem;">Filter Invoices</h2>
+            <form id="filterForm" class="form-row" style="margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" id="start_date" name="start_date">
+                </div>
+                <div class="form-group">
+                    <label for="end_date">End Date</label>
+                    <input type="date" id="end_date" name="end_date">
+                </div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select id="status" name="status">
+                        <option value="">All Statuses</option>
+                        <option value="paid">Paid</option>
+                        <option value="pending">Pending</option>
+                        <option value="overdue">Overdue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customer_id">Customer ID</label>
+                    <input type="text" id="customer_id" name="customer_id" placeholder="Enter customer ID">
+                </div>
+                <div class="form-group">
+                    <label for="min_amount">Min Amount</label>
+                    <input type="number" id="min_amount" name="min_amount" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="max_amount">Max Amount</label>
+                    <input type="number" id="max_amount" name="max_amount" placeholder="0.00" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label for="region">Region</label>
+                    <input type="text" id="region" name="region" placeholder="Enter region">
+                </div>
+                <div class="form-group">
+                    <label for="sort_by">Sort By</label>
+                    <select id="sort_by" name="sort_by">
+                        <option value="due_date">Due Date</option>
+                        <option value="amount">Amount</option>
+                        <option value="customer">Customer</option>
+                        <option value="status">Status</option>
+                    </select>
+                </div>
+            </form>
+            <button type="button" class="btn" onclick="loadInvoices()">Apply Filters</button>
+            <button type="button" class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+        </div>
+
+        <div id="invoiceResults" style="margin-top: 2rem;">
+            <!-- Results will be loaded here -->
+        </div>
+    </main>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        // Load invoices on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadInvoices();
+        });
+
+        function clearFilters() {
+            document.getElementById('filterForm').reset();
+            loadInvoices();
+        }
+
+        async function loadInvoices() {
+            const resultsDiv = document.getElementById('invoiceResults');
+            showLoading('invoiceResults');
+
+            try {
+                // Build query parameters from form
+                const form = document.getElementById('filterForm');
+                const formData = new FormData(form);
+                const params = new URLSearchParams();
+                
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        params.append(key, value);
+                    }
+                }
+
+                const queryString = params.toString();
+                const endpoint = queryString ? `/api/invoices?${queryString}` : '/api/invoices';
+                
+                const invoices = await fetchAPI(endpoint);
+
+                if (!invoices || invoices.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div class="table-container">
+                            <p style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                No invoices found. Try adjusting your filters.
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Build table
+                let tableHTML = `
+                    <div class="table-container">
+                        <h2 style="margin-bottom: 1rem;">Invoices (${invoices.length})</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Invoice ID</th>
+                                    <th>Customer</th>
+                                    <th>Amount</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                    <th>Region</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                invoices.forEach(invoice => {
+                    tableHTML += `
+                        <tr>
+                            <td>${invoice.id || 'N/A'}</td>
+                            <td>${invoice.customer || invoice.customer_id || 'N/A'}</td>
+                            <td>${formatCurrency(invoice.amount || 0)}</td>
+                            <td>${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
+                            <td><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
+                            <td>${invoice.region || 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                resultsDiv.innerHTML = tableHTML;
+
+            } catch (error) {
+                showError('invoiceResults', `Failed to load invoices: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

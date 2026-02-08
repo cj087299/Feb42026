@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
 from src.cash_flow import CashFlowProjector
@@ -29,6 +29,9 @@ predictor = PaymentPredictor()
 
 @app.route('/', methods=['GET'])
 def index():
+    # Check if request is from browser (HTML) or API client (JSON)
+    if request.accept_mimetypes.accept_html and not request.accept_mimetypes.accept_json:
+        return render_template('index.html')
     return jsonify({
         "service": "QBO Cash Flow Projection API",
         "version": "1.0",
@@ -40,8 +43,21 @@ def index():
     }), 200
 
 
+@app.route('/invoices', methods=['GET'])
+def invoices_page():
+    return render_template('invoices.html')
+
+
+@app.route('/cashflow', methods=['GET'])
+def cashflow_page():
+    return render_template('cashflow.html')
+
+
 @app.route('/health', methods=['GET'])
 def health_check():
+    # Check if request is from browser (HTML) or API client (JSON)
+    if request.accept_mimetypes.accept_html and not request.accept_mimetypes.accept_json:
+        return render_template('health.html')
     return jsonify({"status": "healthy"}), 200
 
 

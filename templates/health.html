@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Status - QBO Cash Flow</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">💰 QBO Cash Flow</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/health">Status</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1 style="margin-bottom: 1rem;">System Status</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Check the health and status of the QBO Cash Flow service</p>
+
+        <div id="healthStatus">
+            <!-- Health status will be loaded here -->
+        </div>
+
+        <div id="serviceInfo" style="margin-top: 2rem;">
+            <!-- Service info will be loaded here -->
+        </div>
+    </main>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        // Load status on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadHealth();
+            loadServiceInfo();
+        });
+
+        async function loadHealth() {
+            const healthDiv = document.getElementById('healthStatus');
+            
+            try {
+                const health = await fetchAPI('/health');
+                
+                const isHealthy = health.status === 'healthy';
+                
+                healthDiv.innerHTML = `
+                    <div class="table-container">
+                        <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem;">
+                            <div style="font-size: 3rem;">${isHealthy ? '✅' : '❌'}</div>
+                            <div>
+                                <h2 style="margin-bottom: 0.5rem;">Service Status</h2>
+                                <p style="font-size: 1.5rem; font-weight: bold; color: ${isHealthy ? 'var(--success-color)' : 'var(--error-color)'};">
+                                    ${isHealthy ? 'Healthy' : 'Unhealthy'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                healthDiv.innerHTML = `
+                    <div class="table-container">
+                        <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem;">
+                            <div style="font-size: 3rem;">❌</div>
+                            <div>
+                                <h2 style="margin-bottom: 0.5rem;">Service Status</h2>
+                                <p style="font-size: 1.5rem; font-weight: bold; color: var(--error-color);">
+                                    Unreachable
+                                </p>
+                                <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                                    ${error.message}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        async function loadServiceInfo() {
+            const infoDiv = document.getElementById('serviceInfo');
+            
+            try {
+                const info = await fetchAPI('/');
+                
+                infoDiv.innerHTML = `
+                    <div class="table-container">
+                        <h2 style="margin-bottom: 1rem;">Service Information</h2>
+                        <div style="padding: 1rem;">
+                            <div style="margin-bottom: 1.5rem;">
+                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Service Name</p>
+                                <p style="font-size: 1.25rem; font-weight: 600;">${info.service || 'N/A'}</p>
+                            </div>
+                            <div style="margin-bottom: 1.5rem;">
+                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.25rem;">Version</p>
+                                <p style="font-size: 1.25rem; font-weight: 600;">${info.version || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Available API Endpoints</p>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Endpoint</th>
+                                            <th>Path</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Health Check</strong></td>
+                                            <td><code>${info.endpoints?.health || '/health'}</code></td>
+                                            <td>Check service health status</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Invoices</strong></td>
+                                            <td><code>${info.endpoints?.invoices || '/api/invoices'}</code></td>
+                                            <td>Fetch and filter QuickBooks invoices</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Cash Flow</strong></td>
+                                            <td><code>${info.endpoints?.cashflow || '/api/cashflow'}</code></td>
+                                            <td>Get AI-powered cash flow projections</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-container" style="margin-top: 2rem;">
+                        <h2 style="margin-bottom: 1rem;">API Usage Examples</h2>
+                        <div style="padding: 1rem;">
+                            <div style="margin-bottom: 1.5rem;">
+                                <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Fetch Invoices</h3>
+                                <code style="display: block; padding: 1rem; background: var(--background); border-radius: 8px; overflow-x: auto;">
+                                    GET /api/invoices?status=pending&sort_by=due_date
+                                </code>
+                            </div>
+                            <div style="margin-bottom: 1.5rem;">
+                                <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Get Cash Flow Projection</h3>
+                                <code style="display: block; padding: 1rem; background: var(--background); border-radius: 8px; overflow-x: auto;">
+                                    GET /api/cashflow?days=60
+                                </code>
+                            </div>
+                            <div>
+                                <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Filter by Date Range</h3>
+                                <code style="display: block; padding: 1rem; background: var(--background); border-radius: 8px; overflow-x: auto;">
+                                    GET /api/invoices?start_date=2024-01-01&end_date=2024-12-31
+                                </code>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                showError('serviceInfo', `Failed to load service information: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>
