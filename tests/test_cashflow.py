@@ -1,7 +1,8 @@
 import unittest
-from datetime import datetime, timedelta
+from datetime import datetime
 from src.cash_flow import CashFlowProjector
 from src.ai_predictor import PaymentPredictor
+
 
 class TestCashFlowProjector(unittest.TestCase):
     def test_projection_without_ai(self):
@@ -20,7 +21,6 @@ class TestCashFlowProjector(unittest.TestCase):
 
         today = datetime.now()
         today_str = today.strftime('%Y-%m-%d')
-        future_pay_date = (today + timedelta(days=10)).strftime('%Y-%m-%d')
 
         # Training data: C1 pays 10 days late
         history = [
@@ -43,6 +43,7 @@ class TestCashFlowProjector(unittest.TestCase):
         # Window: 15 days. Predicted payment (day 10) is INSIDE. Balance should be 100.
         projection_long = projector.calculate_projection(days=15)
         self.assertEqual(projection_long, 100.0)
+
 
 if __name__ == '__main__':
     unittest.main()

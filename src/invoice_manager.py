@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class InvoiceManager:
     def __init__(self, qbo_client: QBOClient):
         self.client = qbo_client
@@ -15,7 +16,7 @@ class InvoiceManager:
         try:
             query = "select * from Invoice"
             logger.info("Fetching invoices from QBO.")
-            response = self.client.make_request("query", params={"query": query})
+            self.client.make_request("query", params={"query": query})
             # Placeholder for parsing response
             # In reality, check for errors in response structure
             return []
@@ -76,7 +77,7 @@ class InvoiceManager:
 
         invoice_number = kwargs.get('invoice_number')
         if invoice_number:
-             filtered = [inv for inv in filtered if inv.get('doc_number') == invoice_number]
+            filtered = [inv for inv in filtered if inv.get('doc_number') == invoice_number]
 
         region = kwargs.get('region')
         if region:
@@ -88,23 +89,23 @@ class InvoiceManager:
 
         status = kwargs.get('status')
         if status:
-             filtered = [inv for inv in filtered if inv.get('status') == status]
+            filtered = [inv for inv in filtered if inv.get('status') == status]
 
         min_amount = kwargs.get('min_amount')
         if min_amount is not None:
-             try:
-                 min_val = float(min_amount)
-                 filtered = [inv for inv in filtered if float(inv.get('amount', 0)) >= min_val]
-             except ValueError:
-                 logger.warning(f"Invalid min_amount: {min_amount}")
+            try:
+                min_val = float(min_amount)
+                filtered = [inv for inv in filtered if float(inv.get('amount', 0)) >= min_val]
+            except ValueError:
+                logger.warning(f"Invalid min_amount: {min_amount}")
 
         max_amount = kwargs.get('max_amount')
         if max_amount is not None:
-             try:
-                 max_val = float(max_amount)
-                 filtered = [inv for inv in filtered if float(inv.get('amount', 0)) <= max_val]
-             except ValueError:
-                 logger.warning(f"Invalid max_amount: {max_amount}")
+            try:
+                max_val = float(max_amount)
+                filtered = [inv for inv in filtered if float(inv.get('amount', 0)) <= max_val]
+            except ValueError:
+                logger.warning(f"Invalid max_amount: {max_amount}")
 
         return filtered
 

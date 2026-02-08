@@ -5,6 +5,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class QBOClient:
     def __init__(self, client_id, client_secret, refresh_token, realm_id):
         self.client_id = client_id
@@ -40,12 +41,12 @@ class QBOClient:
             self.refresh_access_token()
 
         url = f"{self.base_url}/{self.realm_id}/{endpoint}"
-        headers = self.get_headers()
 
         logger.info(f"Making {method} request to {url}")
 
         try:
             # In a real scenario, we would use requests here
+            # headers = self.get_headers()
             # response = requests.request(method, url, headers=headers, params=params, json=data)
             # response.raise_for_status()
             # return response.json()

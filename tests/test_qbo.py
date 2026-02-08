@@ -1,6 +1,7 @@
 import unittest
 from src.qbo_client import QBOClient
 
+
 class TestQBOClient(unittest.TestCase):
     def setUp(self):
         self.client = QBOClient("id", "secret", "refresh", "realm")
@@ -13,6 +14,7 @@ class TestQBOClient(unittest.TestCase):
         # Since make_request is a stub, we just check it returns a dict
         response = self.client.make_request("query")
         self.assertIsInstance(response, dict)
+
 
 if __name__ == '__main__':
     unittest.main()
