@@ -1,4 +1,8 @@
 from datetime import datetime, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class CashFlowProjector:
     def __init__(self, invoices, expenses, predictor=None):
@@ -29,7 +33,7 @@ class CashFlowProjector:
                     if predicted_date:
                         effective_date_str = predicted_date
                 except Exception as e:
-                    print(f"Prediction failed for invoice {invoice.get('doc_number')}: {e}")
+                    logger.error(f"Prediction failed for invoice {invoice.get('doc_number')}: {e}")
 
             effective_date = datetime.strptime(effective_date_str, '%Y-%m-%d')
 

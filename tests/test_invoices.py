@@ -1,7 +1,7 @@
 import unittest
-from datetime import datetime
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
+
 
 class TestInvoiceManager(unittest.TestCase):
     def setUp(self):
@@ -32,7 +32,7 @@ class TestInvoiceManager(unittest.TestCase):
                 'status': 'Unpaid',
                 'CustomField': [{'Name': 'Region', 'StringValue': 'North'}]
             },
-             {
+            {
                 'doc_number': '1004',
                 'customer_id': 'C3',
                 'due_date': '2023-10-15',
@@ -84,6 +84,7 @@ class TestInvoiceManager(unittest.TestCase):
         sorted_inv = self.manager.sort_invoices(self.invoices, sort_by='amount', reverse=True)
         self.assertEqual(sorted_inv[0]['amount'], 200.0)
         self.assertEqual(sorted_inv[-1]['amount'], 50.0)
+
 
 if __name__ == '__main__':
     unittest.main()
