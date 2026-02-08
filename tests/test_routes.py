@@ -10,7 +10,8 @@ class TestRoutes(unittest.TestCase):
 
     def test_root_route(self):
         """Test that the root route returns API information"""
-        response = self.client.get('/')
+        # Test API JSON response
+        response = self.client.get('/', headers={'Accept': 'application/json'})
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         
@@ -23,13 +24,36 @@ class TestRoutes(unittest.TestCase):
         self.assertIn('health', data['endpoints'])
         self.assertIn('invoices', data['endpoints'])
         self.assertIn('cashflow', data['endpoints'])
+        
+        # Test HTML response
+        response_html = self.client.get('/', headers={'Accept': 'text/html'})
+        self.assertEqual(response_html.status_code, 200)
+        self.assertIn(b'QBO Cash Flow', response_html.data)
 
     def test_health_route(self):
         """Test that the health route returns healthy status"""
-        response = self.client.get('/health')
+        # Test API JSON response
+        response = self.client.get('/health', headers={'Accept': 'application/json'})
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data['status'], 'healthy')
+        
+        # Test HTML response
+        response_html = self.client.get('/health', headers={'Accept': 'text/html'})
+        self.assertEqual(response_html.status_code, 200)
+        self.assertIn(b'System Status', response_html.data)
+    
+    def test_invoices_page(self):
+        """Test that the invoices page is accessible"""
+        response = self.client.get('/invoices')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Invoice Management', response.data)
+    
+    def test_cashflow_page(self):
+        """Test that the cashflow page is accessible"""
+        response = self.client.get('/cashflow')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Cash Flow Projection', response.data)
 
 
 if __name__ == '__main__':
