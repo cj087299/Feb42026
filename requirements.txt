@@ -1,3 +1,5 @@
 requests
 scikit-learn
 pandas
+flask
+gunicorn
