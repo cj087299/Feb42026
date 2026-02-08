@@ -30,7 +30,10 @@ predictor = PaymentPredictor()
 @app.route('/', methods=['GET'])
 def index():
     # Check if request is from browser (HTML) or API client (JSON)
-    if request.accept_mimetypes.accept_html and not request.accept_mimetypes.accept_json:
+    # Browsers typically have HTML with higher quality than JSON
+    if request.accept_mimetypes.best == 'text/html' or \
+       (request.accept_mimetypes.accept_html and 
+        request.accept_mimetypes['text/html'] > request.accept_mimetypes['application/json']):
         return render_template('index.html')
     return jsonify({
         "service": "QBO Cash Flow Projection API",
@@ -56,7 +59,9 @@ def cashflow_page():
 @app.route('/health', methods=['GET'])
 def health_check():
     # Check if request is from browser (HTML) or API client (JSON)
-    if request.accept_mimetypes.accept_html and not request.accept_mimetypes.accept_json:
+    if request.accept_mimetypes.best == 'text/html' or \
+       (request.accept_mimetypes.accept_html and 
+        request.accept_mimetypes['text/html'] > request.accept_mimetypes['application/json']):
         return render_template('health.html')
     return jsonify({"status": "healthy"}), 200
 
