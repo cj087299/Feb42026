@@ -1,6 +1,6 @@
-# Feb42026
+# VZT Accounting
 
-## QBO Cash Flow Projection and Invoice Management
+## QuickBooks Online Cash Flow Projection and Invoice Management
 
 This project provides tools for managing QuickBooks Online invoices and projecting cash flow with a user-friendly web interface.
 

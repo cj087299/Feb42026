@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice Management - QBO Cash Flow</title>
+    <title>Invoice Management - VZT Accounting</title>
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <header class="header">
         <div class="container">
-            <a href="/" class="logo">💰 QBO Cash Flow</a>
+            <a href="/" class="logo">💰 VZT Accounting</a>
             <nav class="nav">
                 <a href="/">Home</a>
                 <a href="/invoices">Invoices</a>
@@ -134,21 +134,31 @@
                                     <th>Amount</th>
                                     <th>Due Date</th>
                                     <th>Status</th>
-                                    <th>Region</th>
+                                    <th>VZT Rep</th>
+                                    <th>Sent to VZT Rep</th>
+                                    <th>Customer Portal</th>
+                                    <th>Portal Submission</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                 `;
 
                 invoices.forEach(invoice => {
+                    const metadata = invoice.metadata || {};
+                    const invoiceId = invoice.id || invoice.doc_number || 'N/A';
                     tableHTML += `
-                        <tr>
-                            <td>${invoice.id || 'N/A'}</td>
+                        <tr data-invoice-id="${invoiceId}">
+                            <td>${invoiceId}</td>
                             <td>${invoice.customer || invoice.customer_id || 'N/A'}</td>
                             <td>${formatCurrency(invoice.amount || 0)}</td>
                             <td>${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
                             <td><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
-                            <td>${invoice.region || 'N/A'}</td>
+                            <td class="editable-cell" data-field="vzt_rep">${metadata.vzt_rep || '-'}</td>
+                            <td class="editable-cell" data-field="sent_to_vzt_rep_date">${metadata.sent_to_vzt_rep_date ? formatDate(metadata.sent_to_vzt_rep_date) : '-'}</td>
+                            <td class="editable-cell" data-field="customer_portal">${metadata.customer_portal || '-'}</td>
+                            <td class="editable-cell" data-field="customer_portal_submission_date">${metadata.customer_portal_submission_date ? formatDate(metadata.customer_portal_submission_date) : '-'}</td>
+                            <td><button class="btn btn-secondary" onclick="editInvoiceMetadata('${invoiceId}')">Edit</button></td>
                         </tr>
                     `;
                 });
@@ -164,6 +174,83 @@
             } catch (error) {
                 showError('invoiceResults', `Failed to load invoices: ${error.message}`);
             }
+        }
+
+        async function editInvoiceMetadata(invoiceId) {
+            // Create modal for editing metadata
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+            
+            // Get current metadata
+            let metadata = {};
+            try {
+                const response = await fetch(`/api/invoices/${invoiceId}/metadata`);
+                if (response.ok) {
+                    metadata = await response.json();
+                }
+            } catch (e) {
+                console.error('Failed to fetch metadata:', e);
+            }
+            
+            modal.innerHTML = `
+                <div style="background: white; padding: 2rem; border-radius: 8px; max-width: 600px; width: 90%;">
+                    <h2 style="margin-bottom: 1.5rem;">Edit Invoice Metadata - ${invoiceId}</h2>
+                    <form id="metadataForm">
+                        <div class="form-group">
+                            <label for="vzt_rep">VZT Rep</label>
+                            <input type="text" id="vzt_rep" name="vzt_rep" value="${metadata.vzt_rep || ''}" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="sent_to_vzt_rep_date">Sent to VZT Rep Date</label>
+                            <input type="date" id="sent_to_vzt_rep_date" name="sent_to_vzt_rep_date" value="${metadata.sent_to_vzt_rep_date || ''}" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="customer_portal">Customer Portal</label>
+                            <input type="text" id="customer_portal" name="customer_portal" value="${metadata.customer_portal || ''}" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="customer_portal_submission_date">Customer Portal Submission Date</label>
+                            <input type="date" id="customer_portal_submission_date" name="customer_portal_submission_date" value="${metadata.customer_portal_submission_date || ''}" class="form-control">
+                        </div>
+                        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                            <button type="submit" class="btn">Save</button>
+                            <button type="button" class="btn btn-secondary" onclick="this.closest('[style*=fixed]').remove()">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Handle form submission
+            document.getElementById('metadataForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const data = {};
+                for (const [key, value] of formData.entries()) {
+                    if (value) data[key] = value;
+                }
+                
+                try {
+                    const response = await fetch(`/api/invoices/${invoiceId}/metadata`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (response.ok) {
+                        modal.remove();
+                        loadInvoices(); // Reload the table
+                        showSuccess('invoiceResults', 'Metadata saved successfully!');
+                        setTimeout(() => loadInvoices(), 2000);
+                    } else {
+                        throw new Error('Failed to save metadata');
+                    }
+                } catch (error) {
+                    alert('Failed to save metadata: ' + error.message);
+                }
+            });
         }
     </script>
 </body>
