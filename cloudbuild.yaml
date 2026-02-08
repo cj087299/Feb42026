@@ -35,11 +35,6 @@ steps:
       - '--platform=managed'
       - '--allow-unauthenticated'
 
-# 'images' field is technically redundant if we use --publish in pack,
-# but keeping it doesn't hurt for Cloud Build tracking.
-images:
-  - 'gcr.io/$PROJECT_ID/feb42026'
-
 timeout: '1200s'
 options:
   logging: CLOUD_LOGGING_ONLY
