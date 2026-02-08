@@ -26,9 +26,11 @@ predictor = PaymentPredictor()
 # Ideally, we would load training data from a persistent source here
 # For now, we leave it untrained or train on demand if data is available
 
+
 @app.route('/health', methods=['GET'])
 def health_check():
     return jsonify({"status": "healthy"}), 200
+
 
 @app.route('/api/invoices', methods=['GET'])
 def get_invoices():
@@ -60,6 +62,7 @@ def get_invoices():
         logger.error(f"Error fetching invoices: {e}")
         return jsonify({"error": str(e)}), 500
 
+
 @app.route('/api/cashflow', methods=['GET'])
 def get_cashflow():
     try:
@@ -78,6 +81,7 @@ def get_cashflow():
     except Exception as e:
         logger.error(f"Error calculating cashflow: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))

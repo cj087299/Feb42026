@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+
 class CashFlowProjector:
     def __init__(self, invoices, expenses, predictor=None):
         """

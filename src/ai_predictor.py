@@ -9,6 +9,7 @@ from sklearn.impute import SimpleImputer
 
 logger = logging.getLogger(__name__)
 
+
 class PaymentPredictor:
     def __init__(self):
         # Pipeline: Encode categorical features (customer_id), impute missing values, run regression
