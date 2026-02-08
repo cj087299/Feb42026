@@ -3,13 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cash Flow Projection - QBO Cash Flow</title>
+    <title>Cash Flow Projection - VZT Accounting</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .calendar-container {
+            overflow-x: auto;
+            margin-top: 2rem;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background: var(--border-color);
+            border: 1px solid var(--border-color);
+        }
+        .calendar-day {
+            background: white;
+            padding: 1rem;
+            min-height: 150px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .calendar-day:hover {
+            background: var(--background);
+        }
+        .calendar-day-header {
+            font-weight: bold;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .calendar-day-balance {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .calendar-day-flows {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+        .flow-indicator {
+            display: inline-block;
+            padding: 0.125rem 0.5rem;
+            border-radius: 4px;
+            margin: 0.125rem;
+            white-space: nowrap;
+        }
+        .flow-inflow {
+            background: #d4edda;
+            color: #155724;
+        }
+        .flow-outflow {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .toggle-controls {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin: 1rem 0;
+        }
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+    </style>
 </head>
 <body>
     <header class="header">
         <div class="container">
-            <a href="/" class="logo">💰 QBO Cash Flow</a>
+            <a href="/" class="logo">💰 VZT Accounting</a>
             <nav class="nav">
                 <a href="/">Home</a>
                 <a href="/invoices">Invoices</a>
@@ -20,126 +110,446 @@
     </header>
 
     <main class="container">
-        <h1 style="margin-bottom: 1rem;">Cash Flow Projection</h1>
-        <p style="color: var(--text-secondary); margin-bottom: 2rem;">AI-powered cash flow forecasting based on your invoices</p>
-
-        <div class="info-card">
-            <h3>📊 How it works</h3>
-            <p>Our AI model analyzes your invoice history and uses machine learning to predict when payments will be received, giving you accurate cash flow projections for planning ahead.</p>
-        </div>
+        <h1 style="margin-bottom: 1rem;">Cash Flow Calendar</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Interactive calendar view of your cash flow with detailed daily breakdown</p>
 
         <div class="table-container">
-            <h2 style="margin-bottom: 1.5rem;">Projection Settings</h2>
-            <form id="projectionForm">
-                <div class="form-group">
-                    <label for="days">Projection Period (days)</label>
-                    <select id="days" name="days">
-                        <option value="30">30 days (1 month)</option>
-                        <option value="60">60 days (2 months)</option>
-                        <option value="90">90 days (3 months)</option>
-                        <option value="180">180 days (6 months)</option>
-                    </select>
+            <h2 style="margin-bottom: 1.5rem;">Calendar Settings</h2>
+            <form id="calendarForm">
+                <div class="form-row" style="display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                    <div class="form-group">
+                        <label for="days">Projection Period (days)</label>
+                        <select id="days" name="days">
+                            <option value="30">30 days</option>
+                            <option value="60">60 days</option>
+                            <option value="90" selected>90 days</option>
+                            <option value="180">180 days</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="initial_balance">Initial Bank Balance</label>
+                        <input type="number" id="initial_balance" name="initial_balance" value="0" step="0.01">
+                    </div>
                 </div>
-                <button type="button" class="btn" onclick="loadProjection()">Generate Projection</button>
+                
+                <div class="toggle-controls">
+                    <div class="toggle-item">
+                        <input type="checkbox" id="show_projected_inflows" name="show_projected_inflows" checked>
+                        <label for="show_projected_inflows">Projected Inflows (Invoices)</label>
+                    </div>
+                    <div class="toggle-item">
+                        <input type="checkbox" id="show_projected_outflows" name="show_projected_outflows" checked>
+                        <label for="show_projected_outflows">Projected Outflows (Bills)</label>
+                    </div>
+                    <div class="toggle-item">
+                        <input type="checkbox" id="show_custom_inflows" name="show_custom_inflows" checked>
+                        <label for="show_custom_inflows">Custom Inflows</label>
+                    </div>
+                    <div class="toggle-item">
+                        <input type="checkbox" id="show_custom_outflows" name="show_custom_outflows" checked>
+                        <label for="show_custom_outflows">Custom Outflows</label>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" class="btn" onclick="loadCalendar()">Update Calendar</button>
+                    <button type="button" class="btn btn-secondary" onclick="showCustomFlowModal()">Add Custom Flow</button>
+                </div>
             </form>
         </div>
 
-        <div id="projectionResults" style="margin-top: 2rem;">
-            <!-- Results will be loaded here -->
+        <div id="calendarResults" style="margin-top: 2rem;">
+            <!-- Calendar will be loaded here -->
         </div>
     </main>
 
+    <!-- Modal for day details -->
+    <div id="dayModal" class="modal">
+        <div class="modal-content">
+            <div id="dayModalContent"></div>
+            <button class="btn btn-secondary" onclick="closeDayModal()" style="margin-top: 1rem;">Close</button>
+        </div>
+    </div>
+
+    <!-- Modal for adding custom flows -->
+    <div id="customFlowModal" class="modal">
+        <div class="modal-content">
+            <h2>Add Custom Cash Flow</h2>
+            <form id="customFlowForm">
+                <div class="form-group">
+                    <label for="flow_type">Type</label>
+                    <select id="flow_type" name="flow_type" required>
+                        <option value="inflow">Inflow</option>
+                        <option value="outflow">Outflow</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Amount</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" name="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="is_recurring">Recurring?</label>
+                    <input type="checkbox" id="is_recurring" name="is_recurring" onchange="toggleRecurring()">
+                </div>
+                <div id="oneTimeFields">
+                    <div class="form-group">
+                        <label for="date">Date</label>
+                        <input type="date" id="date" name="date" required>
+                    </div>
+                </div>
+                <div id="recurringFields" style="display: none;">
+                    <div class="form-group">
+                        <label for="recurrence_type">Recurrence Type</label>
+                        <select id="recurrence_type" name="recurrence_type" onchange="toggleCustomDays()">
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="custom_days">Every X Days</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="intervalField" style="display: none;">
+                        <label for="recurrence_interval">Interval</label>
+                        <input type="number" id="recurrence_interval" name="recurrence_interval" min="1" value="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="recurrence_start_date">Start Date</label>
+                        <input type="date" id="recurrence_start_date" name="recurrence_start_date">
+                    </div>
+                    <div class="form-group">
+                        <label for="recurrence_end_date">End Date</label>
+                        <input type="date" id="recurrence_end_date" name="recurrence_end_date">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="submit" class="btn">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeCustomFlowModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script src="/static/js/common.js"></script>
     <script>
-        // Load projection on page load with default 30 days
+        // Load calendar on page load
         window.addEventListener('DOMContentLoaded', () => {
-            loadProjection();
+            loadCalendar();
         });
 
-        async function loadProjection() {
-            const resultsDiv = document.getElementById('projectionResults');
-            showLoading('projectionResults');
+        async function loadCalendar() {
+            const resultsDiv = document.getElementById('calendarResults');
+            showLoading('calendarResults');
 
             try {
-                const days = document.getElementById('days').value;
-                const data = await fetchAPI(`/api/cashflow?days=${days}`);
-
-                // Display results
-                let html = `
-                    <div class="table-container">
-                        <h2 style="margin-bottom: 1rem;">Projection Results</h2>
-                        <div style="padding: 2rem;">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 2rem;">
-                                <div>
-                                    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Projection Period</p>
-                                    <p style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">${data.days} days</p>
-                                </div>
-                                <div>
-                                    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">Projected Balance Change</p>
-                                    <p style="font-size: 2rem; font-weight: bold; color: ${data.projected_balance_change >= 0 ? 'var(--success-color)' : 'var(--error-color)'};">
-                                        ${formatCurrency(data.projected_balance_change || 0)}
-                                    </p>
-                                </div>
-                            </div>
-                `;
-
-                // If there are more details in the projection, display them
-                if (typeof data.projected_balance_change === 'object') {
-                    html += `
-                        <div style="margin-top: 2rem;">
-                            <h3 style="margin-bottom: 1rem;">Detailed Breakdown</h3>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Projected Inflow</th>
-                                        <th>Projected Outflow</th>
-                                        <th>Net Change</th>
-                                        <th>Cumulative Balance</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                    `;
-
-                    // If projection is an object with daily data
-                    for (const [date, value] of Object.entries(data.projected_balance_change)) {
-                        html += `
-                            <tr>
-                                <td>${formatDate(date)}</td>
-                                <td>${formatCurrency(value.inflow || 0)}</td>
-                                <td>${formatCurrency(value.outflow || 0)}</td>
-                                <td style="color: ${value.net >= 0 ? 'var(--success-color)' : 'var(--error-color)'};">
-                                    ${formatCurrency(value.net || 0)}
-                                </td>
-                                <td style="font-weight: bold;">${formatCurrency(value.balance || 0)}</td>
-                            </tr>
-                        `;
+                const form = document.getElementById('calendarForm');
+                const formData = new FormData(form);
+                const params = new URLSearchParams();
+                
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        params.append(key, value);
                     }
-
-                    html += `
-                                </tbody>
-                            </table>
-                        </div>
-                    `;
                 }
+                
+                // Add checkbox values
+                params.set('show_projected_inflows', document.getElementById('show_projected_inflows').checked);
+                params.set('show_projected_outflows', document.getElementById('show_projected_outflows').checked);
+                params.set('show_custom_inflows', document.getElementById('show_custom_inflows').checked);
+                params.set('show_custom_outflows', document.getElementById('show_custom_outflows').checked);
 
+                const data = await fetchAPI(`/api/cashflow/calendar?${params.toString()}`);
+                
+                displayCalendar(data);
+
+            } catch (error) {
+                showError('calendarResults', `Failed to load cash flow calendar: ${error.message}`);
+            }
+        }
+
+        function displayCalendar(data) {
+            const resultsDiv = document.getElementById('calendarResults');
+            const dailyProjection = data.daily_projection;
+            const dates = Object.keys(dailyProjection).sort();
+            
+            let html = `
+                <div class="table-container">
+                    <h2 style="margin-bottom: 1rem;">Cash Flow Calendar</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                        Showing ${dates.length} days from ${formatDate(data.start_date)} to ${formatDate(data.end_date)}
+                    </p>
+                    <div class="calendar-container">
+                        <div class="calendar-grid">
+            `;
+            
+            // Add day headers
+            const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            for (const dayName of dayNames) {
                 html += `
-                            <div style="margin-top: 2rem; padding: 1rem; background: var(--background); border-radius: 8px;">
-                                <p style="color: var(--text-secondary); font-size: 0.875rem;">
-                                    <strong>Note:</strong> This projection is based on AI-powered predictions of invoice payment dates. 
-                                    Actual results may vary based on customer payment behavior and other factors.
-                                </p>
-                            </div>
+                    <div style="background: var(--primary-color); color: white; padding: 0.5rem; text-align: center; font-weight: bold;">
+                        ${dayName}
+                    </div>
+                `;
+            }
+            
+            // Find the first date's day of week
+            const firstDate = new Date(dates[0]);
+            const startDayOfWeek = firstDate.getDay();
+            
+            // Add empty cells for alignment
+            for (let i = 0; i < startDayOfWeek; i++) {
+                html += '<div class="calendar-day" style="background: var(--background);"></div>';
+            }
+            
+            // Add calendar days
+            for (const dateStr of dates) {
+                const day = dailyProjection[dateStr];
+                const date = new Date(dateStr);
+                const dayOfMonth = date.getDate();
+                
+                const balanceColor = day.balance >= 0 ? 'var(--success-color)' : 'var(--error-color)';
+                const netColor = day.net_change >= 0 ? 'var(--success-color)' : 'var(--error-color)';
+                
+                html += `
+                    <div class="calendar-day" onclick="showDayDetails('${dateStr}')">
+                        <div class="calendar-day-header">
+                            <span>${dayOfMonth}</span>
+                            <span style="color: ${netColor};">${day.net_change >= 0 ? '+' : ''}${formatCurrency(day.net_change)}</span>
+                        </div>
+                        <div class="calendar-day-balance" style="color: ${balanceColor};">
+                            ${formatCurrency(day.balance)}
+                        </div>
+                        <div class="calendar-day-flows">
+                `;
+                
+                if (day.total_inflow > 0) {
+                    html += `<div class="flow-indicator flow-inflow">↑ ${formatCurrency(day.total_inflow)}</div>`;
+                }
+                if (day.total_outflow > 0) {
+                    html += `<div class="flow-indicator flow-outflow">↓ ${formatCurrency(day.total_outflow)}</div>`;
+                }
+                
+                html += `
                         </div>
                     </div>
                 `;
-
-                resultsDiv.innerHTML = html;
-
-            } catch (error) {
-                showError('projectionResults', `Failed to load cash flow projection: ${error.message}`);
             }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+            
+            // Store data for detail view
+            window.calendarData = dailyProjection;
         }
+
+        function showDayDetails(dateStr) {
+            if (!window.calendarData || !window.calendarData[dateStr]) return;
+            
+            const day = window.calendarData[dateStr];
+            const modal = document.getElementById('dayModal');
+            const content = document.getElementById('dayModalContent');
+            
+            let html = `
+                <h2>Cash Flow Details - ${formatDate(dateStr)}</h2>
+                <div style="margin: 1.5rem 0;">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.875rem;">Bank Balance</p>
+                            <p style="font-size: 1.5rem; font-weight: bold; color: ${day.balance >= 0 ? 'var(--success-color)' : 'var(--error-color)'};">
+                                ${formatCurrency(day.balance)}
+                            </p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.875rem;">Total Inflow</p>
+                            <p style="font-size: 1.5rem; font-weight: bold; color: var(--success-color);">
+                                ${formatCurrency(day.total_inflow)}
+                            </p>
+                        </div>
+                        <div>
+                            <p style="color: var(--text-secondary); font-size: 0.875rem;">Total Outflow</p>
+                            <p style="font-size: 1.5rem; font-weight: bold; color: var(--error-color);">
+                                ${formatCurrency(day.total_outflow)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Projected Inflows
+            if (day.projected_inflows.length > 0) {
+                html += `
+                    <h3 style="margin-top: 1.5rem;">Projected Inflows (${day.projected_inflows.length})</h3>
+                    <table style="margin-top: 0.5rem;">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                for (const flow of day.projected_inflows) {
+                    html += `
+                        <tr>
+                            <td>${flow.description}</td>
+                            <td>${flow.customer || 'N/A'}</td>
+                            <td style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                        </tr>
+                    `;
+                }
+                html += `</tbody></table>`;
+            }
+            
+            // Projected Outflows
+            if (day.projected_outflows.length > 0) {
+                html += `
+                    <h3 style="margin-top: 1.5rem;">Projected Outflows (${day.projected_outflows.length})</h3>
+                    <table style="margin-top: 0.5rem;">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Vendor</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                for (const flow of day.projected_outflows) {
+                    html += `
+                        <tr>
+                            <td>${flow.description}</td>
+                            <td>${flow.vendor || 'N/A'}</td>
+                            <td style="color: var(--error-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                        </tr>
+                    `;
+                }
+                html += `</tbody></table>`;
+            }
+            
+            // Custom Inflows
+            if (day.custom_inflows.length > 0) {
+                html += `
+                    <h3 style="margin-top: 1.5rem;">Custom Inflows (${day.custom_inflows.length})</h3>
+                    <table style="margin-top: 0.5rem;">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                for (const flow of day.custom_inflows) {
+                    html += `
+                        <tr>
+                            <td>${flow.description}</td>
+                            <td style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                        </tr>
+                    `;
+                }
+                html += `</tbody></table>`;
+            }
+            
+            // Custom Outflows
+            if (day.custom_outflows.length > 0) {
+                html += `
+                    <h3 style="margin-top: 1.5rem;">Custom Outflows (${day.custom_outflows.length})</h3>
+                    <table style="margin-top: 0.5rem;">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                for (const flow of day.custom_outflows) {
+                    html += `
+                        <tr>
+                            <td>${flow.description}</td>
+                            <td style="color: var(--error-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                        </tr>
+                    `;
+                }
+                html += `</tbody></table>`;
+            }
+            
+            content.innerHTML = html;
+            modal.classList.add('active');
+        }
+
+        function closeDayModal() {
+            document.getElementById('dayModal').classList.remove('active');
+        }
+
+        function showCustomFlowModal() {
+            document.getElementById('customFlowModal').classList.add('active');
+        }
+
+        function closeCustomFlowModal() {
+            document.getElementById('customFlowModal').classList.remove('active');
+            document.getElementById('customFlowForm').reset();
+        }
+
+        function toggleRecurring() {
+            const isRecurring = document.getElementById('is_recurring').checked;
+            document.getElementById('oneTimeFields').style.display = isRecurring ? 'none' : 'block';
+            document.getElementById('recurringFields').style.display = isRecurring ? 'block' : 'none';
+            
+            // Toggle required attributes
+            document.getElementById('date').required = !isRecurring;
+        }
+
+        function toggleCustomDays() {
+            const type = document.getElementById('recurrence_type').value;
+            document.getElementById('intervalField').style.display = type === 'custom_days' ? 'block' : 'none';
+        }
+
+        // Handle custom flow form submission
+        document.getElementById('customFlowForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {};
+            
+            for (const [key, value] of formData.entries()) {
+                if (key === 'is_recurring') {
+                    data[key] = true;
+                } else if (value) {
+                    data[key] = value;
+                }
+            }
+            
+            // If not recurring, make sure is_recurring is false
+            if (!data.is_recurring) {
+                data.is_recurring = false;
+            }
+            
+            try {
+                const response = await fetch('/api/custom-cash-flows', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    closeCustomFlowModal();
+                    loadCalendar(); // Reload calendar
+                } else {
+                    const error = await response.json();
+                    alert('Failed to add custom flow: ' + (error.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Failed to add custom flow: ' + error.message);
+            }
+        });
     </script>
 </body>
 </html>

@@ -3,3 +3,4 @@ scikit-learn
 pandas
 flask
 gunicorn
+google-cloud-secret-manager
