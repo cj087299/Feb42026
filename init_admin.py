@@ -13,7 +13,13 @@ from src.database import Database
 from src.auth import hash_password
 
 def init_admin_user():
-    """Create a default master admin user."""
+    """Create a default master admin user.
+    
+    SECURITY NOTE: The credentials here are default values for initial setup.
+    In a production environment, consider using environment variables or
+    a secure configuration system. Always change the default password
+    immediately after first login.
+    """
     database = Database()
     
     # Default credentials

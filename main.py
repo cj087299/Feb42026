@@ -176,9 +176,8 @@ def forgot_password():
         database.create_password_reset_token(user['id'], token, expires_at)
         
         # In a real application, you would send an email with the reset link
-        # For now, we'll just log it
-        reset_link = f"/reset-password?token={token}"
-        logger.info(f"Password reset link for {email}: {reset_link}")
+        # For now, we'll just log it (without the full token for security)
+        logger.info(f"Password reset requested for user ID {user['id']}")
         
         return jsonify({'message': 'If the email exists, a password reset link has been sent'}), 200
     except Exception as e:
@@ -258,8 +257,8 @@ def forgot_username():
             return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
         
         # In a real application, you would send an email with the username
-        # For now, we'll just log it
-        logger.info(f"Username reminder for {email}: {user['email']}")
+        # For now, we'll just log the request
+        logger.info(f"Username reminder requested")
         
         return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
     except Exception as e:

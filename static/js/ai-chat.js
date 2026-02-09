@@ -37,6 +37,7 @@ class AIChatWidget {
                             id="aiChatInput" 
                             placeholder="Ask me anything about VZT Accounting..."
                             maxlength="500"
+                            aria-label="Chat message input (max 500 characters)"
                         />
                         <button class="ai-chat-send" id="aiChatSend">Send</button>
                     </div>
