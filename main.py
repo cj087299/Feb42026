@@ -14,6 +14,7 @@ from src.auth import (
     hash_password, verify_password, login_required, permission_required, 
     role_required, get_current_user, audit_log, ROLES, has_permission
 )
+from src.email_service import EmailService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +32,9 @@ error_logger = ErrorLogger()
 
 # Initialize AI Service
 ai_service = AIService()
+
+# Initialize Email Service
+email_service = EmailService()
 
 # Initialize QBO client with credentials from Secret Manager
 qbo_credentials = secret_manager.get_qbo_credentials()
@@ -179,10 +183,18 @@ def forgot_password():
         # Save token to database
         database.create_password_reset_token(user['id'], token, expires_at)
         
-        # In a real application, you would send an email with the reset link
-        # For now, we'll just log it (without the full token for security)
-        logger.info(f"Password reset requested for user ID {user['id']}")
+        # Get base URL from request
+        base_url = request.url_root.rstrip('/')
         
+        # Send password reset email
+        email_sent = email_service.send_password_reset_email(email, token, base_url)
+        
+        if email_sent:
+            logger.info(f"Password reset email sent to {email}")
+        else:
+            logger.warning(f"Failed to send password reset email to {email}")
+        
+        # Always return success message for security (don't reveal if email exists)
         return jsonify({'message': 'If the email exists, a password reset link has been sent'}), 200
     except Exception as e:
         logger.error(f"Forgot password error: {e}")
@@ -260,10 +272,15 @@ def forgot_username():
             # Don't reveal if user exists or not for security
             return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
         
-        # In a real application, you would send an email with the username
-        # For now, we'll just log the request
-        logger.info(f"Username reminder requested")
+        # Send username reminder email
+        email_sent = email_service.send_username_reminder_email(email)
         
+        if email_sent:
+            logger.info(f"Username reminder email sent to {email}")
+        else:
+            logger.warning(f"Failed to send username reminder email to {email}")
+        
+        # Always return success message for security (don't reveal if email exists)
         return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
     except Exception as e:
         logger.error(f"Forgot username error: {e}")
