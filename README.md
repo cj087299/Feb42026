@@ -89,7 +89,28 @@ QBO_REALM_ID=your_realm_id
 
 # Google Cloud (for Secret Manager)
 GOOGLE_CLOUD_PROJECT=your_project_id
+
+# Google Cloud SQL Configuration (optional, defaults to SQLite)
+USE_CLOUD_SQL=true                    # Set to 'true' to enable Cloud SQL
+CLOUD_SQL_CONNECTION_NAME=project-df2be397-d2f7-4b71-944:us-south1:companydatabase2-4-26
+CLOUD_SQL_DATABASE_NAME=accounting_app  # Database name in Cloud SQL
+CLOUD_SQL_USER=root                    # Database user
+CLOUD_SQL_PASSWORD=your_password        # Database password
 ```
+
+### Database Configuration
+
+The application supports two database backends:
+
+1. **SQLite** (default): Stores data in a local `vzt_accounting.db` file. Great for development and testing.
+2. **Google Cloud SQL**: Connects to a MySQL database in Google Cloud. Ideal for production deployments.
+
+To use Google Cloud SQL:
+- Set `USE_CLOUD_SQL=true`
+- Configure the connection details with the environment variables above
+- Install required packages: `cloud-sql-python-connector` and `pymysql` (included in requirements.txt)
+
+The database will automatically initialize with the required tables (`invoice_metadata` and `custom_cash_flows`) in the specified database.
 
 ### Running the Application
 
@@ -106,9 +127,10 @@ The application will start on `http://localhost:8080`
    - Filter by date range, status, customer, amount, and region
    - Sort by due date, amount, customer, or status
    - Click "Edit" to add VZT tracking metadata
+   - **Note**: Invoices are fetched directly from QuickBooks Online
 3. **Cash Flow Calendar** (`/cashflow`): Interactive cash flow calendar:
-   - Select projection period (30, 60, 90, or 180 days)
-   - Set initial bank balance
+   - Select custom date range (start and end dates) or use quick buttons (30, 60, 90, 180 days)
+   - **Bank balance automatically pulled from QuickBooks Online**
    - Toggle visibility of different flow types
    - Click on any day to see detailed breakdown
    - Add custom inflows/outflows (one-time or recurring)
@@ -119,13 +141,14 @@ The application will start on `http://localhost:8080`
 The application provides comprehensive REST API endpoints:
 
 #### Invoice APIs
-- `GET /api/invoices` - Fetch and filter invoices (includes metadata)
+- `GET /api/invoices` - Fetch and filter invoices (includes metadata, **fetches from QBO**)
 - `GET /api/invoices/<invoice_id>/metadata` - Get invoice metadata
 - `POST /api/invoices/<invoice_id>/metadata` - Save invoice metadata
 
 #### Cash Flow APIs
 - `GET /api/cashflow?days=30` - Get simple cash flow projections
-- `GET /api/cashflow/calendar?days=90&initial_balance=10000` - Get calendar-style projections with daily breakdown
+- `GET /api/cashflow/calendar?start_date=2024-01-01&end_date=2024-03-31` - Get calendar-style projections with daily breakdown (supports custom date ranges)
+- `GET /api/bank-accounts` - Get current bank account balances from QuickBooks Online
 
 #### Custom Cash Flow APIs
 - `GET /api/custom-cash-flows` - Get all custom cash flows

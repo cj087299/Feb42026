@@ -16,13 +16,58 @@ class InvoiceManager:
         try:
             query = "select * from Invoice"
             logger.info("Fetching invoices from QBO.")
-            self.client.make_request("query", params={"query": query})
-            # Placeholder for parsing response
-            # In reality, check for errors in response structure
+            response = self.client.make_request("query", params={"query": query})
+            
+            if response and "QueryResponse" in response:
+                invoices = response["QueryResponse"].get("Invoice", [])
+                logger.info(f"Fetched {len(invoices)} invoices from QBO")
+                
+                # Parse and normalize invoice data
+                normalized_invoices = []
+                for invoice in invoices:
+                    normalized_invoices.append({
+                        'id': invoice.get('Id'),
+                        'doc_number': invoice.get('DocNumber'),
+                        'customer_id': invoice.get('CustomerRef', {}).get('value') if invoice.get('CustomerRef') else None,
+                        'customer': invoice.get('CustomerRef', {}).get('name') if invoice.get('CustomerRef') else None,
+                        'amount': invoice.get('TotalAmt', 0),
+                        'balance': invoice.get('Balance', 0),
+                        'due_date': invoice.get('DueDate'),
+                        'txn_date': invoice.get('TxnDate'),
+                        'status': 'Paid' if invoice.get('Balance', 0) == 0 else 'Unpaid',
+                        'CustomField': invoice.get('CustomField', []),
+                        'terms_days': self._get_terms_days(invoice)
+                    })
+                
+                return normalized_invoices
+            
+            logger.warning("No invoices found in QBO response")
             return []
         except Exception as e:
             logger.error(f"Failed to fetch invoices: {e}")
             return []
+    
+    def _get_terms_days(self, invoice):
+        """Extract payment terms in days from invoice.
+        
+        Returns:
+            int: Number of days for payment terms. Defaults to 30 if not specified.
+        """
+        sales_term_ref = invoice.get('SalesTermRef')
+        if sales_term_ref:
+            # Common term mappings
+            term_name = sales_term_ref.get('name', '').lower()
+            if 'net 30' in term_name:
+                return 30
+            elif 'net 15' in term_name:
+                return 15
+            elif 'net 60' in term_name:
+                return 60
+            elif 'net 90' in term_name:
+                return 90
+            elif 'due on receipt' in term_name:
+                return 0
+        return 30  # Default to 30 days
 
     def _parse_date(self, date_str):
         if not date_str:
