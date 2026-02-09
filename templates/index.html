@@ -99,13 +99,18 @@
                         nav.insertBefore(auditLink, nav.lastElementChild);
                     }
                     
-                    // Show users link for master admin
+                    // Show users and logs links for master admin
                     if (user.role === 'master_admin') {
                         document.getElementById('usersCard').style.display = 'block';
                         const usersLink = document.createElement('a');
                         usersLink.href = '/users';
                         usersLink.textContent = 'Users';
                         nav.insertBefore(usersLink, nav.lastElementChild);
+                        
+                        const logsLink = document.createElement('a');
+                        logsLink.href = '/logs';
+                        logsLink.textContent = 'System Logs';
+                        nav.insertBefore(logsLink, nav.lastElementChild);
                     }
                 }
             } catch (error) {

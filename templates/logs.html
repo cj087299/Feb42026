@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs - VZT Accounting</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/ai-chat.css">
+    <style>
+        .log-container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .log-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        .log-tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .log-tab.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        .log-content {
+            display: none;
+        }
+        .log-content.active {
+            display: block;
+        }
+        .log-entry {
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: #f9fafb;
+            border-radius: 4px;
+            border-left: 4px solid #3b82f6;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-entry.error {
+            border-left-color: var(--error-color);
+            background: #fef2f2;
+        }
+        .log-entry.warning {
+            border-left-color: #f59e0b;
+            background: #fffbeb;
+        }
+        .log-entry.info {
+            border-left-color: #3b82f6;
+        }
+        .log-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            align-items: center;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+        .refresh-btn {
+            padding: 0.5rem 1rem;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .refresh-btn:hover {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">💰 VZT Accounting</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/users">Users</a>
+                <a href="/audit">Audit Log</a>
+                <a href="/logs" class="active">System Logs</a>
+                <a href="/health">Status</a>
+                <a href="#" onclick="logout(); return false;">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1>🔍 System Logs</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+            View system errors and AI operation logs. This page is only accessible to Master Admins.
+        </p>
+
+        <div class="log-container">
+            <div class="log-tabs">
+                <button class="log-tab active" onclick="switchTab('errors')">
+                    🚨 Error Logs
+                </button>
+                <button class="log-tab" onclick="switchTab('ai-ops')">
+                    🤖 AI Operations
+                </button>
+            </div>
+
+            <div id="errors-content" class="log-content active">
+                <div class="log-controls">
+                    <button class="refresh-btn" onclick="loadErrors()">🔄 Refresh</button>
+                    <select id="errorLimit" onchange="loadErrors()" style="padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <option value="50">Last 50 entries</option>
+                        <option value="100" selected>Last 100 entries</option>
+                        <option value="200">Last 200 entries</option>
+                    </select>
+                </div>
+                <div id="errorLogs">
+                    <div class="empty-state">Loading error logs...</div>
+                </div>
+            </div>
+
+            <div id="ai-ops-content" class="log-content">
+                <div class="log-controls">
+                    <button class="refresh-btn" onclick="loadAILogs()">🔄 Refresh</button>
+                    <select id="aiLimit" onchange="loadAILogs()" style="padding: 0.5rem; border-radius: 4px; border: 1px solid var(--border-color);">
+                        <option value="50">Last 50 entries</option>
+                        <option value="100" selected>Last 100 entries</option>
+                        <option value="200">Last 200 entries</option>
+                    </select>
+                </div>
+                <div id="aiLogs">
+                    <div class="empty-state">Loading AI operation logs...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/ai-chat.js"></script>
+    <script>
+        let currentTab = 'errors';
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // Update tab buttons
+            document.querySelectorAll('.log-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update content
+            document.querySelectorAll('.log-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(`${tab}-content`).classList.add('active');
+            
+            // Load data if needed
+            if (tab === 'errors') {
+                loadErrors();
+            } else if (tab === 'ai-ops') {
+                loadAILogs();
+            }
+        }
+
+        async function loadErrors() {
+            const limit = document.getElementById('errorLimit').value;
+            const container = document.getElementById('errorLogs');
+            container.innerHTML = '<div class="empty-state">Loading...</div>';
+            
+            try {
+                const response = await fetch(`/api/errors/recent?limit=${limit}`);
+                const data = await response.json();
+                
+                if (data.errors && data.errors.length > 0) {
+                    container.innerHTML = '';
+                    data.errors.forEach(log => {
+                        const logDiv = document.createElement('div');
+                        logDiv.className = 'log-entry error';
+                        logDiv.textContent = log;
+                        container.appendChild(logDiv);
+                    });
+                } else {
+                    container.innerHTML = '<div class="empty-state">✅ No errors found. System is running smoothly!</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state">❌ Failed to load error logs</div>';
+                console.error('Failed to load errors:', error);
+            }
+        }
+
+        async function loadAILogs() {
+            const limit = document.getElementById('aiLimit').value;
+            const container = document.getElementById('aiLogs');
+            container.innerHTML = '<div class="empty-state">Loading...</div>';
+            
+            try {
+                const response = await fetch(`/api/ai/operation-logs?limit=${limit}`);
+                const data = await response.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    container.innerHTML = '';
+                    data.logs.forEach(log => {
+                        const logDiv = document.createElement('div');
+                        // Determine log type from content
+                        if (log.toLowerCase().includes('error') || log.toLowerCase().includes('failed')) {
+                            logDiv.className = 'log-entry error';
+                        } else if (log.toLowerCase().includes('warning')) {
+                            logDiv.className = 'log-entry warning';
+                        } else {
+                            logDiv.className = 'log-entry info';
+                        }
+                        logDiv.textContent = log;
+                        container.appendChild(logDiv);
+                    });
+                } else {
+                    container.innerHTML = '<div class="empty-state">No AI operations logged yet.</div>';
+                }
+            } catch (error) {
+                container.innerHTML = '<div class="empty-state">❌ Failed to load AI operation logs</div>';
+                console.error('Failed to load AI logs:', error);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // Load initial data
+        window.addEventListener('DOMContentLoaded', () => {
+            loadErrors();
+        });
+    </script>
+</body>
+</html>

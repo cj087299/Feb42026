@@ -9,6 +9,7 @@ from src.ai_predictor import PaymentPredictor
 from src.secret_manager import SecretManager
 from src.database import Database
 from src.ai_service import AIService
+from src.error_handler import ErrorLogger, handle_errors, log_ai_action
 from src.auth import (
     hash_password, verify_password, login_required, permission_required, 
     role_required, get_current_user, audit_log, ROLES, has_permission
@@ -24,6 +25,9 @@ app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 # Initialize Secret Manager and Database
 secret_manager = SecretManager()
 database = Database()
+
+# Initialize Error Logger
+error_logger = ErrorLogger()
 
 # Initialize AI Service
 ai_service = AIService()
@@ -820,6 +824,7 @@ def get_audit_log():
 @app.route('/api/ai/chat', methods=['POST'])
 @login_required
 @audit_log('ai_chat')
+@handle_errors('ai_chat')
 def ai_chat():
     """Handle AI chat messages (available to all authenticated users)."""
     try:
@@ -838,13 +843,21 @@ def ai_chat():
         return jsonify(response), 200
     except Exception as e:
         logger.error(f"Error in AI chat: {e}")
-        return jsonify({"error": str(e)}), 500
+        error_details = error_logger.log_error(
+            e,
+            context={'message': message, 'user_role': user_role},
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email')
+        )
+        return jsonify({"error": "An error occurred processing your request. Please try again."}), 500
 
 
 @app.route('/api/ai/action', methods=['POST'])
 @login_required
 @role_required('master_admin')
 @audit_log('ai_action')
+@log_ai_action('advanced_ai_action')
+@handle_errors('ai_action')
 def ai_action():
     """Perform AI action (master admin only)."""
     try:
@@ -863,7 +876,51 @@ def ai_action():
         return jsonify(result), 200
     except Exception as e:
         logger.error(f"Error performing AI action: {e}")
+        error_details = error_logger.log_error(
+            e,
+            context={'action': action, 'parameters': parameters},
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email')
+        )
+        return jsonify({"error": "An error occurred performing the action. Please check the error logs."}), 500
+
+
+# Error and log viewing endpoints (master admin only)
+
+@app.route('/api/errors/recent', methods=['GET'])
+@login_required
+@role_required('master_admin')
+def get_recent_errors():
+    """Get recent error logs (master admin only)."""
+    try:
+        limit = request.args.get('limit', default=100, type=int)
+        errors = error_logger.get_recent_errors(limit)
+        return jsonify({'errors': errors, 'count': len(errors)}), 200
+    except Exception as e:
+        logger.error(f"Error fetching error logs: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/ai/operation-logs', methods=['GET'])
+@login_required
+@role_required('master_admin')
+def get_ai_operation_logs():
+    """Get AI operation logs (master admin only)."""
+    try:
+        limit = request.args.get('limit', default=100, type=int)
+        logs = error_logger.get_ai_operation_logs(limit)
+        return jsonify({'logs': logs, 'count': len(logs)}), 200
+    except Exception as e:
+        logger.error(f"Error fetching AI operation logs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/logs', methods=['GET'])
+@login_required
+@role_required('master_admin')
+def logs_page():
+    """Error and operation logs page (master admin only)."""
+    return render_template('logs.html')
 
 
 if __name__ == '__main__':
