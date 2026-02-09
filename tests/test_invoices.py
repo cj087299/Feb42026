@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch, Mock
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
 
@@ -44,6 +45,46 @@ class TestInvoiceManager(unittest.TestCase):
     def test_fetch_invoices(self):
         invoices = self.manager.fetch_invoices()
         self.assertIsInstance(invoices, list)
+    
+    @patch('src.qbo_client.requests.post')
+    @patch('src.qbo_client.requests.request')
+    def test_fetch_invoices_normalization(self, mock_request, mock_post):
+        # Mock token refresh
+        mock_post.return_value = Mock(
+            status_code=200,
+            json=lambda: {"access_token": "test_token"}
+        )
+        
+        # Mock API request with QBO-format data
+        mock_request.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "QueryResponse": {
+                    "Invoice": [
+                        {
+                            "Id": "1",
+                            "DocNumber": "INV-001",
+                            "CustomerRef": {"value": "C1", "name": "Customer One"},
+                            "TotalAmt": 500.0,
+                            "Balance": 500.0,
+                            "DueDate": "2024-02-01",
+                            "TxnDate": "2024-01-01",
+                            "SalesTermRef": {"name": "Net 30"}
+                        }
+                    ]
+                }
+            },
+            raise_for_status=lambda: None
+        )
+        
+        invoices = self.manager.fetch_invoices()
+        self.assertEqual(len(invoices), 1)
+        self.assertEqual(invoices[0]['id'], '1')
+        self.assertEqual(invoices[0]['doc_number'], 'INV-001')
+        self.assertEqual(invoices[0]['customer'], 'Customer One')
+        self.assertEqual(invoices[0]['amount'], 500.0)
+        self.assertEqual(invoices[0]['status'], 'Unpaid')
+        self.assertEqual(invoices[0]['terms_days'], 30)
 
     def test_filter_date_range(self):
         filtered = self.manager.filter_invoices(
