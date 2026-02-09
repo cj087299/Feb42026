@@ -25,18 +25,22 @@ class EmailService:
         # Email is now enabled by default (mandatory)
         self.enabled = os.environ.get('EMAIL_ENABLED', 'true').lower() == 'true'
         
+        # Track whether credentials are configured
+        self.credentials_configured = bool(self.smtp_user and self.smtp_password)
+        
         if not self.enabled:
             logger.warning("Email service is disabled. This may prevent password reset functionality.")
         
-        # Check for required SMTP credentials
-        if not self.smtp_user or not self.smtp_password:
-            logger.error("SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables.")
-            logger.error("Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.")
+        # Check for required SMTP credentials - warn but don't fail on init
+        if not self.credentials_configured:
+            logger.warning(
+                "SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables. "
+                "Please configure email settings. See EMAIL_CONFIGURATION.md for instructions."
+            )
             if self.enabled:
-                raise ValueError(
+                logger.warning(
                     "Email service is enabled but SMTP credentials are missing. "
-                    "Please set SMTP_USER and SMTP_PASSWORD environment variables, "
-                    "or set EMAIL_ENABLED=false to disable email (not recommended)."
+                    "Email sending will fail until SMTP_USER and SMTP_PASSWORD environment variables are set."
                 )
     
     def send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None) -> bool:
@@ -63,6 +67,12 @@ class EmailService:
             logger.info(f"Subject: {subject}")
             logger.info(f"Body: {text_body or html_body}")
             return True
+        
+        # Check if credentials are configured at send time
+        if not self.credentials_configured:
+            logger.error(f"Cannot send email to {to_email}: SMTP credentials not configured")
+            logger.error("Please set SMTP_USER and SMTP_PASSWORD environment variables")
+            return False
         
         try:
             # Create message
