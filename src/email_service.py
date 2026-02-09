@@ -22,14 +22,22 @@ class EmailService:
         self.from_email = os.environ.get('FROM_EMAIL', self.smtp_user)
         self.from_name = os.environ.get('FROM_NAME', 'VZT Accounting')
         
-        # For development/testing, we can disable actual email sending
-        self.enabled = os.environ.get('EMAIL_ENABLED', 'false').lower() == 'true'
+        # Email is now enabled by default (mandatory)
+        self.enabled = os.environ.get('EMAIL_ENABLED', 'true').lower() == 'true'
         
         if not self.enabled:
-            logger.warning("Email service is disabled. Set EMAIL_ENABLED=true to enable.")
-        elif not self.smtp_user or not self.smtp_password:
-            logger.warning("SMTP credentials not configured. Emails will not be sent.")
-            self.enabled = False
+            logger.warning("Email service is disabled. This may prevent password reset functionality.")
+        
+        # Check for required SMTP credentials
+        if not self.smtp_user or not self.smtp_password:
+            logger.error("SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables.")
+            logger.error("Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.")
+            if self.enabled:
+                raise ValueError(
+                    "Email service is enabled but SMTP credentials are missing. "
+                    "Please set SMTP_USER and SMTP_PASSWORD environment variables, "
+                    "or set EMAIL_ENABLED=false to disable email (not recommended)."
+                )
     
     def send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None) -> bool:
         """Send an email.

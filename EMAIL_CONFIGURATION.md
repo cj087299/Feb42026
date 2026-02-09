@@ -4,9 +4,11 @@ This document explains how to configure email functionality for password reset a
 
 ## Overview
 
-The VZT Accounting system includes email functionality for:
+The VZT Accounting system **requires** email functionality for:
 - **Password Reset**: Sends a secure reset link to users who forgot their password
 - **Username Reminder**: Sends the username (email) to users who forgot their login credentials
+
+⚠️ **IMPORTANT**: Email configuration is mandatory. The application will not start without proper SMTP configuration.
 
 ## Configuration
 
@@ -15,22 +17,29 @@ Email functionality is controlled through environment variables. The system uses
 ### Required Environment Variables
 
 ```bash
-# Enable email sending
-EMAIL_ENABLED=true
-
 # Base URL for password reset links (prevents Host header injection)
 BASE_URL=https://your-domain.com  # Your application's base URL
 
-# SMTP Server Configuration
+# SMTP Server Configuration (REQUIRED)
 SMTP_HOST=smtp.gmail.com           # Your SMTP server hostname
 SMTP_PORT=587                       # SMTP port (587 for TLS, 465 for SSL)
-SMTP_USER=your-email@gmail.com     # SMTP username (usually your email)
-SMTP_PASSWORD=your-app-password    # SMTP password or app-specific password
+SMTP_USER=your-email@gmail.com     # SMTP username (usually your email) - REQUIRED
+SMTP_PASSWORD=your-app-password    # SMTP password or app-specific password - REQUIRED
 
 # Email Sender Information
 FROM_EMAIL=your-email@gmail.com    # Email address that appears in "From" field
 FROM_NAME=VZT Accounting           # Name that appears in "From" field
 ```
+
+### Optional: Disable Email (Not Recommended)
+
+If you need to disable email functionality temporarily (e.g., for testing), you can set:
+
+```bash
+EMAIL_ENABLED=false
+```
+
+⚠️ **WARNING**: Disabling email will prevent users from resetting passwords. This is not recommended for production environments.
 
 ### Example: Gmail Configuration
 
@@ -42,7 +51,6 @@ For Gmail, you'll need to use an App Password (not your regular Gmail password):
 4. Use this app password in the `SMTP_PASSWORD` variable
 
 ```bash
-EMAIL_ENABLED=true
 BASE_URL=https://your-domain.com
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
@@ -80,17 +88,23 @@ SMTP_PASSWORD=your-ses-smtp-password
 
 ## Testing Email Configuration
 
-When `EMAIL_ENABLED=false` or email configuration is incomplete, the system will:
-- Log email content to the application logs instead of sending
-- Return success messages to users (for security)
-- Continue to function normally
+The email service is enabled by default and **requires** valid SMTP credentials to start the application.
 
 To test your email configuration:
 
-1. Set the environment variables as shown above
+1. Set the required environment variables as shown above
 2. Run the application
-3. Try the "Forgot Password" feature on the login page
-4. Check your email inbox for the password reset link
+3. The application will fail to start if SMTP credentials are missing
+4. If credentials are valid, try the "Forgot Password" feature on the login page
+5. Check your email inbox for the password reset link
+
+### Development/Testing Mode
+
+If you need to test the application without sending actual emails:
+
+1. Set `EMAIL_ENABLED=false` in your environment
+2. The application will log email content to the console instead
+3. This mode is useful for development but **not recommended for production**
 
 ## Security Considerations
 

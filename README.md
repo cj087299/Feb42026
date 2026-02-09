@@ -97,16 +97,20 @@ CLOUD_SQL_DATABASE_NAME=accounting_app  # Database name in Cloud SQL
 CLOUD_SQL_USER=root                    # Database user
 CLOUD_SQL_PASSWORD=your_password        # Database password
 
-# Email Configuration (for password reset and username reminder)
-EMAIL_ENABLED=false                    # Set to 'true' to enable email sending
-BASE_URL=https://your-domain.com       # Your application's base URL
+# Email Configuration (REQUIRED for password reset functionality)
+BASE_URL=https://your-domain.com       # Your application's base URL (required for reset links)
 SMTP_HOST=smtp.gmail.com               # SMTP server hostname
 SMTP_PORT=587                          # SMTP port (587 for TLS)
-SMTP_USER=your-email@gmail.com         # SMTP username
-SMTP_PASSWORD=your-app-password        # SMTP password or app-specific password
+SMTP_USER=your-email@gmail.com         # SMTP username - REQUIRED
+SMTP_PASSWORD=your-app-password        # SMTP password - REQUIRED
 FROM_EMAIL=your-email@gmail.com        # Email address in "From" field
 FROM_NAME=VZT Accounting               # Name in "From" field
+
+# Optional: Disable email (not recommended for production)
+# EMAIL_ENABLED=false                  # Set to 'false' only for testing
 ```
+
+⚠️ **IMPORTANT**: Email configuration is now mandatory. The application requires valid SMTP credentials (SMTP_USER and SMTP_PASSWORD) to start. Without these, users cannot reset passwords.
 
 See `EMAIL_CONFIGURATION.md` for detailed email setup instructions.
 
@@ -246,9 +250,7 @@ The system includes email-based password reset and username reminder functionali
 - **Forgot Password**: Users can request a password reset link via email
 - **Forgot Username**: Users can request a username reminder via email
 
-To enable email functionality, configure SMTP settings as described in `EMAIL_CONFIGURATION.md`.
-
-By default, emails are logged to the console instead of being sent (test mode).
+⚠️ **REQUIRED**: Email must be configured for password reset to work. Set SMTP credentials as described in `EMAIL_CONFIGURATION.md`. The application will not start without valid SMTP configuration.
 
 ### User Roles
 
