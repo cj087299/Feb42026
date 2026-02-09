@@ -96,7 +96,19 @@ CLOUD_SQL_CONNECTION_NAME=project-df2be397-d2f7-4b71-944:us-south1:companydataba
 CLOUD_SQL_DATABASE_NAME=accounting_app  # Database name in Cloud SQL
 CLOUD_SQL_USER=root                    # Database user
 CLOUD_SQL_PASSWORD=your_password        # Database password
+
+# Email Configuration (for password reset and username reminder)
+EMAIL_ENABLED=false                    # Set to 'true' to enable email sending
+BASE_URL=https://your-domain.com       # Your application's base URL
+SMTP_HOST=smtp.gmail.com               # SMTP server hostname
+SMTP_PORT=587                          # SMTP port (587 for TLS)
+SMTP_USER=your-email@gmail.com         # SMTP username
+SMTP_PASSWORD=your-app-password        # SMTP password or app-specific password
+FROM_EMAIL=your-email@gmail.com        # Email address in "From" field
+FROM_NAME=VZT Accounting               # Name in "From" field
 ```
+
+See `EMAIL_CONFIGURATION.md` for detailed email setup instructions.
 
 ### Database Configuration
 
@@ -209,17 +221,34 @@ python -m unittest tests.test_new_features -v
 
 ### Initial Setup
 
-The application includes a complete user authentication and role-based access control system. To set up the first admin user:
+The application includes a complete user authentication and role-based access control system. To set up the initial admin users:
 
 ```bash
 python init_admin.py
 ```
 
-This creates a master admin user with:
-- **Email**: admin@vzt.com
-- **Password**: admin123
+This creates two master admin users with the following credentials:
 
-**⚠️ IMPORTANT**: Change the password immediately after first login!
+**User 1:**
+- **Email**: admin@vzt.com
+- **Password**: admin1234
+
+**User 2:**
+- **Email**: cjones@vztsolutions.com
+- **Password**: admin1234
+
+**⚠️ IMPORTANT**: Change these default passwords immediately after first login!
+
+### Password Reset and Username Recovery
+
+The system includes email-based password reset and username reminder functionality:
+
+- **Forgot Password**: Users can request a password reset link via email
+- **Forgot Username**: Users can request a username reminder via email
+
+To enable email functionality, configure SMTP settings as described in `EMAIL_CONFIGURATION.md`.
+
+By default, emails are logged to the console instead of being sent (test mode).
 
 ### User Roles
 
