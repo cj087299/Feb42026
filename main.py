@@ -839,7 +839,7 @@ def force_reset_password(user_id):
         # Send email notification to user if requested
         if send_email_notification:
             try:
-                subject = "Password Reset - VZT Accounting"
+                subject = "Password Reset by Administrator - VZT Accounting"
                 
                 html_body = f"""
                 <html>

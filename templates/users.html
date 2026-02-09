@@ -91,7 +91,12 @@
                 
                 <div class="form-group">
                     <label for="newPassword">New Password*</label>
-                    <input type="text" id="newPassword" name="newPassword" required class="form-control" placeholder="Enter new password">
+                    <div style="position: relative;">
+                        <input type="password" id="newPassword" name="newPassword" required class="form-control" placeholder="Enter new password">
+                        <button type="button" onclick="togglePasswordVisibility()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--primary-color);" title="Toggle password visibility">
+                            <span id="togglePasswordIcon">👁️</span>
+                        </button>
+                    </div>
                     <small style="color: var(--text-secondary); display: block; margin-top: 0.5rem;">
                         Or <a href="#" onclick="generatePassword(); return false;" style="color: var(--primary-color);">generate a secure password</a>
                     </small>
@@ -312,24 +317,54 @@
             document.getElementById('resetPasswordForm').reset();
         }
 
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('newPassword');
+            const icon = document.getElementById('togglePasswordIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                icon.textContent = '👁️';
+            }
+        }
+
         function generatePassword() {
             const length = 12;
-            const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+            const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+            const numbers = '0123456789';
+            const symbols = '!@#$%^&*';
+            const allChars = uppercase + lowercase + numbers + symbols;
+            
+            // Use cryptographically secure random number generator
+            const array = new Uint32Array(length);
+            crypto.getRandomValues(array);
+            
             let password = '';
             
             // Ensure at least one of each type
-            password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
-            password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
-            password += '0123456789'[Math.floor(Math.random() * 10)];
-            password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
+            password += uppercase[array[0] % uppercase.length];
+            password += lowercase[array[1] % lowercase.length];
+            password += numbers[array[2] % numbers.length];
+            password += symbols[array[3] % symbols.length];
             
             // Fill the rest randomly
             for (let i = password.length; i < length; i++) {
-                password += charset[Math.floor(Math.random() * charset.length)];
+                password += allChars[array[i] % allChars.length];
             }
             
-            // Shuffle the password
-            password = password.split('').sort(() => Math.random() - 0.5).join('');
+            // Shuffle using Fisher-Yates with crypto.getRandomValues
+            const shuffleArray = new Uint32Array(password.length);
+            crypto.getRandomValues(shuffleArray);
+            
+            password = password.split('');
+            for (let i = password.length - 1; i > 0; i--) {
+                const j = shuffleArray[i] % (i + 1);
+                [password[i], password[j]] = [password[j], password[i]];
+            }
+            password = password.join('');
             
             document.getElementById('newPassword').value = password;
         }
