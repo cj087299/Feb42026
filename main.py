@@ -69,6 +69,24 @@ def login_page():
     return render_template('login.html')
 
 
+@app.route('/forgot-password', methods=['GET'])
+def forgot_password_page():
+    """Display forgot password page."""
+    return render_template('forgot-password.html')
+
+
+@app.route('/forgot-username', methods=['GET'])
+def forgot_username_page():
+    """Display forgot username page."""
+    return render_template('forgot-username.html')
+
+
+@app.route('/reset-password', methods=['GET'])
+def reset_password_page():
+    """Display reset password page."""
+    return render_template('reset-password.html')
+
+
 @app.route('/api/login', methods=['POST'])
 @audit_log('user_login')
 def login():
@@ -123,6 +141,126 @@ def logout():
     """Handle user logout."""
     session.clear()
     return jsonify({'message': 'Logout successful'}), 200
+
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    """Request password reset."""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        # Get user from database
+        user = database.get_user_by_email(email)
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            return jsonify({'message': 'If the email exists, a password reset link has been sent'}), 200
+        
+        # Generate reset token
+        import secrets
+        token = secrets.token_urlsafe(32)
+        
+        # Token expires in 1 hour
+        from datetime import datetime, timedelta
+        expires_at = (datetime.now() + timedelta(hours=1)).isoformat()
+        
+        # Save token to database
+        database.create_password_reset_token(user['id'], token, expires_at)
+        
+        # In a real application, you would send an email with the reset link
+        # For now, we'll just log it
+        reset_link = f"/reset-password?token={token}"
+        logger.info(f"Password reset link for {email}: {reset_link}")
+        
+        return jsonify({'message': 'If the email exists, a password reset link has been sent'}), 200
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using token."""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        new_password = data.get('password')
+        
+        if not token or not new_password:
+            return jsonify({'error': 'Token and new password are required'}), 400
+        
+        # Get token from database
+        token_data = database.get_password_reset_token(token)
+        
+        if not token_data:
+            return jsonify({'error': 'Invalid or expired token'}), 400
+        
+        if token_data['used']:
+            return jsonify({'error': 'Token has already been used'}), 400
+        
+        # Check if token is expired
+        from datetime import datetime
+        expires_at = datetime.fromisoformat(token_data['expires_at'])
+        if datetime.now() > expires_at:
+            return jsonify({'error': 'Token has expired'}), 400
+        
+        # Update password
+        password_hash = hash_password(new_password)
+        success = database.update_user(token_data['user_id'], {'password_hash': password_hash})
+        
+        if success:
+            # Mark token as used
+            database.mark_token_as_used(token)
+            
+            # Log the action
+            user = database.get_user_by_id(token_data['user_id'])
+            database.log_audit(
+                user_id=token_data['user_id'],
+                user_email=user['email'] if user else None,
+                action='password_reset',
+                resource_type='user',
+                resource_id=str(token_data['user_id']),
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string if request.user_agent else None
+            )
+            
+            return jsonify({'message': 'Password reset successful'}), 200
+        else:
+            return jsonify({'error': 'Failed to reset password'}), 500
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/forgot-username', methods=['POST'])
+def forgot_username():
+    """Request username reminder (email lookup)."""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        # Get user from database
+        user = database.get_user_by_email(email)
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
+        
+        # In a real application, you would send an email with the username
+        # For now, we'll just log it
+        logger.info(f"Username reminder for {email}: {user['email']}")
+        
+        return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
+    except Exception as e:
+        logger.error(f"Forgot username error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/me', methods=['GET'])

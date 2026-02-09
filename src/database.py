@@ -129,6 +129,19 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             ''')
+            
+            # Password reset tokens table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    token VARCHAR(255) UNIQUE NOT NULL,
+                    expires_at VARCHAR(50) NOT NULL,
+                    used TINYINT DEFAULT 0,
+                    created_at VARCHAR(50) NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ''')
         else:
             # SQLite syntax
             cursor.execute('''
@@ -188,6 +201,19 @@ class Database:
                     ip_address TEXT,
                     user_agent TEXT,
                     timestamp TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ''')
+            
+            # Password reset tokens table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    token TEXT UNIQUE NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    used INTEGER DEFAULT 0,
+                    created_at TEXT NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             ''')
@@ -756,3 +782,79 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get audit logs: {e}")
             return []
+    
+    # Password reset token methods
+    
+    def create_password_reset_token(self, user_id: int, token: str, expires_at: str) -> Optional[int]:
+        """Create a password reset token."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            placeholders = ', '.join([placeholder] * 4)
+            
+            cursor.execute(f'''
+                INSERT INTO password_reset_tokens
+                (user_id, token, expires_at, created_at)
+                VALUES ({placeholders})
+            ''', (user_id, token, expires_at, now))
+            
+            token_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            return token_id
+        except Exception as e:
+            logger.error(f"Failed to create password reset token: {e}")
+            return None
+    
+    def get_password_reset_token(self, token: str) -> Optional[Dict]:
+        """Get password reset token details."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'''
+                SELECT id, user_id, token, expires_at, used, created_at
+                FROM password_reset_tokens
+                WHERE token = {placeholder}
+            ''', (token,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return {
+                    'id': row[0],
+                    'user_id': row[1],
+                    'token': row[2],
+                    'expires_at': row[3],
+                    'used': bool(row[4]),
+                    'created_at': row[5]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get password reset token: {e}")
+            return None
+    
+    def mark_token_as_used(self, token: str) -> bool:
+        """Mark a password reset token as used."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'''
+                UPDATE password_reset_tokens
+                SET used = 1
+                WHERE token = {placeholder}
+            ''', (token,))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to mark token as used: {e}")
+            return False
