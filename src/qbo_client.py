@@ -19,13 +19,34 @@ class QBOClient:
         """
         Refreshes the access token using the refresh token.
         """
-        # Placeholder for OAuth2 refresh logic
         logger.info("Refreshing access token...")
         try:
-            # Simulate token refresh logic
-            # response = requests.post(...)
-            # response.raise_for_status()
-            self.access_token = "new_access_token"
+            token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded"
+            }
+            data = {
+                "grant_type": "refresh_token",
+                "refresh_token": self.refresh_token
+            }
+            
+            response = requests.post(
+                token_url, 
+                headers=headers, 
+                data=data,
+                auth=(self.client_id, self.client_secret)
+            )
+            response.raise_for_status()
+            
+            token_data = response.json()
+            self.access_token = token_data.get("access_token")
+            
+            # Update refresh token if provided
+            if "refresh_token" in token_data:
+                self.refresh_token = token_data["refresh_token"]
+                
+            logger.info("Access token refreshed successfully")
         except Exception as e:
             logger.error(f"Failed to refresh access token: {e}")
             raise
@@ -45,18 +66,25 @@ class QBOClient:
         logger.info(f"Making {method} request to {url}")
 
         try:
-            # In a real scenario, we would use requests here
-            # headers = self.get_headers()
-            # response = requests.request(method, url, headers=headers, params=params, json=data)
-            # response.raise_for_status()
-            # return response.json()
-
-            # Simulated response for now
-            return {}
+            headers = self.get_headers()
+            response = requests.request(method, url, headers=headers, params=params, json=data)
+            response.raise_for_status()
+            return response.json()
 
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP Error: {e}")
-            # Depending on status code, might want to retry or re-raise
+            # If 401, try to refresh token once and retry
+            if e.response.status_code == 401 and self.access_token:
+                logger.info("Received 401, attempting to refresh token and retry...")
+                try:
+                    self.refresh_access_token()
+                    headers = self.get_headers()
+                    response = requests.request(method, url, headers=headers, params=params, json=data)
+                    response.raise_for_status()
+                    return response.json()
+                except Exception as retry_error:
+                    logger.error(f"Retry after token refresh failed: {retry_error}")
+                    return {}
             return {}
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed: {e}")
@@ -64,3 +92,25 @@ class QBOClient:
         except Exception as e:
             logger.error(f"An unexpected error occurred: {e}")
             return {}
+    
+    def fetch_bank_accounts(self):
+        """
+        Fetches bank accounts from QBO to get current balances.
+        
+        Returns:
+            List of bank accounts with their current balances
+        """
+        try:
+            query = "select * from Account where AccountType = 'Bank' and AccountSubType = 'Checking'"
+            response = self.make_request("query", params={"query": query})
+            
+            if response and "QueryResponse" in response:
+                accounts = response["QueryResponse"].get("Account", [])
+                logger.info(f"Fetched {len(accounts)} bank accounts from QBO")
+                return accounts
+            
+            logger.warning("No bank accounts found in QBO response")
+            return []
+        except Exception as e:
+            logger.error(f"Failed to fetch bank accounts: {e}")
+            return []

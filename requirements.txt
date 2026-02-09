@@ -4,3 +4,5 @@ pandas
 flask
 gunicorn
 google-cloud-secret-manager
+cloud-sql-python-connector
+pymysql

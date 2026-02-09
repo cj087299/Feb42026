@@ -168,7 +168,21 @@ def get_cashflow_calendar():
         
         # Get parameters
         days = int(request.args.get('days', 90))
-        initial_balance = float(request.args.get('initial_balance', 0))
+        initial_balance_param = request.args.get('initial_balance')
+        start_date_param = request.args.get('start_date')
+        end_date_param = request.args.get('end_date')
+        
+        # Get initial balance from QBO if not provided
+        if initial_balance_param:
+            initial_balance = float(initial_balance_param)
+        else:
+            # Fetch from QBO
+            bank_accounts = qbo_client.fetch_bank_accounts()
+            initial_balance = 0.0
+            for account in bank_accounts:
+                balance = account.get('CurrentBalance', 0)
+                initial_balance += float(balance) if balance else 0
+            logger.info(f"Using QBO bank balance: {initial_balance}")
         
         # Toggle parameters
         show_projected_inflows = request.args.get('show_projected_inflows', 'true').lower() == 'true'
@@ -177,8 +191,12 @@ def get_cashflow_calendar():
         show_custom_outflows = request.args.get('show_custom_outflows', 'true').lower() == 'true'
         
         # Calculate date range
-        start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        end_date = start_date + timedelta(days=days)
+        if start_date_param and end_date_param:
+            start_date = datetime.strptime(start_date_param, '%Y-%m-%d').replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = datetime.strptime(end_date_param, '%Y-%m-%d').replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = start_date + timedelta(days=days)
         
         # Fetch data
         invoices = invoice_manager.fetch_invoices()
@@ -213,6 +231,38 @@ def get_cashflow_calendar():
         }), 200
     except Exception as e:
         logger.error(f"Error calculating calendar cashflow: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/bank-accounts', methods=['GET'])
+def get_bank_accounts():
+    """Get bank accounts and their current balances from QBO."""
+    try:
+        bank_accounts = qbo_client.fetch_bank_accounts()
+        
+        # Format the response
+        accounts_data = []
+        total_balance = 0.0
+        
+        for account in bank_accounts:
+            balance = float(account.get('CurrentBalance', 0))
+            total_balance += balance
+            
+            accounts_data.append({
+                'id': account.get('Id'),
+                'name': account.get('Name'),
+                'account_number': account.get('AcctNum', 'N/A'),
+                'balance': balance,
+                'currency': account.get('CurrencyRef', {}).get('value', 'USD')
+            })
+        
+        return jsonify({
+            'accounts': accounts_data,
+            'total_balance': total_balance,
+            'as_of': datetime.now().isoformat()
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching bank accounts: {e}")
         return jsonify({"error": str(e)}), 500
 
 
