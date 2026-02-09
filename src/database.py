@@ -97,6 +97,38 @@ class Database:
                     updated_at VARCHAR(50)
                 )
             ''')
+            
+            # User management tables
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    full_name VARCHAR(255),
+                    role VARCHAR(50) NOT NULL,
+                    is_active TINYINT DEFAULT 1,
+                    created_at VARCHAR(50),
+                    updated_at VARCHAR(50),
+                    last_login VARCHAR(50)
+                )
+            ''')
+            
+            # Audit log table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT,
+                    user_email VARCHAR(255),
+                    action VARCHAR(255) NOT NULL,
+                    resource_type VARCHAR(100),
+                    resource_id VARCHAR(255),
+                    details TEXT,
+                    ip_address VARCHAR(50),
+                    user_agent TEXT,
+                    timestamp VARCHAR(50) NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ''')
         else:
             # SQLite syntax
             cursor.execute('''
@@ -125,6 +157,38 @@ class Database:
                     recurrence_end_date TEXT,
                     created_at TEXT,
                     updated_at TEXT
+                )
+            ''')
+            
+            # User management tables
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    full_name TEXT,
+                    role TEXT NOT NULL,
+                    is_active INTEGER DEFAULT 1,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    last_login TEXT
+                )
+            ''')
+            
+            # Audit log table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    user_email TEXT,
+                    action TEXT NOT NULL,
+                    resource_type TEXT,
+                    resource_id TEXT,
+                    details TEXT,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    timestamp TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             ''')
         
@@ -404,3 +468,291 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to delete custom cash flow: {e}")
             return False
+    
+    # User management methods
+    
+    def create_user(self, email: str, password_hash: str, full_name: str, role: str) -> Optional[int]:
+        """Create a new user."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            placeholders = ', '.join([placeholder] * 6)
+            
+            cursor.execute(f'''
+                INSERT INTO users (email, password_hash, full_name, role, created_at, updated_at)
+                VALUES ({placeholders})
+            ''', (email, password_hash, full_name, role, now, now))
+            
+            user_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            logger.info(f"Created user {email} with ID {user_id}")
+            return user_id
+        except Exception as e:
+            logger.error(f"Failed to create user: {e}")
+            return None
+    
+    def get_user_by_email(self, email: str) -> Optional[Dict]:
+        """Get user by email."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'''
+                SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at, last_login
+                FROM users
+                WHERE email = {placeholder}
+            ''', (email,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return {
+                    'id': row[0],
+                    'email': row[1],
+                    'password_hash': row[2],
+                    'full_name': row[3],
+                    'role': row[4],
+                    'is_active': bool(row[5]),
+                    'created_at': row[6],
+                    'updated_at': row[7],
+                    'last_login': row[8]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get user by email: {e}")
+            return None
+    
+    def get_user_by_id(self, user_id: int) -> Optional[Dict]:
+        """Get user by ID."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'''
+                SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at, last_login
+                FROM users
+                WHERE id = {placeholder}
+            ''', (user_id,))
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return {
+                    'id': row[0],
+                    'email': row[1],
+                    'password_hash': row[2],
+                    'full_name': row[3],
+                    'role': row[4],
+                    'is_active': bool(row[5]),
+                    'created_at': row[6],
+                    'updated_at': row[7],
+                    'last_login': row[8]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get user by ID: {e}")
+            return None
+    
+    def get_all_users(self) -> List[Dict]:
+        """Get all users."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, email, full_name, role, is_active, created_at, updated_at, last_login
+                FROM users
+                ORDER BY created_at DESC
+            ''')
+            
+            rows = cursor.fetchall()
+            conn.close()
+            
+            return [{
+                'id': row[0],
+                'email': row[1],
+                'full_name': row[2],
+                'role': row[3],
+                'is_active': bool(row[4]),
+                'created_at': row[5],
+                'updated_at': row[6],
+                'last_login': row[7]
+            } for row in rows]
+        except Exception as e:
+            logger.error(f"Failed to get all users: {e}")
+            return []
+    
+    def update_user(self, user_id: int, data: Dict) -> bool:
+        """Update user information."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            
+            fields = []
+            values = []
+            
+            if 'email' in data:
+                fields.append(f'email = {placeholder}')
+                values.append(data['email'])
+            if 'full_name' in data:
+                fields.append(f'full_name = {placeholder}')
+                values.append(data['full_name'])
+            if 'role' in data:
+                fields.append(f'role = {placeholder}')
+                values.append(data['role'])
+            if 'is_active' in data:
+                fields.append(f'is_active = {placeholder}')
+                values.append(1 if data['is_active'] else 0)
+            if 'password_hash' in data:
+                fields.append(f'password_hash = {placeholder}')
+                values.append(data['password_hash'])
+            
+            fields.append(f'updated_at = {placeholder}')
+            values.append(now)
+            values.append(user_id)
+            
+            cursor.execute(f'''
+                UPDATE users
+                SET {', '.join(fields)}
+                WHERE id = {placeholder}
+            ''', tuple(values))
+            
+            conn.commit()
+            conn.close()
+            logger.info(f"Updated user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update user: {e}")
+            return False
+    
+    def update_last_login(self, user_id: int) -> bool:
+        """Update user's last login time."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            
+            cursor.execute(f'''
+                UPDATE users
+                SET last_login = {placeholder}
+                WHERE id = {placeholder}
+            ''', (now, user_id))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update last login: {e}")
+            return False
+    
+    def delete_user(self, user_id: int) -> bool:
+        """Delete a user."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'DELETE FROM users WHERE id = {placeholder}', (user_id,))
+            
+            conn.commit()
+            conn.close()
+            logger.info(f"Deleted user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete user: {e}")
+            return False
+    
+    # Audit log methods
+    
+    def log_audit(self, user_id: Optional[int], user_email: Optional[str], action: str, 
+                   resource_type: Optional[str] = None, resource_id: Optional[str] = None,
+                   details: Optional[str] = None, ip_address: Optional[str] = None,
+                   user_agent: Optional[str] = None) -> Optional[int]:
+        """Log an audit entry."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            placeholders = ', '.join([placeholder] * 8)
+            
+            cursor.execute(f'''
+                INSERT INTO audit_log
+                (user_id, user_email, action, resource_type, resource_id, details, ip_address, user_agent, timestamp)
+                VALUES ({placeholders}, {placeholder})
+            ''', (user_id, user_email, action, resource_type, resource_id, details, ip_address, user_agent, now))
+            
+            log_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            return log_id
+        except Exception as e:
+            logger.error(f"Failed to log audit entry: {e}")
+            return None
+    
+    def get_audit_logs(self, user_id: Optional[int] = None, action: Optional[str] = None,
+                       resource_type: Optional[str] = None, limit: int = 100) -> List[Dict]:
+        """Get audit logs with optional filters."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            query = '''
+                SELECT id, user_id, user_email, action, resource_type, resource_id, 
+                       details, ip_address, user_agent, timestamp
+                FROM audit_log
+            '''
+            
+            conditions = []
+            values = []
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            
+            if user_id:
+                conditions.append(f'user_id = {placeholder}')
+                values.append(user_id)
+            if action:
+                conditions.append(f'action = {placeholder}')
+                values.append(action)
+            if resource_type:
+                conditions.append(f'resource_type = {placeholder}')
+                values.append(resource_type)
+            
+            if conditions:
+                query += ' WHERE ' + ' AND '.join(conditions)
+            
+            query += f' ORDER BY timestamp DESC LIMIT {placeholder}'
+            values.append(limit)
+            
+            cursor.execute(query, tuple(values))
+            rows = cursor.fetchall()
+            conn.close()
+            
+            return [{
+                'id': row[0],
+                'user_id': row[1],
+                'user_email': row[2],
+                'action': row[3],
+                'resource_type': row[4],
+                'resource_id': row[5],
+                'details': row[6],
+                'ip_address': row[7],
+                'user_agent': row[8],
+                'timestamp': row[9]
+            } for row in rows]
+        except Exception as e:
+            logger.error(f"Failed to get audit logs: {e}")
+            return []

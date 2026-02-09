@@ -10,11 +10,12 @@
     <header class="header">
         <div class="container">
             <a href="/" class="logo">💰 VZT Accounting</a>
-            <nav class="nav">
+            <nav class="nav" id="mainNav">
                 <a href="/">Home</a>
                 <a href="/invoices">Invoices</a>
                 <a href="/cashflow">Cash Flow</a>
                 <a href="/health">Status</a>
+                <a href="#" onclick="logout(); return false;">Logout</a>
             </nav>
         </div>
     </header>
@@ -23,6 +24,7 @@
         <section class="hero">
             <h1>Welcome to VZT Accounting</h1>
             <p>Manage your QuickBooks Online invoices and project your cash flow with ease</p>
+            <p id="userInfo" style="font-size: 0.9rem; color: var(--text-secondary);"></p>
         </section>
 
         <div class="cards-grid">
@@ -38,6 +40,20 @@
                 <h2>Cash Flow Projection</h2>
                 <p>Get AI-powered cash flow projections based on your invoices. Plan ahead with accurate financial forecasts.</p>
                 <span class="card-link">View Projections →</span>
+            </a>
+            
+            <a href="/audit" class="card" id="auditCard" style="display: none;">
+                <div class="card-icon">📋</div>
+                <h2>Audit Log</h2>
+                <p>Track all system activities and changes. Monitor user actions and system events.</p>
+                <span class="card-link">View Audit Log →</span>
+            </a>
+            
+            <a href="/users" class="card" id="usersCard" style="display: none;">
+                <div class="card-icon">👥</div>
+                <h2>User Management</h2>
+                <p>Manage system users, roles, and permissions. Control access to different parts of the application.</p>
+                <span class="card-link">Manage Users →</span>
             </a>
 
             <a href="/health" class="card">
@@ -62,5 +78,59 @@
     </main>
 
     <script src="/static/js/common.js"></script>
+    <script>
+        // Load user info and show/hide cards based on role
+        window.addEventListener('DOMContentLoaded', async () => {
+            try {
+                const user = await fetchAPI('/api/me');
+                if (user) {
+                    document.getElementById('userInfo').textContent = `Logged in as ${user.full_name || user.email} (${getRoleName(user.role)})`;
+                    
+                    const nav = document.getElementById('mainNav');
+                    
+                    // Show audit log link for admins
+                    if (user.role === 'admin' || user.role === 'master_admin') {
+                        document.getElementById('auditCard').style.display = 'block';
+                        const auditLink = document.createElement('a');
+                        auditLink.href = '/audit';
+                        auditLink.textContent = 'Audit Log';
+                        nav.insertBefore(auditLink, nav.lastElementChild);
+                    }
+                    
+                    // Show users link for master admin
+                    if (user.role === 'master_admin') {
+                        document.getElementById('usersCard').style.display = 'block';
+                        const usersLink = document.createElement('a');
+                        usersLink.href = '/users';
+                        usersLink.textContent = 'Users';
+                        nav.insertBefore(usersLink, nav.lastElementChild);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load user info:', error);
+            }
+        });
+        
+        function getRoleName(role) {
+            const roleNames = {
+                'view_only': 'View Only',
+                'ap': 'Accounts Payable',
+                'ar': 'Accounts Receivable',
+                'admin': 'Admin',
+                'master_admin': 'Master Admin'
+            };
+            return roleNames[role] || role;
+        }
+        
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
 </body>
 </html>

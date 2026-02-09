@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - VZT Accounting</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">💰 VZT Accounting</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/users">Users</a>
+                <a href="/audit">Audit Log</a>
+                <a href="/health">Status</a>
+                <a href="#" onclick="logout(); return false;">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1 style="margin-bottom: 1rem;">User Management</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Manage system users and permissions</p>
+
+        <div class="table-container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2>Users</h2>
+                <button class="btn" onclick="showAddUserModal()">Add User</button>
+            </div>
+            
+            <div id="usersTable">
+                <!-- Users table will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit User Modal -->
+    <div id="userModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: white; padding: 2rem; border-radius: 8px; max-width: 500px; width: 90%;">
+            <h2 id="modalTitle">Add User</h2>
+            <form id="userForm">
+                <input type="hidden" id="userId">
+                <div class="form-group">
+                    <label for="email">Email*</label>
+                    <input type="email" id="email" name="email" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input type="text" id="full_name" name="full_name" class="form-control">
+                </div>
+                <div class="form-group" id="passwordGroup">
+                    <label for="password">Password*</label>
+                    <input type="password" id="password" name="password" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="role">Role*</label>
+                    <select id="role" name="role" required class="form-control">
+                        <option value="">Select a role</option>
+                        <option value="view_only">View Only</option>
+                        <option value="ap">Accounts Payable (AP)</option>
+                        <option value="ar">Accounts Receivable (AR)</option>
+                        <option value="admin">Admin</option>
+                        <option value="master_admin">Master Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="is_active" name="is_active" checked>
+                        Active
+                    </label>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="btn">Save</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        let isEditMode = false;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadUsers();
+        });
+
+        async function loadUsers() {
+            showLoading('usersTable');
+
+            try {
+                const users = await fetchAPI('/api/users');
+
+                if (!users || users.length === 0) {
+                    document.getElementById('usersTable').innerHTML = `
+                        <p style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                            No users found. Click "Add User" to create the first user.
+                        </p>
+                    `;
+                    return;
+                }
+
+                let tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Full Name</th>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Last Login</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                users.forEach(user => {
+                    const roleName = getRoleName(user.role);
+                    const statusClass = user.is_active ? 'status-badge status-success' : 'status-badge status-error';
+                    const statusText = user.is_active ? 'Active' : 'Inactive';
+                    const lastLogin = user.last_login ? formatDate(user.last_login) : 'Never';
+
+                    tableHTML += `
+                        <tr>
+                            <td>${user.email}</td>
+                            <td>${user.full_name || '-'}</td>
+                            <td>${roleName}</td>
+                            <td><span class="${statusClass}">${statusText}</span></td>
+                            <td>${lastLogin}</td>
+                            <td>
+                                <button class="btn btn-secondary" onclick="editUser(${user.id})">Edit</button>
+                                <button class="btn btn-secondary" onclick="deleteUser(${user.id}, '${user.email}')">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+
+                document.getElementById('usersTable').innerHTML = tableHTML;
+
+            } catch (error) {
+                showError('usersTable', `Failed to load users: ${error.message}`);
+            }
+        }
+
+        function getRoleName(role) {
+            const roleNames = {
+                'view_only': 'View Only',
+                'ap': 'Accounts Payable',
+                'ar': 'Accounts Receivable',
+                'admin': 'Admin',
+                'master_admin': 'Master Admin'
+            };
+            return roleNames[role] || role;
+        }
+
+        function showAddUserModal() {
+            isEditMode = false;
+            document.getElementById('modalTitle').textContent = 'Add User';
+            document.getElementById('userForm').reset();
+            document.getElementById('userId').value = '';
+            document.getElementById('passwordGroup').style.display = 'block';
+            document.getElementById('password').required = true;
+            document.getElementById('is_active').checked = true;
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        async function editUser(userId) {
+            isEditMode = true;
+            document.getElementById('modalTitle').textContent = 'Edit User';
+            document.getElementById('passwordGroup').style.display = 'none';
+            document.getElementById('password').required = false;
+
+            try {
+                const user = await fetchAPI(`/api/users/${userId}`);
+                document.getElementById('userId').value = user.id;
+                document.getElementById('email').value = user.email;
+                document.getElementById('full_name').value = user.full_name || '';
+                document.getElementById('role').value = user.role;
+                document.getElementById('is_active').checked = user.is_active;
+                document.getElementById('userModal').style.display = 'flex';
+            } catch (error) {
+                alert(`Failed to load user: ${error.message}`);
+            }
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+            document.getElementById('userForm').reset();
+        }
+
+        document.getElementById('userForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const userId = document.getElementById('userId').value;
+            const formData = new FormData(e.target);
+            const data = {
+                email: formData.get('email'),
+                full_name: formData.get('full_name'),
+                role: formData.get('role'),
+                is_active: document.getElementById('is_active').checked
+            };
+
+            if (!isEditMode || document.getElementById('password').value) {
+                data.password = formData.get('password');
+            }
+
+            try {
+                let response;
+                if (isEditMode) {
+                    response = await fetch(`/api/users/${userId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    response = await fetch('/api/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                }
+
+                if (response.ok) {
+                    closeUserModal();
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to save user');
+                }
+            } catch (error) {
+                alert(`Failed to save user: ${error.message}`);
+            }
+        });
+
+        async function deleteUser(userId, email) {
+            if (!confirm(`Are you sure you want to delete user "${email}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/users/${userId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    loadUsers();
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to delete user');
+                }
+            } catch (error) {
+                alert(`Failed to delete user: ${error.message}`);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>

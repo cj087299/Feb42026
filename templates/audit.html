@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audit Log - VZT Accounting</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">💰 VZT Accounting</a>
+            <nav class="nav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/users">Users</a>
+                <a href="/audit">Audit Log</a>
+                <a href="/health">Status</a>
+                <a href="#" onclick="logout(); return false;">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <h1 style="margin-bottom: 1rem;">Audit Log</h1>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Track all system activities and changes</p>
+
+        <div class="table-container">
+            <h2 style="margin-bottom: 1.5rem;">Filter Logs</h2>
+            <form id="filterForm" class="form-row" style="margin-bottom: 2rem;">
+                <div class="form-group">
+                    <label for="action">Action</label>
+                    <select id="action" name="action">
+                        <option value="">All Actions</option>
+                        <option value="user_login">User Login</option>
+                        <option value="user_logout">User Logout</option>
+                        <option value="create_user">Create User</option>
+                        <option value="update_user">Update User</option>
+                        <option value="delete_user">Delete User</option>
+                        <option value="view_invoices">View Invoices</option>
+                        <option value="update_invoice_metadata">Update Invoice Metadata</option>
+                        <option value="view_cashflow">View Cash Flow</option>
+                        <option value="add_custom_cash_flow">Add Custom Cash Flow</option>
+                        <option value="update_custom_cash_flow">Update Custom Cash Flow</option>
+                        <option value="delete_custom_cash_flow">Delete Custom Cash Flow</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="resource_type">Resource Type</label>
+                    <select id="resource_type" name="resource_type">
+                        <option value="">All Types</option>
+                        <option value="user">User</option>
+                        <option value="invoice">Invoice</option>
+                        <option value="cashflow">Cash Flow</option>
+                        <option value="custom_cash_flow">Custom Cash Flow</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="limit">Limit</label>
+                    <select id="limit" name="limit">
+                        <option value="50">50</option>
+                        <option value="100" selected>100</option>
+                        <option value="200">200</option>
+                        <option value="500">500</option>
+                    </select>
+                </div>
+            </form>
+            <button type="button" class="btn" onclick="loadAuditLogs()">Apply Filters</button>
+            <button type="button" class="btn btn-secondary" onclick="clearFilters()">Clear Filters</button>
+        </div>
+
+        <div id="auditResults" style="margin-top: 2rem;">
+            <!-- Results will be loaded here -->
+        </div>
+    </main>
+
+    <script src="/static/js/common.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            loadAuditLogs();
+        });
+
+        function clearFilters() {
+            document.getElementById('filterForm').reset();
+            loadAuditLogs();
+        }
+
+        async function loadAuditLogs() {
+            const resultsDiv = document.getElementById('auditResults');
+            showLoading('auditResults');
+
+            try {
+                const form = document.getElementById('filterForm');
+                const formData = new FormData(form);
+                const params = new URLSearchParams();
+                
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        params.append(key, value);
+                    }
+                }
+
+                const queryString = params.toString();
+                const endpoint = queryString ? `/api/audit-log?${queryString}` : '/api/audit-log';
+                
+                const logs = await fetchAPI(endpoint);
+
+                if (!logs || logs.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div class="table-container">
+                            <p style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                                No audit logs found.
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let tableHTML = `
+                    <div class="table-container">
+                        <h2 style="margin-bottom: 1rem;">Audit Log Entries (${logs.length})</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>User</th>
+                                    <th>Action</th>
+                                    <th>Resource Type</th>
+                                    <th>Resource ID</th>
+                                    <th>IP Address</th>
+                                    <th>Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                logs.forEach(log => {
+                    const timestamp = formatDateTime(log.timestamp);
+                    const userEmail = log.user_email || 'System';
+                    const details = log.details ? truncate(log.details, 50) : '-';
+                    
+                    tableHTML += `
+                        <tr>
+                            <td>${timestamp}</td>
+                            <td>${userEmail}</td>
+                            <td><span class="status-badge">${log.action}</span></td>
+                            <td>${log.resource_type || '-'}</td>
+                            <td>${log.resource_id || '-'}</td>
+                            <td>${log.ip_address || '-'}</td>
+                            <td title="${log.details || ''}">${details}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                resultsDiv.innerHTML = tableHTML;
+
+            } catch (error) {
+                showError('auditResults', `Failed to load audit logs: ${error.message}`);
+            }
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        }
+
+        function truncate(str, maxLen) {
+            if (str.length <= maxLen) return str;
+            return str.substring(0, maxLen) + '...';
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>

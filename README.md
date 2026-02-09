@@ -205,6 +205,88 @@ Run specific test file:
 python -m unittest tests.test_new_features -v
 ```
 
+## Authentication and User Management
+
+### Initial Setup
+
+The application includes a complete user authentication and role-based access control system. To set up the first admin user:
+
+```bash
+python init_admin.py
+```
+
+This creates a master admin user with:
+- **Email**: admin@vzt.com
+- **Password**: admin123
+
+**⚠️ IMPORTANT**: Change the password immediately after first login!
+
+### User Roles
+
+The system supports five user roles with different permission levels:
+
+1. **Master Admin**
+   - Full system access including user management
+   - Can create, edit, and delete users
+   - Can assign roles and manage permissions
+   - Access to all features and audit logs
+
+2. **Admin**
+   - Can manage all accounting functions
+   - Can view audit logs
+   - Cannot manage users
+
+3. **Accounts Receivable (AR)**
+   - Can view invoices and cash flow
+   - Can edit invoice metadata
+   - Can add custom inflows
+
+4. **Accounts Payable (AP)**
+   - Can view invoices and cash flow
+   - Can manage accounts payable
+   - Can add custom outflows
+
+5. **View Only**
+   - Can view all pages
+   - Cannot make any changes
+
+### Audit Logging
+
+All critical system actions are automatically logged to the audit log, including:
+- User login/logout
+- User creation, updates, and deletion
+- Invoice metadata changes
+- Custom cash flow additions, updates, and deletions
+- All data access operations
+
+Audit logs include:
+- Timestamp
+- User email
+- Action performed
+- Resource type and ID
+- IP address
+- User agent
+- Additional details
+
+### User Management
+
+Master admins can manage users through the `/users` page:
+- Create new users with specific roles
+- Edit user information and roles
+- Activate/deactivate user accounts
+- Delete users (except your own account)
+- View user activity and last login times
+
+### Page Access Control
+
+Routes are protected based on permissions:
+- `/invoices` - Requires 'view_invoices' permission
+- `/cashflow` - Requires 'view_cashflow' permission
+- `/users` - Requires 'master_admin' role
+- `/audit` - Requires 'view_audit_log' permission
+- Invoice metadata editing - Requires 'edit_invoice_metadata' permission
+- Custom cash flows - Requires specific permissions based on flow type
+
 ## Future Enhancements
 
 - Full QuickBooks Online accounts payable integration
@@ -213,10 +295,17 @@ python -m unittest tests.test_new_features -v
 - Multi-currency support
 - Export capabilities (PDF, Excel)
 - Email notifications for cash flow alerts
+- Two-factor authentication (2FA)
+- Password reset functionality
+- Session timeout configuration
 
 ## Security
 
 - QuickBooks credentials stored securely in Google Cloud Secret Manager
+- User passwords hashed using SHA-256 with salt
+- Session-based authentication with secure cookies
+- Role-based access control (RBAC) for all routes
+- Comprehensive audit logging for compliance
 - All sensitive data encrypted in transit
 - Database stored locally with appropriate permissions
 - No credentials stored in code or version control
