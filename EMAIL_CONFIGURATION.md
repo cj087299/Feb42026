@@ -18,6 +18,9 @@ Email functionality is controlled through environment variables. The system uses
 # Enable email sending
 EMAIL_ENABLED=true
 
+# Base URL for password reset links (prevents Host header injection)
+BASE_URL=https://your-domain.com  # Your application's base URL
+
 # SMTP Server Configuration
 SMTP_HOST=smtp.gmail.com           # Your SMTP server hostname
 SMTP_PORT=587                       # SMTP port (587 for TLS, 465 for SSL)
@@ -40,6 +43,7 @@ For Gmail, you'll need to use an App Password (not your regular Gmail password):
 
 ```bash
 EMAIL_ENABLED=true
+BASE_URL=https://your-domain.com
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com

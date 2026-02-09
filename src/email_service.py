@@ -43,6 +43,13 @@ class EmailService:
         Returns:
             True if email was sent successfully, False otherwise
         """
+        # Basic email validation
+        import re
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, to_email):
+            logger.error(f"Invalid email address format: {to_email}")
+            return False
+        
         if not self.enabled:
             logger.info(f"[EMAIL DISABLED] Would send email to {to_email}")
             logger.info(f"Subject: {subject}")
@@ -75,7 +82,7 @@ class EmailService:
             return True
             
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {e}")
+            logger.exception(f"Failed to send email to {to_email}: {e}")
             return False
     
     def send_password_reset_email(self, to_email: str, reset_token: str, base_url: str) -> bool:

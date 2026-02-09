@@ -183,8 +183,9 @@ def forgot_password():
         # Save token to database
         database.create_password_reset_token(user['id'], token, expires_at)
         
-        # Get base URL from request
-        base_url = request.url_root.rstrip('/')
+        # Get base URL from environment or construct from request
+        # Use configured BASE_URL to prevent Host header injection attacks
+        base_url = os.environ.get('BASE_URL', request.url_root.rstrip('/'))
         
         # Send password reset email
         email_sent = email_service.send_password_reset_email(email, token, base_url)

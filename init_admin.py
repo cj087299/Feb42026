@@ -76,7 +76,7 @@ def init_admin_user():
             print(f"  Password: {user['password']}")
             print()
         print(f"⚠️  IMPORTANT: Please change the passwords after first login!\n")
-    elif not any(database.get_user_by_email(u["email"]) for u in admin_users):
+    else:
         print(f"\n✗ Failed to create any master admin users")
 
 if __name__ == "__main__":
