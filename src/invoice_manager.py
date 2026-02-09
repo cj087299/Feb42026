@@ -48,7 +48,11 @@ class InvoiceManager:
             return []
     
     def _get_terms_days(self, invoice):
-        """Extract payment terms in days from invoice."""
+        """Extract payment terms in days from invoice.
+        
+        Returns:
+            int: Number of days for payment terms. Defaults to 30 if not specified.
+        """
         sales_term_ref = invoice.get('SalesTermRef')
         if sales_term_ref:
             # Common term mappings

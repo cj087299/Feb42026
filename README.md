@@ -110,7 +110,7 @@ To use Google Cloud SQL:
 - Configure the connection details with the environment variables above
 - Install required packages: `cloud-sql-python-connector` and `pymysql` (included in requirements.txt)
 
-The database will automatically initialize with the required tables (`invoice_metadata` and `custom_cash_flows`) in the "Accounting App" database.
+The database will automatically initialize with the required tables (`invoice_metadata` and `custom_cash_flows`) in the specified database.
 
 ### Running the Application
 
