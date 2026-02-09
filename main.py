@@ -8,6 +8,8 @@ from src.cash_flow import CashFlowProjector
 from src.ai_predictor import PaymentPredictor
 from src.secret_manager import SecretManager
 from src.database import Database
+from src.ai_service import AIService
+from src.error_handler import ErrorLogger, handle_errors, log_ai_action
 from src.auth import (
     hash_password, verify_password, login_required, permission_required, 
     role_required, get_current_user, audit_log, ROLES, has_permission
@@ -23,6 +25,12 @@ app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 # Initialize Secret Manager and Database
 secret_manager = SecretManager()
 database = Database()
+
+# Initialize Error Logger
+error_logger = ErrorLogger()
+
+# Initialize AI Service
+ai_service = AIService()
 
 # Initialize QBO client with credentials from Secret Manager
 qbo_credentials = secret_manager.get_qbo_credentials()
@@ -67,6 +75,24 @@ def login_page():
     if 'user_id' in session:
         return redirect(url_for('index'))
     return render_template('login.html')
+
+
+@app.route('/forgot-password', methods=['GET'])
+def forgot_password_page():
+    """Display forgot password page."""
+    return render_template('forgot-password.html')
+
+
+@app.route('/forgot-username', methods=['GET'])
+def forgot_username_page():
+    """Display forgot username page."""
+    return render_template('forgot-username.html')
+
+
+@app.route('/reset-password', methods=['GET'])
+def reset_password_page():
+    """Display reset password page."""
+    return render_template('reset-password.html')
 
 
 @app.route('/api/login', methods=['POST'])
@@ -123,6 +149,125 @@ def logout():
     """Handle user logout."""
     session.clear()
     return jsonify({'message': 'Logout successful'}), 200
+
+
+@app.route('/api/forgot-password', methods=['POST'])
+def forgot_password():
+    """Request password reset."""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        # Get user from database
+        user = database.get_user_by_email(email)
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            return jsonify({'message': 'If the email exists, a password reset link has been sent'}), 200
+        
+        # Generate reset token
+        import secrets
+        token = secrets.token_urlsafe(32)
+        
+        # Token expires in 1 hour
+        from datetime import datetime, timedelta
+        expires_at = (datetime.now() + timedelta(hours=1)).isoformat()
+        
+        # Save token to database
+        database.create_password_reset_token(user['id'], token, expires_at)
+        
+        # In a real application, you would send an email with the reset link
+        # For now, we'll just log it (without the full token for security)
+        logger.info(f"Password reset requested for user ID {user['id']}")
+        
+        return jsonify({'message': 'If the email exists, a password reset link has been sent'}), 200
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using token."""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        new_password = data.get('password')
+        
+        if not token or not new_password:
+            return jsonify({'error': 'Token and new password are required'}), 400
+        
+        # Get token from database
+        token_data = database.get_password_reset_token(token)
+        
+        if not token_data:
+            return jsonify({'error': 'Invalid or expired token'}), 400
+        
+        if token_data['used']:
+            return jsonify({'error': 'Token has already been used'}), 400
+        
+        # Check if token is expired
+        from datetime import datetime
+        expires_at = datetime.fromisoformat(token_data['expires_at'])
+        if datetime.now() > expires_at:
+            return jsonify({'error': 'Token has expired'}), 400
+        
+        # Update password
+        password_hash = hash_password(new_password)
+        success = database.update_user(token_data['user_id'], {'password_hash': password_hash})
+        
+        if success:
+            # Mark token as used
+            database.mark_token_as_used(token)
+            
+            # Log the action
+            user = database.get_user_by_id(token_data['user_id'])
+            database.log_audit(
+                user_id=token_data['user_id'],
+                user_email=user['email'] if user else None,
+                action='password_reset',
+                resource_type='user',
+                resource_id=str(token_data['user_id']),
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string if request.user_agent else None
+            )
+            
+            return jsonify({'message': 'Password reset successful'}), 200
+        else:
+            return jsonify({'error': 'Failed to reset password'}), 500
+    except Exception as e:
+        logger.error(f"Reset password error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/forgot-username', methods=['POST'])
+def forgot_username():
+    """Request username reminder (email lookup)."""
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'error': 'Email is required'}), 400
+        
+        # Get user from database
+        user = database.get_user_by_email(email)
+        
+        if not user:
+            # Don't reveal if user exists or not for security
+            return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
+        
+        # In a real application, you would send an email with the username
+        # For now, we'll just log the request
+        logger.info(f"Username reminder requested")
+        
+        return jsonify({'message': 'If the email exists, a username reminder has been sent'}), 200
+    except Exception as e:
+        logger.error(f"Forgot username error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/api/me', methods=['GET'])
@@ -672,6 +817,110 @@ def get_audit_log():
     except Exception as e:
         logger.error(f"Error fetching audit logs: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# AI Chat API routes
+
+@app.route('/api/ai/chat', methods=['POST'])
+@login_required
+@audit_log('ai_chat')
+@handle_errors('ai_chat')
+def ai_chat():
+    """Handle AI chat messages (available to all authenticated users)."""
+    try:
+        data = request.get_json()
+        message = data.get('message')
+        conversation_history = data.get('history', [])
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        user_role = session.get('user_role')
+        
+        # Get AI response
+        response = ai_service.chat(message, conversation_history, user_role)
+        
+        return jsonify(response), 200
+    except Exception as e:
+        logger.error(f"Error in AI chat: {e}")
+        error_details = error_logger.log_error(
+            e,
+            context={'message': message, 'user_role': user_role},
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email')
+        )
+        return jsonify({"error": "An error occurred processing your request. Please try again."}), 500
+
+
+@app.route('/api/ai/action', methods=['POST'])
+@login_required
+@role_required('master_admin')
+@audit_log('ai_action')
+@log_ai_action('advanced_ai_action')
+@handle_errors('ai_action')
+def ai_action():
+    """Perform AI action (master admin only)."""
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        parameters = data.get('parameters', {})
+        
+        if not action:
+            return jsonify({'error': 'Action is required'}), 400
+        
+        user_role = session.get('user_role')
+        
+        # Perform action
+        result = ai_service.perform_action(action, parameters, user_role)
+        
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f"Error performing AI action: {e}")
+        error_details = error_logger.log_error(
+            e,
+            context={'action': action, 'parameters': parameters},
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email')
+        )
+        return jsonify({"error": "An error occurred performing the action. Please check the error logs."}), 500
+
+
+# Error and log viewing endpoints (master admin only)
+
+@app.route('/api/errors/recent', methods=['GET'])
+@login_required
+@role_required('master_admin')
+def get_recent_errors():
+    """Get recent error logs (master admin only)."""
+    try:
+        limit = request.args.get('limit', default=100, type=int)
+        errors = error_logger.get_recent_errors(limit)
+        return jsonify({'errors': errors, 'count': len(errors)}), 200
+    except Exception as e:
+        logger.error(f"Error fetching error logs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/ai/operation-logs', methods=['GET'])
+@login_required
+@role_required('master_admin')
+def get_ai_operation_logs():
+    """Get AI operation logs (master admin only)."""
+    try:
+        limit = request.args.get('limit', default=100, type=int)
+        logs = error_logger.get_ai_operation_logs(limit)
+        return jsonify({'logs': logs, 'count': len(logs)}), 200
+    except Exception as e:
+        logger.error(f"Error fetching AI operation logs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/logs', methods=['GET'])
+@login_required
+@role_required('master_admin')
+def logs_page():
+    """Error and operation logs page (master admin only)."""
+    return render_template('logs.html')
 
 
 if __name__ == '__main__':

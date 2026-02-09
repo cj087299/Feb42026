@@ -13,13 +13,19 @@ from src.database import Database
 from src.auth import hash_password
 
 def init_admin_user():
-    """Create a default master admin user."""
+    """Create a default master admin user.
+    
+    SECURITY NOTE: The credentials here are default values for initial setup.
+    In a production environment, consider using environment variables or
+    a secure configuration system. Always change the default password
+    immediately after first login.
+    """
     database = Database()
     
     # Default credentials
-    email = "admin@vzt.com"
-    password = "admin123"  # This should be changed after first login
-    full_name = "System Administrator"
+    email = "cjones@vztsolutions.com"
+    password = "admin1234"  # This should be changed after first login
+    full_name = "CJones"
     role = "master_admin"
     
     # Check if user already exists

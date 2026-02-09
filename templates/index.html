@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VZT Accounting - QuickBooks Cash Flow</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/ai-chat.css">
 </head>
 <body>
     <header class="header">
@@ -78,6 +79,7 @@
     </main>
 
     <script src="/static/js/common.js"></script>
+    <script src="/static/js/ai-chat.js"></script>
     <script>
         // Load user info and show/hide cards based on role
         window.addEventListener('DOMContentLoaded', async () => {
@@ -97,13 +99,18 @@
                         nav.insertBefore(auditLink, nav.lastElementChild);
                     }
                     
-                    // Show users link for master admin
+                    // Show users and logs links for master admin
                     if (user.role === 'master_admin') {
                         document.getElementById('usersCard').style.display = 'block';
                         const usersLink = document.createElement('a');
                         usersLink.href = '/users';
                         usersLink.textContent = 'Users';
                         nav.insertBefore(usersLink, nav.lastElementChild);
+                        
+                        const logsLink = document.createElement('a');
+                        logsLink.href = '/logs';
+                        logsLink.textContent = 'System Logs';
+                        nav.insertBefore(logsLink, nav.lastElementChild);
                     }
                 }
             } catch (error) {
