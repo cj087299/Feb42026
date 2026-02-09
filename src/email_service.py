@@ -33,8 +33,10 @@ class EmailService:
         
         # Check for required SMTP credentials - warn but don't fail on init
         if not self.credentials_configured:
-            logger.warning("SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables.")
-            logger.warning("Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.")
+            logger.warning(
+                "SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables. "
+                "Please configure email settings. See EMAIL_CONFIGURATION.md for instructions."
+            )
             if self.enabled:
                 logger.warning(
                     "Email service is enabled but SMTP credentials are missing. "

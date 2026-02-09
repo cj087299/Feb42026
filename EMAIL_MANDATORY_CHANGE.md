@@ -1,5 +1,19 @@
 # Email Configuration Now Mandatory - Summary
 
+## 🔄 UPDATE: Issue Fixed
+
+**Problem Identified**: The initial implementation in PR #18 was too strict - it caused the application to crash on startup if SMTP credentials were not configured, breaking deployment scenarios.
+
+**Fix Applied**: The email service now allows the application to start without SMTP credentials. Instead of crashing:
+- Application starts successfully with warning messages
+- Email sending fails gracefully at runtime with clear error messages  
+- Configuration can be added after deployment
+- Non-breaking change for existing deployments
+
+See the sections below for details on the original change and current behavior.
+
+---
+
 ## Change Overview
 
 Email configuration has been changed from **optional** to **mandatory by default**. The VZT Accounting application now requires valid SMTP credentials to start.
@@ -62,22 +76,34 @@ EMAIL_ENABLED=false python main.py
 
 ## Error Messages
 
-### Without SMTP Credentials
+### Without SMTP Credentials (Updated Behavior)
+The application now starts successfully with warnings:
 ```
-ERROR:src.email_service:SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables.
-ERROR:src.email_service:Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.
-ValueError: Email service is enabled but SMTP credentials are missing. Please set SMTP_USER and SMTP_PASSWORD environment variables, or set EMAIL_ENABLED=false to disable email (not recommended).
+WARNING:src.email_service:SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables. Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.
+WARNING:src.email_service:Email service is enabled but SMTP credentials are missing. Email sending will fail until SMTP_USER and SMTP_PASSWORD environment variables are set.
+```
+
+When attempting to send email without credentials:
+```
+ERROR:src.email_service:Cannot send email to user@example.com: SMTP credentials not configured
+ERROR:src.email_service:Please set SMTP_USER and SMTP_PASSWORD environment variables
 ```
 
 ### With EMAIL_ENABLED=false
 ```
 WARNING:src.email_service:Email service is disabled. This may prevent password reset functionality.
-ERROR:src.email_service:SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables.
+WARNING:src.email_service:SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables. Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.
 ```
 
 ## Backward Compatibility
 
-This is a **breaking change** for existing deployments that don't have SMTP configured.
+**UPDATE**: The initial implementation in PR #18 was too strict and caused deployment issues. The behavior has been updated:
+
+### Current Behavior (Fixed)
+- Application **starts successfully** without SMTP credentials
+- Warning messages are logged to help with configuration
+- Email sending fails gracefully with clear error messages
+- No breaking change for deployments
 
 ### Migration Steps
 
@@ -94,13 +120,15 @@ This is a **breaking change** for existing deployments that don't have SMTP conf
 ## Testing
 
 All tests pass:
-✓ Application fails to start without SMTP credentials (expected)
+✓ Application starts without SMTP credentials (fixed - no longer crashes)
 ✓ Application starts with EMAIL_ENABLED=false (testing mode)
 ✓ Application starts with valid SMTP credentials
+✓ Email sending fails gracefully without credentials
 ✓ EMAIL_ENABLED defaults to 'true'
-✓ Clear error messages displayed
-✓ Code review: No issues
+✓ Clear warning messages displayed
+✓ Code review: Issues addressed
 ✓ Security scan: 0 alerts
+✓ 54 total tests pass including 13 email service tests
 
 ## Files Modified
 

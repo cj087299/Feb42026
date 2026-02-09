@@ -96,13 +96,16 @@ class TestEmailServiceCredentials(unittest.TestCase):
         # Without credentials
         email_service = EmailService()
         self.assertFalse(email_service.credentials_configured)
-        
-        # With only username
+    
+    def test_credentials_configured_with_only_username(self):
+        """Test credentials_configured with only username set."""
         os.environ['SMTP_USER'] = 'test@example.com'
         email_service = EmailService()
         self.assertFalse(email_service.credentials_configured)
-        
-        # With both credentials
+    
+    def test_credentials_configured_with_both(self):
+        """Test credentials_configured with both username and password."""
+        os.environ['SMTP_USER'] = 'test@example.com'
         os.environ['SMTP_PASSWORD'] = 'testpassword'
         email_service = EmailService()
         self.assertTrue(email_service.credentials_configured)
