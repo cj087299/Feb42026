@@ -8,6 +8,7 @@ from src.cash_flow import CashFlowProjector
 from src.ai_predictor import PaymentPredictor
 from src.secret_manager import SecretManager
 from src.database import Database
+from src.ai_service import AIService
 from src.auth import (
     hash_password, verify_password, login_required, permission_required, 
     role_required, get_current_user, audit_log, ROLES, has_permission
@@ -23,6 +24,9 @@ app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 # Initialize Secret Manager and Database
 secret_manager = SecretManager()
 database = Database()
+
+# Initialize AI Service
+ai_service = AIService()
 
 # Initialize QBO client with credentials from Secret Manager
 qbo_credentials = secret_manager.get_qbo_credentials()
@@ -809,6 +813,57 @@ def get_audit_log():
         return jsonify(logs), 200
     except Exception as e:
         logger.error(f"Error fetching audit logs: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# AI Chat API routes
+
+@app.route('/api/ai/chat', methods=['POST'])
+@login_required
+@audit_log('ai_chat')
+def ai_chat():
+    """Handle AI chat messages (available to all authenticated users)."""
+    try:
+        data = request.get_json()
+        message = data.get('message')
+        conversation_history = data.get('history', [])
+        
+        if not message:
+            return jsonify({'error': 'Message is required'}), 400
+        
+        user_role = session.get('user_role')
+        
+        # Get AI response
+        response = ai_service.chat(message, conversation_history, user_role)
+        
+        return jsonify(response), 200
+    except Exception as e:
+        logger.error(f"Error in AI chat: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/ai/action', methods=['POST'])
+@login_required
+@role_required('master_admin')
+@audit_log('ai_action')
+def ai_action():
+    """Perform AI action (master admin only)."""
+    try:
+        data = request.get_json()
+        action = data.get('action')
+        parameters = data.get('parameters', {})
+        
+        if not action:
+            return jsonify({'error': 'Action is required'}), 400
+        
+        user_role = session.get('user_role')
+        
+        # Perform action
+        result = ai_service.perform_action(action, parameters, user_role)
+        
+        return jsonify(result), 200
+    except Exception as e:
+        logger.error(f"Error performing AI action: {e}")
         return jsonify({"error": str(e)}), 500
 
 
