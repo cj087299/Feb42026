@@ -809,6 +809,138 @@ def manage_user_detail(user_id):
             return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/users/<int:user_id>/force-reset-password', methods=['POST'])
+@login_required
+@role_required('admin', 'master_admin')
+def force_reset_password(user_id):
+    """Force reset a user's password (admin and master admin only)."""
+    try:
+        data = request.get_json()
+        new_password = data.get('password')
+        send_email_notification = data.get('send_email', True)
+        
+        if not new_password:
+            return jsonify({'error': 'New password is required'}), 400
+        
+        # Get the user
+        user = database.get_user_by_id(user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Hash the new password
+        password_hash = hash_password(new_password)
+        
+        # Update the password
+        success = database.update_user(user_id, {'password_hash': password_hash})
+        
+        if not success:
+            return jsonify({'error': 'Failed to reset password'}), 500
+        
+        # Send email notification to user if requested
+        if send_email_notification:
+            try:
+                subject = "Password Reset - VZT Accounting"
+                
+                html_body = f"""
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                        .header {{ background-color: #FF9800; color: white; padding: 20px; text-align: center; }}
+                        .content {{ background-color: #f9f9f9; padding: 30px; border: 1px solid #ddd; }}
+                        .password-box {{ background-color: #fff3cd; border: 2px solid #FF9800; padding: 20px; 
+                                        border-radius: 4px; text-align: center; margin: 20px 0; }}
+                        .footer {{ text-align: center; padding: 20px; color: #666; font-size: 0.9em; }}
+                        .warning {{ background-color: #ffebee; border: 1px solid #f44336; padding: 15px; 
+                                   border-radius: 4px; margin: 20px 0; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>🔐 Password Reset by Administrator</h1>
+                        </div>
+                        <div class="content">
+                            <p>Hello {user['full_name'] or user['email']},</p>
+                            <p>Your password for VZT Accounting has been reset by an administrator.</p>
+                            
+                            <div class="password-box">
+                                <p style="margin: 0; font-size: 0.9em; color: #666;">Your new temporary password is:</p>
+                                <h2 style="margin: 10px 0; color: #FF9800; font-family: monospace;">{new_password}</h2>
+                            </div>
+                            
+                            <div class="warning">
+                                <strong>⚠️ Important Security Steps:</strong>
+                                <ol style="margin: 10px 0; padding-left: 20px;">
+                                    <li>Log in to your account using this temporary password</li>
+                                    <li>Change your password immediately after logging in</li>
+                                    <li>Do not share this password with anyone</li>
+                                    <li>If you didn't expect this reset, contact your administrator immediately</li>
+                                </ol>
+                            </div>
+                            
+                            <p>You can log in at: <a href="{os.environ.get('BASE_URL', request.url_root.rstrip('/'))}/login">{os.environ.get('BASE_URL', request.url_root.rstrip('/'))}/login</a></p>
+                        </div>
+                        <div class="footer">
+                            <p>This is an automated message from VZT Accounting.<br>
+                            Please do not reply to this email.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+                
+                text_body = f"""
+Password Reset by Administrator - VZT Accounting
+
+Hello {user['full_name'] or user['email']},
+
+Your password for VZT Accounting has been reset by an administrator.
+
+Your new temporary password is: {new_password}
+
+IMPORTANT SECURITY STEPS:
+1. Log in to your account using this temporary password
+2. Change your password immediately after logging in
+3. Do not share this password with anyone
+4. If you didn't expect this reset, contact your administrator immediately
+
+You can log in at: {os.environ.get('BASE_URL', request.url_root.rstrip('/'))}/login
+
+---
+This is an automated message from VZT Accounting.
+Please do not reply to this email.
+                """
+                
+                email_service.send_email(user['email'], subject, html_body, text_body)
+                logger.info(f"Password reset notification sent to {user['email']}")
+            except Exception as email_error:
+                logger.error(f"Failed to send password reset notification: {email_error}")
+                # Don't fail the password reset if email fails
+        
+        # Log the action
+        database.log_audit(
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email'),
+            action='force_reset_password',
+            resource_type='user',
+            resource_id=str(user_id),
+            details=f"Force reset password for {user['email']}",
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string if request.user_agent else None
+        )
+        
+        return jsonify({
+            "message": "Password reset successfully",
+            "email_sent": send_email_notification
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error forcing password reset: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/roles', methods=['GET'])
 @login_required
 @role_required('master_admin')
