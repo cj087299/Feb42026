@@ -93,7 +93,9 @@ class TestQBOAuthentication(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             client.refresh_access_token()
         
-        self.assertIn("401", str(context.exception) if "401" in str(context.exception) else "Unauthorized")
+        # Check if error message contains 401 or Unauthorized
+        self.assertTrue('401' in str(context.exception) or 'Unauthorized' in str(context.exception),
+                       f"Expected '401' or 'Unauthorized' in error, got: {context.exception}")
     
     @patch('src.qbo_client.requests.post')
     def test_token_refresh_with_invalid_response(self, mock_post):
@@ -231,16 +233,19 @@ class TestSecretManagerIntegration(unittest.TestCase):
     @patch.dict(os.environ, {}, clear=True)
     def test_missing_credentials_use_defaults(self):
         """Test that missing credentials use safe defaults."""
-        secret_manager = SecretManager()
-        credentials = secret_manager.get_qbo_credentials()
-        
-        # Should return dict with dummy values when nothing is configured
-        self.assertIsNotNone(credentials)
-        self.assertIn('client_id', credentials)
-        self.assertIn('client_secret', credentials)
-        # Dummy values should be present
-        self.assertIsNotNone(credentials['client_id'])
-        self.assertIsNotNone(credentials['client_secret'])
+        try:
+            secret_manager = SecretManager()
+            credentials = secret_manager.get_qbo_credentials()
+            
+            # Should return dict with dummy values when nothing is configured
+            self.assertIsNotNone(credentials)
+            self.assertIn('client_id', credentials)
+            self.assertIn('client_secret', credentials)
+            # Dummy values should be present
+            self.assertIsNotNone(credentials['client_id'])
+            self.assertIsNotNone(credentials['client_secret'])
+        except Exception as e:
+            self.fail(f"Test failed with unexpected exception: {e}")
     
     @patch('google.cloud.secretmanager.SecretManagerServiceClient')
     @patch.dict(os.environ, {'GOOGLE_CLOUD_PROJECT': 'test-project'})

@@ -19,7 +19,7 @@ class TestNewFeatures(AuthenticatedTestCase):
         # Clean up any existing test user
         try:
             self.cleanup_test_user(self.test_user_email)
-        except:
+        except Exception:
             pass
         
         # Create and login test user with admin role (has all permissions)
@@ -34,7 +34,7 @@ class TestNewFeatures(AuthenticatedTestCase):
         """Clean up test data."""
         try:
             self.cleanup_test_user(self.test_user_email)
-        except:
+        except Exception:
             pass
     
     def test_invoice_metadata_api(self):
