@@ -1,15 +1,41 @@
 import unittest
 import json
 from main import app, database
+from tests.test_helpers import AuthenticatedTestCase
 
 
-class TestNewFeatures(unittest.TestCase):
+class TestNewFeatures(AuthenticatedTestCase):
     """Test new VZT Accounting features."""
     
     def setUp(self):
         self.app = app
         self.client = self.app.test_client()
         self.db = database
+        
+        # Create and login a test user with admin role for testing
+        self.test_user_email = 'testfeatures@example.com'
+        self.test_user_password = 'testpass123'
+        
+        # Clean up any existing test user
+        try:
+            self.cleanup_test_user(self.test_user_email)
+        except Exception:
+            pass
+        
+        # Create and login test user with admin role (has all permissions)
+        self.create_and_login_user(
+            self.client, 
+            email=self.test_user_email, 
+            password=self.test_user_password,
+            role='admin'
+        )
+    
+    def tearDown(self):
+        """Clean up test data."""
+        try:
+            self.cleanup_test_user(self.test_user_email)
+        except Exception:
+            pass
     
     def test_invoice_metadata_api(self):
         """Test invoice metadata endpoints."""

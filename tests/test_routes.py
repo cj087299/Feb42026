@@ -1,12 +1,37 @@
 import unittest
 import json
-from main import app
+from main import app, database
+from tests.test_helpers import AuthenticatedTestCase
 
 
-class TestRoutes(unittest.TestCase):
+class TestRoutes(AuthenticatedTestCase):
     def setUp(self):
         self.app = app
         self.client = self.app.test_client()
+        # Create and login a test user for authenticated requests
+        self.test_user_email = 'testroutes@example.com'
+        self.test_user_password = 'testpass123'
+        
+        # Clean up any existing test user
+        try:
+            self.cleanup_test_user(self.test_user_email)
+        except Exception:
+            pass
+        
+        # Create and login test user
+        self.create_and_login_user(
+            self.client, 
+            email=self.test_user_email, 
+            password=self.test_user_password,
+            role='admin'
+        )
+    
+    def tearDown(self):
+        """Clean up test data."""
+        try:
+            self.cleanup_test_user(self.test_user_email)
+        except Exception:
+            pass
 
     def test_root_route(self):
         """Test that the root route returns API information"""
