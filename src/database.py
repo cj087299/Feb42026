@@ -902,6 +902,13 @@ class Database:
         
         Args:
             credentials: Dictionary containing QBO credentials
+                - client_id: OAuth Client ID
+                - client_secret: OAuth Client Secret
+                - refresh_token: Long-lived refresh token
+                - access_token: Short-lived access token (optional)
+                - realm_id: QuickBooks Company ID
+                - expires_in: Seconds until access token expires (optional, default 3600)
+                - x_refresh_token_expires_in: Seconds until refresh token expires (optional, default 8726400)
             created_by_user_id: ID of the user who is setting these credentials
             
         Returns:
@@ -913,11 +920,14 @@ class Database:
             
             now = datetime.now().isoformat()
             
-            # Calculate token expiration times
+            # Calculate token expiration times from QBO response
             # Access token typically expires in 1 hour (3600 seconds)
-            access_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
-            # Refresh token expires in 101 days
-            refresh_token_expires = (datetime.now() + timedelta(days=101)).isoformat()
+            expires_in = credentials.get('expires_in', 3600)
+            access_token_expires = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+            
+            # Refresh token expires in 101 days (8726400 seconds)
+            refresh_expires_in = credentials.get('x_refresh_token_expires_in', 8726400)
+            refresh_token_expires = (datetime.now() + timedelta(seconds=refresh_expires_in)).isoformat()
             
             # First, delete any existing credentials (we only keep one set)
             cursor.execute('DELETE FROM qbo_tokens')
@@ -994,12 +1004,15 @@ class Database:
             logger.error(f"Failed to get QBO credentials: {e}")
             return None
     
-    def update_qbo_tokens(self, access_token: str, refresh_token: Optional[str] = None) -> bool:
+    def update_qbo_tokens(self, access_token: str, refresh_token: Optional[str] = None, 
+                          expires_in: int = 3600, x_refresh_token_expires_in: int = 8726400) -> bool:
         """Update QBO access token and optionally refresh token.
         
         Args:
             access_token: New access token
             refresh_token: New refresh token (optional)
+            expires_in: Seconds until access token expires (default: 3600)
+            x_refresh_token_expires_in: Seconds until refresh token expires (default: 8726400)
             
         Returns:
             True if successful, False otherwise
@@ -1009,13 +1022,13 @@ class Database:
             cursor = conn.cursor()
             
             now = datetime.now().isoformat()
-            access_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
+            access_token_expires = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
             
             placeholder = '%s' if self.use_cloud_sql else '?'
             
             if refresh_token:
                 # Update both tokens
-                refresh_token_expires = (datetime.now() + timedelta(days=101)).isoformat()
+                refresh_token_expires = (datetime.now() + timedelta(seconds=x_refresh_token_expires_in)).isoformat()
                 cursor.execute(f'''
                     UPDATE qbo_tokens
                     SET access_token = {placeholder},

@@ -44,19 +44,26 @@ class QBOClient:
             response.raise_for_status()
             
             token_data = response.json()
-            self.access_token = token_data.get("access_token")
+            # Handle both camelCase (accessToken) and snake_case (access_token) from QBO
+            self.access_token = token_data.get("access_token") or token_data.get("accessToken")
             
             # Update refresh token if provided (QBO returns a new refresh token)
-            new_refresh_token = token_data.get("refresh_token")
+            new_refresh_token = token_data.get("refresh_token") or token_data.get("refreshToken")
             if new_refresh_token:
                 self.refresh_token = new_refresh_token
             
             # Update tokens in database if available
             if self.database:
                 try:
+                    # Get expiration times from QBO response
+                    expires_in = token_data.get("expires_in", 3600)
+                    x_refresh_token_expires_in = token_data.get("x_refresh_token_expires_in", 8726400)
+                    
                     self.database.update_qbo_tokens(
                         access_token=self.access_token,
-                        refresh_token=new_refresh_token if new_refresh_token else None
+                        refresh_token=new_refresh_token if new_refresh_token else None,
+                        expires_in=expires_in,
+                        x_refresh_token_expires_in=x_refresh_token_expires_in
                     )
                     logger.info("Updated tokens in database")
                 except Exception as db_error:
