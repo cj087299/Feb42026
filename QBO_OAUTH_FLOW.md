@@ -2,7 +2,7 @@
 
 ## Overview
 
-This application now supports full OAuth 2.0 authentication for QuickBooks Online (QBO). This allows one admin user to connect to QuickBooks using their QBO username and password, and the tokens are automatically stored in the database and shared across all users for at least a month (actually 101 days).
+This application now supports full OAuth 2.0 authentication for QuickBooks Online (QBO). This allows one admin user to connect to QuickBooks using their QBO username and password, and the tokens are automatically stored in the database and shared across all users for 101 days.
 
 ## How It Works
 
