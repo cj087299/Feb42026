@@ -39,16 +39,38 @@ class TestQBOClient(unittest.TestCase):
         )
         
         with patch('src.qbo_client.requests.request') as mock_request:
-            # Mock API request for bank accounts
+            # Mock API request for bank accounts with realistic balances
             mock_request.return_value = Mock(
                 status_code=200,
                 json=lambda: {
                     "QueryResponse": {
                         "Account": [
                             {
-                                "Id": "1",
-                                "Name": "Checking Account",
-                                "CurrentBalance": 5000.0
+                                "Id": "35",
+                                "Name": "Business Checking Account",
+                                "AcctNum": "****4567",
+                                "CurrentBalance": 45789.32,
+                                "AccountType": "Bank",
+                                "AccountSubType": "Checking",
+                                "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
+                            },
+                            {
+                                "Id": "42",
+                                "Name": "Savings Account",
+                                "AcctNum": "****8901",
+                                "CurrentBalance": 125000.00,
+                                "AccountType": "Bank",
+                                "AccountSubType": "Checking",
+                                "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
+                            },
+                            {
+                                "Id": "58",
+                                "Name": "Payroll Account",
+                                "AcctNum": "****2345",
+                                "CurrentBalance": 28456.78,
+                                "AccountType": "Bank",
+                                "AccountSubType": "Checking",
+                                "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
                             }
                         ]
                     }
@@ -58,8 +80,14 @@ class TestQBOClient(unittest.TestCase):
             
             accounts = self.client.fetch_bank_accounts()
             self.assertIsInstance(accounts, list)
-            self.assertEqual(len(accounts), 1)
-            self.assertEqual(accounts[0]['Name'], "Checking Account")
+            self.assertEqual(len(accounts), 3)
+            self.assertEqual(accounts[0]['Name'], "Business Checking Account")
+            self.assertEqual(accounts[0]['CurrentBalance'], 45789.32)
+            self.assertEqual(accounts[1]['CurrentBalance'], 125000.00)
+            self.assertEqual(accounts[2]['CurrentBalance'], 28456.78)
+            # Verify total balance across all accounts
+            total_balance = sum(acc['CurrentBalance'] for acc in accounts)
+            self.assertEqual(total_balance, 199246.10)
 
 
 if __name__ == '__main__':

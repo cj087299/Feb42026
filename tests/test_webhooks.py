@@ -40,15 +40,15 @@ class TestWebhookHandler(unittest.TestCase):
             "specversion": "1.0",
             "type": "com.intuit.quickbooks.entity.update",
             "source": "//quickbooks.api.intuit.com",
-            "id": "test-event-123",
-            "time": "2024-02-13T12:00:00Z",
+            "id": "evt-inv-20240213-154732",
+            "time": "2024-02-13T15:47:32Z",
             "datacontenttype": "application/json",
             "data": {
-                "realm": "test-realm-456",
+                "realm": "4620816365314298765",
                 "name": "Invoice",
-                "id": "789",
+                "id": "1047",
                 "operation": "Update",
-                "lastUpdated": "2024-02-13T12:00:00Z"
+                "lastUpdated": "2024-02-13T15:47:30Z"
             }
         }
         
@@ -58,10 +58,10 @@ class TestWebhookHandler(unittest.TestCase):
         self.assertEqual(result['spec_version'], "1.0")
         self.assertEqual(result['event_type'], "com.intuit.quickbooks.entity.update")
         self.assertEqual(result['source'], "//quickbooks.api.intuit.com")
-        self.assertEqual(result['event_id'], "test-event-123")
-        self.assertEqual(result['realm_id'], "test-realm-456")
+        self.assertEqual(result['event_id'], "evt-inv-20240213-154732")
+        self.assertEqual(result['realm_id'], "4620816365314298765")
         self.assertEqual(result['entity_name'], "Invoice")
-        self.assertEqual(result['entity_id'], "789")
+        self.assertEqual(result['entity_id'], "1047")
         self.assertEqual(result['operation'], "Update")
     
     def test_parse_cloudevents_valid_customer_create(self):
@@ -70,12 +70,12 @@ class TestWebhookHandler(unittest.TestCase):
             "specversion": "1.0",
             "type": "com.intuit.quickbooks.entity.create",
             "source": "//quickbooks.api.intuit.com",
-            "id": "test-event-456",
-            "time": "2024-02-13T13:00:00Z",
+            "id": "evt-cust-20240213-163045",
+            "time": "2024-02-13T16:30:45Z",
             "data": {
-                "realm": "test-realm-789",
+                "realm": "4620816365314298765",
                 "name": "Customer",
-                "id": "123",
+                "id": "2456",
                 "operation": "Create"
             }
         }
@@ -85,6 +85,7 @@ class TestWebhookHandler(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result['entity_name'], "Customer")
         self.assertEqual(result['operation'], "Create")
+        self.assertEqual(result['entity_id'], "2456")
     
     def test_parse_cloudevents_valid_payment(self):
         """Test parsing valid CloudEvents payload for payment."""
@@ -92,12 +93,13 @@ class TestWebhookHandler(unittest.TestCase):
             "specversion": "1.0",
             "type": "com.intuit.quickbooks.entity.update",
             "source": "//quickbooks.api.intuit.com",
-            "id": "payment-event-789",
+            "id": "evt-pmt-20240213-171523",
             "data": {
-                "realm": "test-realm",
+                "realm": "4620816365314298765",
                 "name": "Payment",
-                "id": "456",
-                "operation": "Create"
+                "id": "3789",
+                "operation": "Create",
+                "lastUpdated": "2024-02-13T17:15:20Z"
             }
         }
         
@@ -106,6 +108,7 @@ class TestWebhookHandler(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result['entity_name'], "Payment")
         self.assertEqual(result['operation'], "Create")
+        self.assertEqual(result['entity_id'], "3789")
     
     def test_parse_cloudevents_valid_account_update(self):
         """Test parsing valid CloudEvents payload for account (bank balance) update."""
@@ -113,13 +116,13 @@ class TestWebhookHandler(unittest.TestCase):
             "specversion": "1.0",
             "type": "com.intuit.quickbooks.entity.update",
             "source": "//quickbooks.api.intuit.com",
-            "id": "account-event-123",
+            "id": "evt-acc-20240213-182345",
             "data": {
-                "realm": "test-realm",
+                "realm": "4620816365314298765",
                 "name": "Account",
-                "id": "999",
+                "id": "35",
                 "operation": "Update",
-                "lastUpdated": "2024-02-13T14:00:00Z"
+                "lastUpdated": "2024-02-13T18:23:40Z"
             }
         }
         
@@ -128,7 +131,7 @@ class TestWebhookHandler(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertEqual(result['entity_name'], "Account")
         self.assertEqual(result['operation'], "Update")
-        self.assertEqual(result['entity_id'], "999")
+        self.assertEqual(result['entity_id'], "35")
     
     def test_parse_cloudevents_missing_required_fields(self):
         """Test parsing CloudEvents with missing required fields."""
@@ -180,7 +183,9 @@ class TestWebhookHandler(unittest.TestCase):
         parsed_data = {
             'entity_name': 'Customer',
             'operation': 'Update',
-            'entity_id': '123'
+            'entity_id': '2456',
+            'realm_id': '4620816365314298765',
+            'last_updated': '2024-02-13T16:30:45Z'
         }
         
         result = WebhookHandler.process_webhook_event(parsed_data)
@@ -188,14 +193,15 @@ class TestWebhookHandler(unittest.TestCase):
         self.assertEqual(result['status'], 'processed')
         self.assertEqual(result['entity'], 'Customer')
         self.assertEqual(result['operation'], 'Update')
-        self.assertEqual(result['entity_id'], '123')
+        self.assertEqual(result['entity_id'], '2456')
     
     def test_process_webhook_event_invoice(self):
         """Test processing invoice webhook event."""
         parsed_data = {
             'entity_name': 'Invoice',
             'operation': 'Create',
-            'entity_id': '456'
+            'entity_id': '1047',
+            'realm_id': '4620816365314298765'
         }
         
         result = WebhookHandler.process_webhook_event(parsed_data)
@@ -209,7 +215,8 @@ class TestWebhookHandler(unittest.TestCase):
         parsed_data = {
             'entity_name': 'Payment',
             'operation': 'Update',
-            'entity_id': '789'
+            'entity_id': '3789',
+            'realm_id': '4620816365314298765'
         }
         
         result = WebhookHandler.process_webhook_event(parsed_data)
@@ -222,7 +229,8 @@ class TestWebhookHandler(unittest.TestCase):
         parsed_data = {
             'entity_name': 'Account',
             'operation': 'Update',
-            'entity_id': '999'
+            'entity_id': '35',
+            'realm_id': '4620816365314298765'
         }
         
         result = WebhookHandler.process_webhook_event(parsed_data)
@@ -275,12 +283,14 @@ class TestWebhookEndpoint(unittest.TestCase):
             "specversion": "1.0",
             "type": "com.intuit.quickbooks.entity.update",
             "source": "//quickbooks.api.intuit.com",
-            "id": "test-event-123",
+            "id": "evt-inv-20240213-154732",
+            "time": "2024-02-13T15:47:32Z",
             "data": {
-                "realm": "test-realm",
+                "realm": "4620816365314298765",
                 "name": "Invoice",
-                "id": "789",
-                "operation": "Update"
+                "id": "1047",
+                "operation": "Update",
+                "lastUpdated": "2024-02-13T15:47:30Z"
             }
         }
         
@@ -295,6 +305,8 @@ class TestWebhookEndpoint(unittest.TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['processed'], 1)
         self.assertIsInstance(data['results'], list)
+        self.assertEqual(data['results'][0]['entity'], 'Invoice')
+        self.assertEqual(data['results'][0]['entity_id'], '1047')
     
     def test_webhook_endpoint_post_valid_multiple_events(self):
         """Test POST request with multiple CloudEvents payloads."""
@@ -303,11 +315,11 @@ class TestWebhookEndpoint(unittest.TestCase):
                 "specversion": "1.0",
                 "type": "com.intuit.quickbooks.entity.update",
                 "source": "//quickbooks.api.intuit.com",
-                "id": "test-event-1",
+                "id": "evt-inv-20240213-154732",
                 "data": {
-                    "realm": "test-realm",
+                    "realm": "4620816365314298765",
                     "name": "Invoice",
-                    "id": "123",
+                    "id": "1047",
                     "operation": "Update"
                 }
             },
@@ -315,12 +327,24 @@ class TestWebhookEndpoint(unittest.TestCase):
                 "specversion": "1.0",
                 "type": "com.intuit.quickbooks.entity.create",
                 "source": "//quickbooks.api.intuit.com",
-                "id": "test-event-2",
+                "id": "evt-pmt-20240213-171523",
                 "data": {
-                    "realm": "test-realm",
+                    "realm": "4620816365314298765",
                     "name": "Payment",
-                    "id": "456",
+                    "id": "3789",
                     "operation": "Create"
+                }
+            },
+            {
+                "specversion": "1.0",
+                "type": "com.intuit.quickbooks.entity.update",
+                "source": "//quickbooks.api.intuit.com",
+                "id": "evt-acc-20240213-182345",
+                "data": {
+                    "realm": "4620816365314298765",
+                    "name": "Account",
+                    "id": "35",
+                    "operation": "Update"
                 }
             }
         ]
@@ -334,8 +358,16 @@ class TestWebhookEndpoint(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
         self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['processed'], 2)
-        self.assertEqual(len(data['results']), 2)
+        self.assertEqual(data['processed'], 3)
+        self.assertEqual(len(data['results']), 3)
+        
+        # Verify each entity was processed correctly
+        self.assertEqual(data['results'][0]['entity'], 'Invoice')
+        self.assertEqual(data['results'][0]['entity_id'], '1047')
+        self.assertEqual(data['results'][1]['entity'], 'Payment')
+        self.assertEqual(data['results'][1]['entity_id'], '3789')
+        self.assertEqual(data['results'][2]['entity'], 'Account')
+        self.assertEqual(data['results'][2]['entity_id'], '35')
     
     def test_webhook_endpoint_post_no_payload(self):
         """Test POST request with no payload."""
