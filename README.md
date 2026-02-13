@@ -173,6 +173,12 @@ The application provides comprehensive REST API endpoints:
 - `PUT /api/custom-cash-flows/<id>` - Update custom cash flow
 - `DELETE /api/custom-cash-flows/<id>` - Delete custom cash flow
 
+#### Webhook APIs
+- `GET /api/qbo/webhook` - Webhook verification endpoint
+- `POST /api/qbo/webhook` - Receive QuickBooks Online webhook events (CloudEvents format)
+
+See `QBO_WEBHOOKS_SETUP.md` for detailed webhook configuration.
+
 #### System APIs
 - `GET /health` - Health check
 
