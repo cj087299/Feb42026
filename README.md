@@ -239,6 +239,8 @@ The following master admin users are automatically initialized on first startup:
 
 **⚠️ IMPORTANT**: Change these default passwords immediately after first login!
 
+**📖 For detailed information**, including Cloud Run deployment, troubleshooting, and security best practices, see `ADMIN_INITIALIZATION.md`.
+
 ### Manual Admin Initialization (Optional)
 
 If you need to manually create admin users (e.g., to reset to defaults), you can run:
