@@ -223,15 +223,11 @@ python -m unittest tests.test_new_features -v
 
 ## Authentication and User Management
 
-### Initial Setup
+### Automatic Admin Initialization
 
-The application includes a complete user authentication and role-based access control system. To set up the initial admin users:
+The application includes a complete user authentication and role-based access control system. **Admin users are automatically created when the server starts** if they don't already exist.
 
-```bash
-python init_admin.py
-```
-
-This creates two master admin users with the following credentials:
+The following master admin users are automatically initialized on first startup:
 
 **User 1:**
 - **Email**: admin@vzt.com
@@ -242,6 +238,18 @@ This creates two master admin users with the following credentials:
 - **Password**: admin1234
 
 **⚠️ IMPORTANT**: Change these default passwords immediately after first login!
+
+**📖 For detailed information**, including Cloud Run deployment, troubleshooting, and security best practices, see `ADMIN_INITIALIZATION.md`.
+
+### Manual Admin Initialization (Optional)
+
+If you need to manually create admin users (e.g., to reset to defaults), you can run:
+
+```bash
+python init_admin.py
+```
+
+This script is idempotent - it checks if users already exist before creating them.
 
 ### Password Reset and Username Recovery
 
