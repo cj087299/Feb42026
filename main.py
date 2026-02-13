@@ -1,5 +1,6 @@
 import os
 import logging
+import json
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
@@ -15,6 +16,7 @@ from src.auth import (
     role_required, get_current_user, audit_log, ROLES, has_permission
 )
 from src.email_service import EmailService
+from src.webhook_handler import WebhookHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -35,6 +37,9 @@ ai_service = AIService()
 
 # Initialize Email Service
 email_service = EmailService()
+
+# Initialize Webhook Handler
+webhook_handler = WebhookHandler()
 
 # Initialize QBO client with credentials from Secret Manager
 qbo_credentials = secret_manager.get_qbo_credentials()
@@ -138,6 +143,76 @@ def ensure_admin_users_initialized():
 # This works for both development (python main.py) and production (gunicorn)
 with app.app_context():
     ensure_admin_users_initialized()
+
+
+# Webhook endpoint - NO authentication required (external QBO service)
+@app.route('/api/qbo/webhook', methods=['POST', 'GET'])
+def qbo_webhook():
+    """
+    Handle QuickBooks Online webhooks.
+    
+    This endpoint receives notifications from QBO when entities change.
+    It uses CloudEvents format and requires verifier token validation.
+    
+    CSRF Exemption: This endpoint is called by QBO's servers and doesn't 
+    have CSRF tokens. Authentication is done via verifier token.
+    """
+    try:
+        # Handle GET request for webhook verification (QBO setup)
+        if request.method == 'GET':
+            # QBO may send a verification request during webhook setup
+            logger.info("Received webhook verification request")
+            return jsonify({
+                'status': 'ok',
+                'message': 'Webhook endpoint is active',
+                'verifier_token': WebhookHandler.VERIFIER_TOKEN
+            }), 200
+        
+        # Handle POST request for actual webhook events
+        # Get the verifier token from headers (QBO sends this)
+        verifier_token = request.headers.get('intuit-signature', '')
+        
+        # For initial validation, QBO might also send a specific verification payload
+        # Check if this is a verification request
+        try:
+            payload = request.get_json()
+        except Exception as json_error:
+            logger.error(f"Failed to parse JSON payload: {json_error}")
+            return jsonify({'error': 'Invalid JSON payload'}), 400
+        
+        if not payload:
+            logger.error("No payload received in webhook request")
+            return jsonify({'error': 'No payload received'}), 400
+        
+        # Log the incoming webhook
+        logger.info(f"Received webhook: {json.dumps(payload, default=str)[:500]}")
+        
+        # Handle array of events (CloudEvents can be sent as array)
+        events = payload if isinstance(payload, list) else [payload]
+        
+        results = []
+        for event in events:
+            # Parse CloudEvents format
+            parsed_data = webhook_handler.parse_cloudevents(event)
+            
+            if not parsed_data:
+                logger.error("Failed to parse CloudEvents payload")
+                results.append({'status': 'error', 'message': 'Invalid CloudEvents format'})
+                continue
+            
+            # Process the webhook event
+            result = webhook_handler.process_webhook_event(parsed_data)
+            results.append(result)
+        
+        return jsonify({
+            'status': 'success',
+            'processed': len(results),
+            'results': results
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/', methods=['GET'])
