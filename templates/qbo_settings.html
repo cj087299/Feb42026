@@ -276,10 +276,46 @@
             </div>
 
             <div class="section">
-                <h2>Update QBO Credentials</h2>
+                <h2>Connect to QuickBooks Online</h2>
                 
                 <div class="instructions">
-                    <h3>📋 How to Get Your QBO Credentials</h3>
+                    <h3>🔗 Option 1: Connect with OAuth 2.0 (Recommended)</h3>
+                    <p>Click the button below to connect to QuickBooks Online. You'll be redirected to QuickBooks to log in with your username and password. After authorization, your tokens will be automatically saved and shared across all users.</p>
+                    
+                    <div class="form-group">
+                        <label for="oauthClientId">Client ID *</label>
+                        <input type="text" id="oauthClientId" name="oauthClientId" placeholder="Enter your QBO Client ID">
+                        <div class="help-text">Your QuickBooks OAuth Client ID from the Developer Portal</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="oauthClientSecret">Client Secret *</label>
+                        <input type="password" id="oauthClientSecret" name="oauthClientSecret" placeholder="Enter your QBO Client Secret">
+                        <div class="help-text">Your QuickBooks OAuth Client Secret from the Developer Portal</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="oauthRedirectUri">Redirect URI *</label>
+                        <input type="text" id="oauthRedirectUri" name="oauthRedirectUri" placeholder="https://your-domain.com/api/qbo/oauth/callback">
+                        <div class="help-text">Must match the redirect URI configured in your QBO app. Use: <code id="currentRedirectUri"></code></div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" onclick="initiateOAuth()">
+                        <span id="oauthButtonText">🔐 Connect to QuickBooks</span>
+                    </button>
+                    
+                    <p style="margin-top: 15px; color: #666; font-size: 13px;">
+                        <strong>Note:</strong> Make sure the redirect URI above is registered in your QuickBooks app settings.
+                    </p>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Manual Credentials Entry</h2>
+                
+                <div class="instructions">
+                    <h3>📋 Option 2: Enter Credentials Manually</h3>
+                    <p>If you already have tokens, you can enter them manually below.</p>
                     <ol>
                         <li>Go to the <a href="https://developer.intuit.com/" target="_blank">Intuit Developer Portal</a></li>
                         <li>Sign in and navigate to your app's "Keys & credentials" section</li>
@@ -500,6 +536,49 @@
             }
         }
 
+        async function initiateOAuth() {
+            const clientId = document.getElementById('oauthClientId').value;
+            const clientSecret = document.getElementById('oauthClientSecret').value;
+            const redirectUri = document.getElementById('oauthRedirectUri').value;
+            
+            if (!clientId || !clientSecret || !redirectUri) {
+                showAlert('Please fill in all OAuth fields (Client ID, Client Secret, and Redirect URI)', 'error');
+                return;
+            }
+            
+            const buttonText = document.getElementById('oauthButtonText');
+            const originalText = buttonText.textContent;
+            buttonText.innerHTML = '<span class="loading"></span> Connecting...';
+            
+            try {
+                const response = await fetch('/api/qbo/oauth/authorize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        redirect_uri: redirectUri
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Redirect to QuickBooks authorization page
+                    window.location.href = data.authorization_url;
+                } else {
+                    showAlert(data.error || 'Failed to initiate OAuth', 'error');
+                    buttonText.textContent = originalText;
+                }
+            } catch (error) {
+                console.error('Error initiating OAuth:', error);
+                showAlert('An error occurred while initiating OAuth', 'error');
+                buttonText.textContent = originalText;
+            }
+        }
+
         async function logout() {
             try {
                 await fetch('/api/logout', { method: 'POST' });
@@ -509,6 +588,21 @@
                 window.location.href = '/login';
             }
         }
+
+        // Set current redirect URI on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const currentUrl = window.location.origin + '/api/qbo/oauth/callback';
+            document.getElementById('currentRedirectUri').textContent = currentUrl;
+            document.getElementById('oauthRedirectUri').value = currentUrl;
+            
+            // Check if we came back from successful OAuth
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('oauth_success') === 'true') {
+                showAlert('Successfully connected to QuickBooks Online!', 'success');
+                // Clean up the URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
 
         // Load status on page load
         loadStatus();

@@ -24,16 +24,25 @@ This project provides comprehensive tools for managing QuickBooks Online invoice
 
 ## New Features in VZT Accounting
 
-### 1. Centralized QBO Token Management (New!)
+### 1. QuickBooks Online OAuth 2.0 Authentication (New!)
+- **One-Click Connection**: Admin clicks "Connect to QuickBooks" and logs in with their QBO username/password
+- **Automatic Token Management**: Tokens are automatically exchanged, stored, and refreshed
+- **Shared Access**: One admin connects, all users can access QBO for 101 days
+- **Secure Flow**: Full OAuth 2.0 implementation with CSRF protection
+- **No Manual Token Entry Required**: Just connect and go!
+- See `QBO_OAUTH_FLOW.md` for step-by-step instructions
+
+### 2. Centralized QBO Token Management
 - **Admin-Configured Credentials**: Master admin and admin users can configure QuickBooks Online credentials once for all users
 - **Automatic Token Refresh**: Access tokens automatically refresh before expiration
 - **Token Expiration Tracking**: Visual indicators show token status and expiration times
 - **Secure Storage**: Credentials stored in database with audit logging
 - **Easy Setup**: Web-based UI at `/qbo-settings` for credential management
 - **Long-Lived Sessions**: Refresh tokens valid for 101 days
+- **Manual Entry Option**: Can still manually enter tokens if preferred
 - See `QBO_TOKEN_MANAGEMENT.md` for detailed documentation
 
-### 2. Branding Update
+### 3. Branding Update
 - Application rebranded as "VZT Accounting"
 - Updated all templates and API responses with new branding
 

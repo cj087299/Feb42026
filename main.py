@@ -1,6 +1,9 @@
 import os
 import logging
 import json
+import uuid
+import base64
+import requests
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
@@ -1249,6 +1252,193 @@ def refresh_qbo_token():
         return jsonify({"message": "QBO access token refreshed successfully"}), 200
     except Exception as e:
         logger.error(f"Error refreshing QBO token: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/qbo/oauth/authorize', methods=['POST'])
+@login_required
+def qbo_oauth_authorize():
+    """Initiate QBO OAuth 2.0 flow (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can initiate OAuth
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        data = request.get_json()
+        client_id = data.get('client_id')
+        client_secret = data.get('client_secret')
+        redirect_uri = data.get('redirect_uri')
+        
+        if not all([client_id, client_secret, redirect_uri]):
+            return jsonify({'error': 'client_id, client_secret, and redirect_uri are required'}), 400
+        
+        # Store client credentials in session for later use in callback
+        session['qbo_oauth_client_id'] = client_id
+        session['qbo_oauth_client_secret'] = client_secret
+        session['qbo_oauth_redirect_uri'] = redirect_uri
+        
+        # Generate a state token for CSRF protection
+        state = str(uuid.uuid4())
+        session['qbo_oauth_state'] = state
+        
+        # Build the authorization URL
+        auth_url = (
+            f"https://appcenter.intuit.com/connect/oauth2?"
+            f"client_id={client_id}&"
+            f"scope=com.intuit.quickbooks.accounting&"
+            f"redirect_uri={redirect_uri}&"
+            f"response_type=code&"
+            f"state={state}"
+        )
+        
+        # Log the action
+        database.log_audit(
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email'),
+            action='initiate_qbo_oauth',
+            resource_type='qbo_credentials',
+            resource_id='1',
+            details='Initiated QBO OAuth flow',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string if request.user_agent else None
+        )
+        
+        return jsonify({'authorization_url': auth_url}), 200
+    except Exception as e:
+        logger.error(f"Error initiating QBO OAuth: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/qbo/oauth/callback', methods=['GET'])
+@login_required
+def qbo_oauth_callback():
+    """Handle QBO OAuth 2.0 callback (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can complete OAuth
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        # Get authorization code and state from query params
+        code = request.args.get('code')
+        state = request.args.get('state')
+        realm_id = request.args.get('realmId')
+        error = request.args.get('error')
+        
+        # Check for errors from QBO
+        if error:
+            logger.error(f"QBO OAuth error: {error}")
+            return jsonify({'error': f'QBO authorization failed: {error}'}), 400
+        
+        # Verify state to prevent CSRF
+        if state != session.get('qbo_oauth_state'):
+            logger.error("OAuth state mismatch")
+            return jsonify({'error': 'Invalid state parameter'}), 400
+        
+        if not code or not realm_id:
+            return jsonify({'error': 'Missing authorization code or realm ID'}), 400
+        
+        # Get stored credentials from session
+        client_id = session.get('qbo_oauth_client_id')
+        client_secret = session.get('qbo_oauth_client_secret')
+        redirect_uri = session.get('qbo_oauth_redirect_uri')
+        
+        if not all([client_id, client_secret, redirect_uri]):
+            return jsonify({'error': 'OAuth session expired. Please restart the flow.'}), 400
+        
+        # Exchange authorization code for tokens
+        token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
+        
+        # Create Basic Auth header
+        auth_string = f"{client_id}:{client_secret}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': f'Basic {auth_b64}'
+        }
+        
+        data = {
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': redirect_uri
+        }
+        
+        logger.info("Exchanging authorization code for tokens...")
+        response = requests.post(token_url, headers=headers, data=data)
+        response.raise_for_status()
+        
+        token_data = response.json()
+        
+        # Extract tokens from response (handle both camelCase and snake_case)
+        access_token = token_data.get('access_token') or token_data.get('accessToken')
+        refresh_token = token_data.get('refresh_token') or token_data.get('refreshToken')
+        expires_in = token_data.get('expires_in', 3600)
+        x_refresh_token_expires_in = token_data.get('x_refresh_token_expires_in', 8726400)
+        
+        if not access_token or not refresh_token:
+            logger.error(f"Missing tokens in response: {token_data}")
+            return jsonify({'error': 'Failed to obtain tokens from QBO'}), 500
+        
+        # Save credentials to database
+        credentials = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'refresh_token': refresh_token,
+            'access_token': access_token,
+            'realm_id': realm_id,
+            'expires_in': expires_in,
+            'x_refresh_token_expires_in': x_refresh_token_expires_in
+        }
+        
+        success = database.save_qbo_credentials(credentials, session.get('user_id'))
+        
+        if success:
+            # Update the global QBO client with new credentials
+            global qbo_client, secret_manager
+            qbo_credentials = secret_manager.get_qbo_credentials()
+            qbo_client = QBOClient(
+                qbo_credentials['client_id'],
+                qbo_credentials['client_secret'],
+                qbo_credentials['refresh_token'],
+                qbo_credentials['realm_id'],
+                database=database
+            )
+            qbo_client.access_token = access_token
+            
+            # Clear OAuth session data
+            session.pop('qbo_oauth_client_id', None)
+            session.pop('qbo_oauth_client_secret', None)
+            session.pop('qbo_oauth_redirect_uri', None)
+            session.pop('qbo_oauth_state', None)
+            
+            # Log the action
+            database.log_audit(
+                user_id=session.get('user_id'),
+                user_email=session.get('user_email'),
+                action='complete_qbo_oauth',
+                resource_type='qbo_credentials',
+                resource_id='1',
+                details=f'Completed QBO OAuth and saved credentials for Realm ID: {realm_id}',
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string if request.user_agent else None
+            )
+            
+            # Redirect to QBO settings page with success message
+            return redirect(url_for('qbo_settings_page') + '?oauth_success=true')
+        else:
+            return jsonify({"error": "Failed to save QBO credentials"}), 500
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error exchanging authorization code: {e}")
+        return jsonify({"error": f"Failed to exchange authorization code: {str(e)}"}), 500
+    except Exception as e:
+        logger.error(f"Error in OAuth callback: {e}")
         return jsonify({"error": str(e)}), 500
 
 
