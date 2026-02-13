@@ -915,7 +915,6 @@ class Database:
             
             # Calculate token expiration times
             # Access token typically expires in 1 hour (3600 seconds)
-            from datetime import timedelta
             access_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
             # Refresh token expires in 101 days
             refresh_token_expires = (datetime.now() + timedelta(days=101)).isoformat()
@@ -1010,7 +1009,6 @@ class Database:
             cursor = conn.cursor()
             
             now = datetime.now().isoformat()
-            from datetime import timedelta
             access_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
             
             placeholder = '%s' if self.use_cloud_sql else '?'
