@@ -15,10 +15,6 @@ class WebhookHandler:
     # QBO verifier token for webhook validation
     VERIFIER_TOKEN = "eb566143-7dcf-46a0-a51b-dc42962e461d"
     
-    def __init__(self):
-        """Initialize the webhook handler."""
-        pass
-    
     @staticmethod
     def validate_verifier_token(token):
         """

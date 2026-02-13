@@ -60,7 +60,7 @@ class TestQBOClient(unittest.TestCase):
                                 "AcctNum": "****8901",
                                 "CurrentBalance": 125000.00,
                                 "AccountType": "Bank",
-                                "AccountSubType": "Checking",
+                                "AccountSubType": "Savings",
                                 "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
                             },
                             {
