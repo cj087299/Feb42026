@@ -8,9 +8,10 @@ logger = logging.getLogger(__name__)
 class SecretManager:
     """Manages access to Google Cloud Secret Manager for credentials."""
     
-    def __init__(self):
+    def __init__(self, database=None):
         self.project_id = os.environ.get('GOOGLE_CLOUD_PROJECT')
         self.client = None
+        self.database = database  # Database instance for QBO token storage
         
         # Try to initialize Google Secret Manager client
         try:
@@ -58,11 +59,35 @@ class SecretManager:
     
     def get_qbo_credentials(self) -> dict:
         """
-        Retrieves QuickBooks Online credentials from Google Secret Manager.
+        Retrieves QuickBooks Online credentials.
+        Priority order:
+        1. Database (if available) - credentials set by admin
+        2. Google Secret Manager
+        3. Environment variables
+        4. Default dummy values
         
         Returns:
             Dictionary with QBO credentials
         """
+        # First, try to get credentials from database (highest priority)
+        if self.database:
+            try:
+                db_creds = self.database.get_qbo_credentials()
+                if db_creds:
+                    logger.info("Retrieved QBO credentials from database")
+                    return {
+                        'client_id': db_creds['client_id'],
+                        'client_secret': db_creds['client_secret'],
+                        'refresh_token': db_creds['refresh_token'],
+                        'realm_id': db_creds['realm_id'],
+                        'access_token': db_creds.get('access_token'),
+                        'access_token_expires_at': db_creds.get('access_token_expires_at'),
+                        'refresh_token_expires_at': db_creds.get('refresh_token_expires_at')
+                    }
+            except Exception as e:
+                logger.warning(f"Failed to get QBO credentials from database: {e}")
+        
+        # Fallback to Secret Manager and environment variables
         return {
             'client_id': self.get_secret('QBO_ID_2-3-26') or os.environ.get('QBO_CLIENT_ID', 'dummy_id'),
             'client_secret': self.get_secret('QBO_Secret_2-3-26') or os.environ.get('QBO_CLIENT_SECRET', 'dummy_secret'),

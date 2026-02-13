@@ -24,16 +24,26 @@ This project provides comprehensive tools for managing QuickBooks Online invoice
 
 ## New Features in VZT Accounting
 
-### 1. Branding Update
+### 1. Centralized QBO Token Management (New!)
+- **Admin-Configured Credentials**: Master admin and admin users can configure QuickBooks Online credentials once for all users
+- **Automatic Token Refresh**: Access tokens automatically refresh before expiration
+- **Token Expiration Tracking**: Visual indicators show token status and expiration times
+- **Secure Storage**: Credentials stored in database with audit logging
+- **Easy Setup**: Web-based UI at `/qbo-settings` for credential management
+- **Long-Lived Sessions**: Refresh tokens valid for 101 days
+- See `QBO_TOKEN_MANAGEMENT.md` for detailed documentation
+
+### 2. Branding Update
 - Application rebranded as "VZT Accounting"
 - Updated all templates and API responses with new branding
 
-### 2. Google Secret Manager Integration
+### 3. Google Secret Manager Integration
 - Secure credential storage for QuickBooks Online API credentials
 - Automatically retrieves `QBO_ID_2-3-26` and `QBO_Secret_2-3-26` from Google Cloud Secret Manager
 - Falls back to environment variables if Secret Manager is not available
+- **NOTE**: Database-stored credentials (configured via admin UI) take priority
 
-### 3. Enhanced Invoice Management
+### 4. Enhanced Invoice Management
 Track additional metadata for each invoice:
 - **VZT Rep**: Name of the VZT representative handling the invoice
 - **Sent to VZT Rep Date**: Date when invoice was sent to the VZT rep
@@ -81,7 +91,9 @@ pip install -r requirements.txt
 The application supports the following environment variables:
 
 ```bash
-# QuickBooks Online Credentials (fallback if Secret Manager not available)
+# QuickBooks Online Credentials (fallback if not configured via admin UI)
+# NOTE: It's recommended to configure QBO credentials via the admin UI at /qbo-settings
+# Environment variables are used as fallback only
 QBO_CLIENT_ID=your_client_id
 QBO_CLIENT_SECRET=your_client_secret
 QBO_REFRESH_TOKEN=your_refresh_token

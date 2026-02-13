@@ -26,8 +26,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
 # Initialize Secret Manager and Database
-secret_manager = SecretManager()
 database = Database()
+secret_manager = SecretManager(database=database)
 
 # Initialize Error Logger
 error_logger = ErrorLogger()
@@ -41,13 +41,14 @@ email_service = EmailService()
 # Initialize Webhook Handler
 webhook_handler = WebhookHandler()
 
-# Initialize QBO client with credentials from Secret Manager
+# Initialize QBO client with credentials from Secret Manager (which now checks database first)
 qbo_credentials = secret_manager.get_qbo_credentials()
 qbo_client = QBOClient(
     qbo_credentials['client_id'],
     qbo_credentials['client_secret'],
     qbo_credentials['refresh_token'],
-    qbo_credentials['realm_id']
+    qbo_credentials['realm_id'],
+    database=database
 )
 invoice_manager = InvoiceManager(qbo_client)
 # Train predictor with dummy data initially or load a saved model
@@ -1131,6 +1132,137 @@ def get_audit_log():
     except Exception as e:
         logger.error(f"Error fetching audit logs: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# QBO Credentials Management API routes
+
+@app.route('/api/qbo/credentials', methods=['GET', 'POST'])
+@login_required
+def manage_qbo_credentials():
+    """Get or update QBO credentials (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can manage QBO credentials
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    if request.method == 'GET':
+        try:
+            credentials = database.get_qbo_credentials()
+            if credentials:
+                # Don't expose sensitive data
+                safe_credentials = {
+                    'client_id': credentials['client_id'][:10] + '...' if credentials['client_id'] else None,
+                    'realm_id': credentials['realm_id'],
+                    'has_refresh_token': bool(credentials.get('refresh_token')),
+                    'has_access_token': bool(credentials.get('access_token')),
+                    'access_token_expires_at': credentials.get('access_token_expires_at'),
+                    'refresh_token_expires_at': credentials.get('refresh_token_expires_at'),
+                    'created_at': credentials.get('created_at'),
+                    'updated_at': credentials.get('updated_at')
+                }
+                return jsonify(safe_credentials), 200
+            else:
+                return jsonify({'message': 'No QBO credentials configured'}), 404
+        except Exception as e:
+            logger.error(f"Error fetching QBO credentials: {e}")
+            return jsonify({"error": str(e)}), 500
+    
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            client_id = data.get('client_id')
+            client_secret = data.get('client_secret')
+            refresh_token = data.get('refresh_token')
+            realm_id = data.get('realm_id')
+            
+            if not all([client_id, client_secret, refresh_token, realm_id]):
+                return jsonify({'error': 'All fields are required: client_id, client_secret, refresh_token, realm_id'}), 400
+            
+            credentials = {
+                'client_id': client_id,
+                'client_secret': client_secret,
+                'refresh_token': refresh_token,
+                'realm_id': realm_id
+            }
+            
+            success = database.save_qbo_credentials(credentials, session.get('user_id'))
+            
+            if success:
+                # Update the QBO client with new credentials
+                global qbo_client, secret_manager
+                qbo_credentials = secret_manager.get_qbo_credentials()
+                qbo_client = QBOClient(
+                    qbo_credentials['client_id'],
+                    qbo_credentials['client_secret'],
+                    qbo_credentials['refresh_token'],
+                    qbo_credentials['realm_id'],
+                    database=database
+                )
+                
+                # Log the action
+                database.log_audit(
+                    user_id=session.get('user_id'),
+                    user_email=session.get('user_email'),
+                    action='update_qbo_credentials',
+                    resource_type='qbo_credentials',
+                    resource_id='1',
+                    details='Updated QBO credentials',
+                    ip_address=request.remote_addr,
+                    user_agent=request.user_agent.string if request.user_agent else None
+                )
+                
+                return jsonify({"message": "QBO credentials saved successfully"}), 200
+            else:
+                return jsonify({"error": "Failed to save QBO credentials"}), 500
+        except Exception as e:
+            logger.error(f"Error saving QBO credentials: {e}")
+            return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/qbo/refresh', methods=['POST'])
+@login_required
+def refresh_qbo_token():
+    """Manually refresh QBO access token (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can refresh tokens
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        # Refresh the access token
+        qbo_client.refresh_access_token()
+        
+        # Log the action
+        database.log_audit(
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email'),
+            action='refresh_qbo_token',
+            resource_type='qbo_credentials',
+            resource_id='1',
+            details='Manually refreshed QBO access token',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string if request.user_agent else None
+        )
+        
+        return jsonify({"message": "QBO access token refreshed successfully"}), 200
+    except Exception as e:
+        logger.error(f"Error refreshing QBO token: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/qbo-settings', methods=['GET'])
+@login_required
+def qbo_settings_page():
+    """QBO settings page (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can access QBO settings
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    return render_template('qbo_settings.html')
 
 
 # AI Chat API routes

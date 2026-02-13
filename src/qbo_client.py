@@ -1,5 +1,7 @@
 import requests
 import logging
+from datetime import datetime, timedelta
+from typing import Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -7,17 +9,19 @@ logger = logging.getLogger(__name__)
 
 
 class QBOClient:
-    def __init__(self, client_id, client_secret, refresh_token, realm_id):
+    def __init__(self, client_id, client_secret, refresh_token, realm_id, database=None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.realm_id = realm_id
         self.access_token = None
         self.base_url = "https://sandbox-quickbooks.api.intuit.com/v3/company"
+        self.database = database  # Optional database for persistent token storage
 
     def refresh_access_token(self):
         """
         Refreshes the access token using the refresh token.
+        Updates the database if available.
         """
         logger.info("Refreshing access token...")
         try:
@@ -42,9 +46,21 @@ class QBOClient:
             token_data = response.json()
             self.access_token = token_data.get("access_token")
             
-            # Update refresh token if provided
-            if "refresh_token" in token_data:
-                self.refresh_token = token_data["refresh_token"]
+            # Update refresh token if provided (QBO returns a new refresh token)
+            new_refresh_token = token_data.get("refresh_token")
+            if new_refresh_token:
+                self.refresh_token = new_refresh_token
+            
+            # Update tokens in database if available
+            if self.database:
+                try:
+                    self.database.update_qbo_tokens(
+                        access_token=self.access_token,
+                        refresh_token=new_refresh_token if new_refresh_token else None
+                    )
+                    logger.info("Updated tokens in database")
+                except Exception as db_error:
+                    logger.warning(f"Failed to update tokens in database: {db_error}")
                 
             logger.info("Access token refreshed successfully")
         except Exception as e:
