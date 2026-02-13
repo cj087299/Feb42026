@@ -55,10 +55,22 @@ def initialize_admin_users():
     """
     Initialize default admin users on startup if they don't exist.
     This ensures admin users are available immediately after deployment.
+    
+    SECURITY NOTE: Default credentials are intentionally simple for initial setup
+    and are publicly visible in the repository. These are meant to be changed 
+    immediately after first login. The credentials are:
+    - admin@vzt.com / admin1234
+    - cjones@vztsolutions.com / admin1234
+    
+    For production deployments, it is recommended to:
+    1. Change these passwords immediately after first login
+    2. Consider using environment variables for initial credentials if desired
+    3. Monitor the audit log for first-time logins
     """
     logger.info("Checking for admin users...")
     
     # Default admin credentials
+    # NOTE: These are public and must be changed after first login!
     admin_users = [
         {
             "email": "cjones@vztsolutions.com",
@@ -111,8 +123,21 @@ def initialize_admin_users():
         logger.info("Admin users already initialized.")
 
 
-# Initialize admin users on startup
-initialize_admin_users()
+# Flag to track if initialization has been performed
+_admin_initialized = False
+
+def ensure_admin_users_initialized():
+    """Ensure admin users are initialized exactly once."""
+    global _admin_initialized
+    if not _admin_initialized:
+        initialize_admin_users()
+        _admin_initialized = True
+
+
+# Initialize admin users when the app context is first created
+# This works for both development (python main.py) and production (gunicorn)
+with app.app_context():
+    ensure_admin_users_initialized()
 
 
 @app.route('/', methods=['GET'])

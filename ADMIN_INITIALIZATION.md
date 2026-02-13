@@ -59,11 +59,13 @@ On Cloud Run, you can view the initialization logs:
 
 ```bash
 # View logs in Cloud Console
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=feb42026" --limit 50
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=YOUR_SERVICE_NAME" --limit 50
 
-# Or use Cloud Shell
-gcloud run logs read feb42026 --region=us-central1
+# Or use Cloud Shell to view logs for your deployed service
+gcloud run logs read YOUR_SERVICE_NAME --region=YOUR_REGION
 ```
+
+Replace `YOUR_SERVICE_NAME` with your actual Cloud Run service name (e.g., `vzt-accounting`) and `YOUR_REGION` with your deployment region (e.g., `us-central1`).
 
 Look for log entries like:
 ```
