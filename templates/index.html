@@ -56,6 +56,13 @@
                 <p>Manage system users, roles, and permissions. Control access to different parts of the application.</p>
                 <span class="card-link">Manage Users →</span>
             </a>
+            
+            <a href="/qbo-settings" class="card" id="qboSettingsCard" style="display: none;">
+                <div class="card-icon">⚙️</div>
+                <h2>QuickBooks Settings</h2>
+                <p>Manage QuickBooks Online credentials and connection settings. Configure API access for all users.</p>
+                <span class="card-link">QBO Settings →</span>
+            </a>
 
             <a href="/health" class="card">
                 <div class="card-icon">✅</div>
@@ -93,10 +100,16 @@
                     // Show audit log link for admins
                     if (user.role === 'admin' || user.role === 'master_admin') {
                         document.getElementById('auditCard').style.display = 'block';
+                        document.getElementById('qboSettingsCard').style.display = 'block';
                         const auditLink = document.createElement('a');
                         auditLink.href = '/audit';
                         auditLink.textContent = 'Audit Log';
                         nav.insertBefore(auditLink, nav.lastElementChild);
+                        
+                        const qboLink = document.createElement('a');
+                        qboLink.href = '/qbo-settings';
+                        qboLink.textContent = 'QBO Settings';
+                        nav.insertBefore(qboLink, nav.lastElementChild);
                     }
                     
                     // Show users and logs links for master admin

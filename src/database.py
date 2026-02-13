@@ -142,6 +142,24 @@ class Database:
                     FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             ''')
+            
+            # QBO tokens table for centralized credential management
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS qbo_tokens (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    client_id VARCHAR(255) NOT NULL,
+                    client_secret TEXT NOT NULL,
+                    refresh_token TEXT NOT NULL,
+                    access_token TEXT,
+                    realm_id VARCHAR(255) NOT NULL,
+                    access_token_expires_at VARCHAR(50),
+                    refresh_token_expires_at VARCHAR(50),
+                    created_by_user_id INT,
+                    created_at VARCHAR(50) NOT NULL,
+                    updated_at VARCHAR(50) NOT NULL,
+                    FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+                )
+            ''')
         else:
             # SQLite syntax
             cursor.execute('''
@@ -215,6 +233,24 @@ class Database:
                     used INTEGER DEFAULT 0,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ''')
+            
+            # QBO tokens table for centralized credential management
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS qbo_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    client_id TEXT NOT NULL,
+                    client_secret TEXT NOT NULL,
+                    refresh_token TEXT NOT NULL,
+                    access_token TEXT,
+                    realm_id TEXT NOT NULL,
+                    access_token_expires_at TEXT,
+                    refresh_token_expires_at TEXT,
+                    created_by_user_id INTEGER,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (created_by_user_id) REFERENCES users(id)
                 )
             ''')
         
@@ -857,4 +893,154 @@ class Database:
             return True
         except Exception as e:
             logger.error(f"Failed to mark token as used: {e}")
+            return False
+    
+    # QBO Token Management Methods
+    
+    def save_qbo_credentials(self, credentials: Dict, created_by_user_id: Optional[int] = None) -> bool:
+        """Save or update QBO credentials in the database.
+        
+        Args:
+            credentials: Dictionary containing QBO credentials
+            created_by_user_id: ID of the user who is setting these credentials
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            
+            # Calculate token expiration times
+            # Access token typically expires in 1 hour (3600 seconds)
+            from datetime import timedelta
+            access_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
+            # Refresh token expires in 101 days
+            refresh_token_expires = (datetime.now() + timedelta(days=101)).isoformat()
+            
+            # First, delete any existing credentials (we only keep one set)
+            cursor.execute('DELETE FROM qbo_tokens')
+            
+            # Insert new credentials
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            placeholders = ', '.join([placeholder] * 10)
+            
+            cursor.execute(f'''
+                INSERT INTO qbo_tokens
+                (client_id, client_secret, refresh_token, access_token, realm_id,
+                 access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                 created_at, updated_at)
+                VALUES ({placeholders})
+            ''', (
+                credentials.get('client_id'),
+                credentials.get('client_secret'),
+                credentials.get('refresh_token'),
+                credentials.get('access_token'),
+                credentials.get('realm_id'),
+                access_token_expires,
+                refresh_token_expires,
+                created_by_user_id,
+                now,
+                now
+            ))
+            
+            conn.commit()
+            conn.close()
+            logger.info(f"Saved QBO credentials to database")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save QBO credentials: {e}")
+            return False
+    
+    def get_qbo_credentials(self) -> Optional[Dict]:
+        """Get the current QBO credentials from the database.
+        
+        Returns:
+            Dictionary with QBO credentials or None if not found
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('''
+                SELECT id, client_id, client_secret, refresh_token, access_token, realm_id,
+                       access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                       created_at, updated_at
+                FROM qbo_tokens
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''')
+            
+            row = cursor.fetchone()
+            conn.close()
+            
+            if row:
+                return {
+                    'id': row[0],
+                    'client_id': row[1],
+                    'client_secret': row[2],
+                    'refresh_token': row[3],
+                    'access_token': row[4],
+                    'realm_id': row[5],
+                    'access_token_expires_at': row[6],
+                    'refresh_token_expires_at': row[7],
+                    'created_by_user_id': row[8],
+                    'created_at': row[9],
+                    'updated_at': row[10]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get QBO credentials: {e}")
+            return None
+    
+    def update_qbo_tokens(self, access_token: str, refresh_token: Optional[str] = None) -> bool:
+        """Update QBO access token and optionally refresh token.
+        
+        Args:
+            access_token: New access token
+            refresh_token: New refresh token (optional)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            now = datetime.now().isoformat()
+            from datetime import timedelta
+            access_token_expires = (datetime.now() + timedelta(hours=1)).isoformat()
+            
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            
+            if refresh_token:
+                # Update both tokens
+                refresh_token_expires = (datetime.now() + timedelta(days=101)).isoformat()
+                cursor.execute(f'''
+                    UPDATE qbo_tokens
+                    SET access_token = {placeholder},
+                        refresh_token = {placeholder},
+                        access_token_expires_at = {placeholder},
+                        refresh_token_expires_at = {placeholder},
+                        updated_at = {placeholder}
+                    WHERE id = (SELECT id FROM qbo_tokens ORDER BY created_at DESC LIMIT 1)
+                ''', (access_token, refresh_token, access_token_expires, refresh_token_expires, now))
+            else:
+                # Update only access token
+                cursor.execute(f'''
+                    UPDATE qbo_tokens
+                    SET access_token = {placeholder},
+                        access_token_expires_at = {placeholder},
+                        updated_at = {placeholder}
+                    WHERE id = (SELECT id FROM qbo_tokens ORDER BY created_at DESC LIMIT 1)
+                ''', (access_token, access_token_expires, now))
+            
+            conn.commit()
+            conn.close()
+            logger.info("Updated QBO tokens in database")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to update QBO tokens: {e}")
             return False
