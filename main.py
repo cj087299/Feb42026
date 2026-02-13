@@ -51,6 +51,70 @@ predictor = PaymentPredictor()
 # For now, we leave it untrained or train on demand if data is available
 
 
+def initialize_admin_users():
+    """
+    Initialize default admin users on startup if they don't exist.
+    This ensures admin users are available immediately after deployment.
+    """
+    logger.info("Checking for admin users...")
+    
+    # Default admin credentials
+    admin_users = [
+        {
+            "email": "cjones@vztsolutions.com",
+            "password": "admin1234",
+            "full_name": "CJones",
+            "role": "master_admin"
+        },
+        {
+            "email": "admin@vzt.com",
+            "password": "admin1234",
+            "full_name": "Admin",
+            "role": "master_admin"
+        }
+    ]
+    
+    initialized_count = 0
+    for user_data in admin_users:
+        email = user_data["email"]
+        
+        # Check if user already exists
+        existing_user = database.get_user_by_email(email)
+        if existing_user:
+            logger.info(f"Admin user {email} already exists. Skipping.")
+            continue
+        
+        # Create user
+        password_hash = hash_password(user_data["password"])
+        user_id = database.create_user(
+            email, 
+            password_hash, 
+            user_data["full_name"], 
+            user_data["role"]
+        )
+        
+        if user_id:
+            initialized_count += 1
+            logger.info(f"✓ Admin user created: {email}")
+        else:
+            logger.error(f"✗ Failed to create admin user: {email}")
+    
+    if initialized_count > 0:
+        logger.warning(f"{'='*60}")
+        logger.warning(f"Admin users initialized with default passwords!")
+        logger.warning(f"Default credentials:")
+        logger.warning(f"  - admin@vzt.com / admin1234")
+        logger.warning(f"  - cjones@vztsolutions.com / admin1234")
+        logger.warning(f"⚠️  IMPORTANT: Change these passwords immediately after first login!")
+        logger.warning(f"{'='*60}")
+    else:
+        logger.info("Admin users already initialized.")
+
+
+# Initialize admin users on startup
+initialize_admin_users()
+
+
 @app.route('/', methods=['GET'])
 def index():
     # Check if user is logged in
