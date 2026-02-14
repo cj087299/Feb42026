@@ -33,9 +33,25 @@ This will show you:
 
 ### Step 2: Set Up QuickBooks OAuth Connection
 
-You have two options:
+You have three options:
 
-#### Option A: Use the Web UI (Recommended)
+#### Option A: Use the Initialization Script (Fastest)
+
+If you have credentials from QuickBooks OAuth 2.0 Playground, use the initialization script:
+
+```bash
+python3 initialize_qbo_credentials.py
+```
+
+This script:
+- Initializes the database schema if needed
+- Inserts valid OAuth credentials directly into the database
+- Sets proper token expiration timestamps
+- Verifies the credentials were saved correctly
+
+**Note**: Edit the script first to replace the example credentials with your actual QuickBooks credentials.
+
+#### Option B: Use the Web UI (Recommended for Production)
 
 1. Log in to your application as an admin or master_admin
 2. Navigate to **QBO Settings** (`/qbo-settings`)
@@ -45,7 +61,7 @@ You have two options:
 
 This is the easiest method and handles all token exchange automatically.
 
-#### Option B: Manually Enter Credentials
+#### Option C: Manually Enter Credentials
 
 If you have credentials from QuickBooks OAuth 2.0 Playground or your app:
 

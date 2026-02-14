@@ -99,6 +99,25 @@ The calendar uses intelligent payment date calculation:
 pip install -r requirements.txt
 ```
 
+### QuickBooks OAuth Setup
+
+**IMPORTANT**: Before running the application, you must configure valid QuickBooks OAuth credentials.
+
+#### Quick Setup (For Development/Testing)
+
+If you have credentials from QuickBooks OAuth 2.0 Playground:
+
+```bash
+# Edit initialize_qbo_credentials.py with your credentials
+python3 initialize_qbo_credentials.py
+```
+
+This initializes the database with valid credentials. The application will use these automatically.
+
+#### Production Setup
+
+Use the web UI at `/qbo-settings` to connect to QuickBooks via OAuth 2.0 flow. See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for details.
+
 ### Environment Variables
 
 The application supports the following environment variables:
