@@ -355,6 +355,107 @@ class TestQBOEndToEnd(unittest.TestCase):
         # Should handle error gracefully
         with self.assertRaises(Exception):
             client.refresh_access_token()
+    
+    @patch('src.qbo_client.requests.post')
+    @patch('src.qbo_client.requests.request')
+    def test_403_forbidden_error_handling(self, mock_request, mock_post):
+        """Test handling of 403 Forbidden errors from QuickBooks API."""
+        test_access_token = 'test_access_token_xyz'
+        
+        # Mock token refresh (will be called before the request)
+        mock_post_response = Mock()
+        mock_post_response.status_code = 200
+        mock_post_response.json.return_value = {
+            'access_token': test_access_token,
+            'expires_in': 3600
+        }
+        mock_post_response.raise_for_status = Mock()
+        mock_post.return_value = mock_post_response
+        
+        # Mock 403 error response from API
+        mock_403_response = Mock()
+        mock_403_response.status_code = 403
+        from requests.exceptions import HTTPError
+        http_error = HTTPError(response=mock_403_response)
+        mock_403_response.raise_for_status.side_effect = http_error
+        
+        # Set up mock_request to return 403 on first call, then again on retry
+        mock_request.return_value = mock_403_response
+        
+        client = QBOClient(
+            client_id='test_client_id',
+            client_secret='test_client_secret',
+            refresh_token='test_refresh_token',
+            realm_id='test_realm_id'
+        )
+        
+        # Set an access token to avoid initial refresh
+        client.access_token = test_access_token
+        
+        # Make a request that should get 403
+        result = client.make_request("query", params={"query": "select * from Invoice"})
+        
+        # Should return empty dict on 403 error
+        self.assertEqual(result, {})
+        
+        # Verify that the request was attempted (at least twice due to retry logic)
+        self.assertGreaterEqual(mock_request.call_count, 1)
+    
+    @patch('src.qbo_client.requests.post')
+    @patch('src.qbo_client.requests.request')
+    def test_403_resolved_by_token_refresh(self, mock_request, mock_post):
+        """Test case where 403 error is resolved by refreshing the access token."""
+        test_access_token = 'test_access_token_xyz'
+        new_access_token = 'new_access_token_xyz'
+        
+        # Mock token refresh
+        mock_post_response = Mock()
+        mock_post_response.status_code = 200
+        mock_post_response.json.return_value = {
+            'access_token': new_access_token,
+            'expires_in': 3600
+        }
+        mock_post_response.raise_for_status = Mock()
+        mock_post.return_value = mock_post_response
+        
+        # Mock API responses: 403 on first call, success on retry
+        from requests.exceptions import HTTPError
+        
+        mock_403_response = Mock()
+        mock_403_response.status_code = 403
+        http_error = HTTPError(response=mock_403_response)
+        mock_403_response.raise_for_status.side_effect = http_error
+        
+        mock_success_response = Mock()
+        mock_success_response.status_code = 200
+        mock_success_response.json.return_value = {"QueryResponse": {"Invoice": []}}
+        mock_success_response.raise_for_status = Mock()
+        
+        # First call returns 403, second call (after token refresh) succeeds
+        mock_request.side_effect = [mock_403_response, mock_success_response]
+        
+        client = QBOClient(
+            client_id='test_client_id',
+            client_secret='test_client_secret',
+            refresh_token='test_refresh_token',
+            realm_id='test_realm_id'
+        )
+        
+        # Set an access token
+        client.access_token = test_access_token
+        
+        # Make request - should get 403, retry with new token, and succeed
+        result = client.make_request("query", params={"query": "select * from Invoice"})
+        
+        # Should return successful response
+        self.assertIsInstance(result, dict)
+        self.assertIn("QueryResponse", result)
+        
+        # Verify token refresh was called
+        mock_post.assert_called_once()
+        
+        # Verify request was made twice (initial + retry)
+        self.assertEqual(mock_request.call_count, 2)
 
 
 if __name__ == '__main__':

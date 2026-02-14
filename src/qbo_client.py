@@ -139,7 +139,8 @@ class QBOClient:
 
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP Error: {e}")
-            # If 401, try to refresh token once and retry
+            
+            # Handle 401 (Unauthorized) - token expired
             if e.response.status_code == 401 and self.access_token:
                 logger.info("Received 401, attempting to refresh token and retry...")
                 try:
@@ -151,6 +152,41 @@ class QBOClient:
                 except Exception as retry_error:
                     logger.error(f"Retry after token refresh failed: {retry_error}")
                     return {}
+            
+            # Handle 403 (Forbidden) - invalid credentials or insufficient permissions
+            elif e.response.status_code == 403:
+                error_msg = (
+                    f"403 Forbidden error when accessing QuickBooks API at {url}. "
+                    f"This typically indicates one of the following issues:\n"
+                    f"1. OAuth credentials are invalid or have been revoked\n"
+                    f"2. The refresh token has expired (refresh tokens expire after 101 days)\n"
+                    f"3. Insufficient permissions/scopes for this operation\n"
+                    f"4. The company (realm_id) is not accessible with these credentials\n\n"
+                    f"To resolve this issue:\n"
+                    f"→ Log in to the application and navigate to /qbo-settings\n"
+                    f"→ Click 'Disconnect from QuickBooks' if connected\n"
+                    f"→ Click 'Connect to QuickBooks' to re-authorize the application\n"
+                    f"→ Make sure to authorize with an account that has access to company ID: {self.realm_id}"
+                )
+                logger.error(error_msg)
+                
+                # Attempt token refresh as a last resort (might help in some edge cases)
+                if self.access_token:
+                    logger.info("Attempting token refresh for 403 error as a troubleshooting step...")
+                    try:
+                        self.refresh_access_token()
+                        headers = self.get_headers()
+                        response = requests.request(method, url, headers=headers, params=params, json=data)
+                        response.raise_for_status()
+                        logger.info("Token refresh resolved the 403 error")
+                        return response.json()
+                    except Exception as retry_error:
+                        logger.error(
+                            f"Token refresh did not resolve the 403 error: {retry_error}. "
+                            f"Please reconnect to QuickBooks via /qbo-settings"
+                        )
+                return {}
+            
             return {}
         except requests.exceptions.RequestException as e:
             logger.error(f"Request failed: {e}")
