@@ -1567,10 +1567,21 @@ def qbo_oauth_callback():
         realm_id = request.args.get('realmId')
         error = request.args.get('error')
         
+        # Log callback details for debugging
+        logger.info("=" * 80)
+        logger.info("QuickBooks OAuth 2.0 Callback Received")
+        logger.info("=" * 80)
+        logger.info(f"Authorization Code: {'[RECEIVED]' if code else 'No code received'}")
+        logger.info(f"Realm ID: {realm_id}")
+        logger.info(f"State Token: {'[VALID]' if state else '[MISSING]'}")
+        logger.info(f"Error (if any): {error}")
+        logger.info("=" * 80)
+        
         # Check for errors from QBO
         if error:
-            logger.error(f"QBO OAuth error: {error}")
-            return render_template('oauth_callback.html', error=f'QBO authorization failed: {error}')
+            error_description = request.args.get('error_description', 'No description provided')
+            logger.error(f"QBO OAuth error: {error} - {error_description}")
+            return render_template('oauth_callback.html', error=f'QBO authorization failed: {error} - {error_description}')
         
         # Verify state to prevent CSRF
         if state != session.get('qbo_oauth_state'):
@@ -1585,6 +1596,7 @@ def qbo_oauth_callback():
             return render_template('oauth_callback.html', error='Invalid state parameter - possible CSRF attack')
         
         if not code or not realm_id:
+            logger.error(f"Missing authorization code or realm ID - code: {bool(code)}, realm_id: {bool(realm_id)}")
             return render_template('oauth_callback.html', error='Missing authorization code or realm ID')
         
         # Get stored credentials from session
@@ -1593,7 +1605,10 @@ def qbo_oauth_callback():
         redirect_uri = session.get('qbo_oauth_redirect_uri')
         
         if not all([client_id, client_secret, redirect_uri]):
+            logger.error("OAuth session data missing - session may have expired")
             return render_template('oauth_callback.html', error='OAuth session expired. Please restart the flow.')
+        
+        logger.info(f"Exchanging authorization code for tokens using redirect_uri: {redirect_uri}")
         
         # Exchange authorization code for tokens
         token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
@@ -1615,11 +1630,14 @@ def qbo_oauth_callback():
             'redirect_uri': redirect_uri
         }
         
-        logger.info("Exchanging authorization code for tokens...")
+        logger.info("Sending token exchange request to QuickBooks...")
         response = requests.post(token_url, headers=headers, data=data)
         response.raise_for_status()
         
         token_data = response.json()
+        
+        logger.info("Successfully received token response from QuickBooks")
+        logger.info(f"Token data keys: {list(token_data.keys())}")
         
         # Extract tokens from response (handle both camelCase and snake_case)
         access_token = token_data.get('access_token') or token_data.get('accessToken')
@@ -1628,8 +1646,11 @@ def qbo_oauth_callback():
         x_refresh_token_expires_in = token_data.get('x_refresh_token_expires_in', 8726400)
         
         if not access_token or not refresh_token:
-            logger.error(f"Missing tokens in response: {token_data}")
-            return jsonify({'error': 'Failed to obtain tokens from QBO'}), 500
+            logger.error(f"Missing tokens in response. Available keys: {list(token_data.keys())}")
+            return render_template('oauth_callback.html', error='Failed to obtain tokens from QBO')
+        
+        logger.info(f"Access token expires in: {expires_in} seconds")
+        logger.info(f"Refresh token expires in: {x_refresh_token_expires_in} seconds (~{x_refresh_token_expires_in/86400:.1f} days)")
         
         # Save credentials to database
         credentials = {
@@ -1642,9 +1663,11 @@ def qbo_oauth_callback():
             'x_refresh_token_expires_in': x_refresh_token_expires_in
         }
         
+        logger.info(f"Saving credentials to database for Realm ID: {realm_id}")
         success = database.save_qbo_credentials(credentials, session.get('user_id'))
         
         if success:
+            logger.info("Successfully saved credentials to database")
             # Update the global QBO client with new credentials
             global qbo_client, secret_manager
             qbo_credentials = secret_manager.get_qbo_credentials()
@@ -1663,6 +1686,9 @@ def qbo_oauth_callback():
             session.pop('qbo_oauth_redirect_uri', None)
             session.pop('qbo_oauth_state', None)
             
+            logger.info("OAuth flow completed successfully")
+            logger.info("=" * 80)
+            
             # Log the action
             database.log_audit(
                 user_id=session.get('user_id'),
@@ -1678,14 +1704,158 @@ def qbo_oauth_callback():
             # Render callback page that will notify parent window and close popup
             return render_template('oauth_callback.html', success='true')
         else:
-            return render_template('oauth_callback.html', error='Failed to save QBO credentials')
+            logger.error("Failed to save QBO credentials to database")
+            return render_template('oauth_callback.html', error='Failed to save QBO credentials to database')
             
+    except requests.exceptions.HTTPError as e:
+        # Handle HTTP errors from token exchange
+        error_msg = f"HTTP {e.response.status_code} error during token exchange"
+        try:
+            error_data = e.response.json()
+            error_msg += f": {error_data.get('error', 'Unknown error')}"
+            if 'error_description' in error_data:
+                error_msg += f" - {error_data['error_description']}"
+            logger.error(f"Token exchange failed: {error_msg}")
+            logger.error(f"Response body: {error_data}")
+        except:
+            logger.error(f"Token exchange failed: {error_msg}")
+            logger.error(f"Response text: {e.response.text}")
+        
+        # Provide helpful guidance based on error type
+        if e.response.status_code == 400:
+            error_msg += "\n\nPossible causes:\n"
+            error_msg += "- Authorization code already used or expired\n"
+            error_msg += "- Redirect URI mismatch\n"
+            error_msg += "- Invalid client credentials"
+        elif e.response.status_code == 401:
+            error_msg += "\n\nPossible causes:\n"
+            error_msg += "- Invalid client ID or client secret\n"
+            error_msg += "- Credentials may be for wrong environment (Sandbox vs Production)"
+        
+        return render_template('oauth_callback.html', error=error_msg)
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error exchanging authorization code: {e}")
-        return render_template('oauth_callback.html', error=f'Failed to exchange authorization code: {str(e)}')
+        logger.error(f"Request error during token exchange: {e}")
+        return render_template('oauth_callback.html', error=f'Network error during token exchange: {str(e)}')
     except Exception as e:
-        logger.error(f"Error in OAuth callback: {e}")
-        return render_template('oauth_callback.html', error=str(e))
+        logger.error(f"Unexpected error in OAuth callback: {e}", exc_info=True)
+        return render_template('oauth_callback.html', error=f'An unexpected error occurred: {str(e)}')
+
+
+@app.route('/qbo-settings', methods=['GET'])
+@login_required
+def qbo_settings_redirect():
+    """Redirect /qbo-settings to /qbo-settings-v2 for backwards compatibility."""
+    return redirect('/qbo-settings-v2')
+
+
+@app.route('/api/qbo/oauth/diagnostic', methods=['GET'])
+@login_required
+def qbo_oauth_diagnostic():
+    """
+    Diagnostic endpoint to help troubleshoot OAuth configuration.
+    Returns information about the current OAuth setup.
+    """
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can access diagnostics
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        # Get current credentials
+        credentials = database.get_qbo_credentials()
+        
+        # Get the redirect URI that would be used
+        parsed_url = urlparse(request.host_url.rstrip('/'))
+        # Construct new URL with HTTPS scheme
+        https_url = urlunparse((
+            'https',  # scheme
+            parsed_url.netloc,  # netloc
+            parsed_url.path,  # path
+            parsed_url.params,  # params
+            parsed_url.query,  # query
+            parsed_url.fragment  # fragment
+        ))
+        redirect_uri = https_url + '/api/qbo/oauth/callback'
+        
+        # Get hardcoded client ID from the code (masked for security)
+        hardcoded_client_id_full = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+        hardcoded_client_id_masked = hardcoded_client_id_full[:10] + '...'
+        
+        diagnostic_info = {
+            'oauth_configuration': {
+                'authorization_endpoint': 'https://appcenter.intuit.com/connect/oauth2',
+                'token_endpoint': 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+                'scope': 'com.intuit.quickbooks.accounting',
+                'response_type': 'code'
+            },
+            'current_setup': {
+                'redirect_uri': redirect_uri,
+                'client_id_in_use': hardcoded_client_id_masked,
+                'host_url': request.host_url,
+                'using_https': parsed_url.scheme == 'https'
+            },
+            'database_credentials': {
+                'configured': bool(credentials),
+                'client_id': 'Set (masked for security)' if credentials and credentials.get('client_id') else 'Not set',
+                'realm_id': credentials.get('realm_id') if credentials else 'Not set',
+                'has_refresh_token': bool(credentials.get('refresh_token')) if credentials else False,
+                'has_access_token': bool(credentials.get('access_token')) if credentials else False,
+                'tokens_valid': credentials.get('is_valid', False) if credentials else False
+            },
+            'troubleshooting_checklist': [
+                {
+                    'item': 'Redirect URI must be registered in QBO Developer Portal',
+                    'value': redirect_uri,
+                    'status': 'unknown',
+                    'action': f'Log into developer.intuit.com and verify "{redirect_uri}" is in your app\'s redirect URIs'
+                },
+                {
+                    'item': 'Client ID must match the one in your QBO app',
+                    'value': hardcoded_client_id_masked,
+                    'status': 'unknown',
+                    'action': 'Verify this client ID matches your QBO app credentials'
+                },
+                {
+                    'item': 'Using correct environment',
+                    'value': 'Sandbox (based on endpoint)',
+                    'status': 'info',
+                    'action': 'Ensure your client credentials are from the Sandbox environment if using sandbox-quickbooks.api.intuit.com'
+                },
+                {
+                    'item': 'Browser allows popups',
+                    'value': 'Unknown',
+                    'status': 'warning',
+                    'action': 'Ensure your browser allows popups for this site'
+                }
+            ],
+            'common_issues': {
+                'no_login_screen': [
+                    'Redirect URI not registered in QBO Developer Portal',
+                    'Client ID is invalid or for wrong environment',
+                    'Browser popup blocker is preventing the OAuth window',
+                    'Client secret is incorrect (check during callback)'
+                ],
+                '403_forbidden': [
+                    'Invalid or expired credentials',
+                    'Refresh token expired (>101 days old)',
+                    'Realm ID is not accessible with these credentials',
+                    'Need to reconnect via OAuth flow'
+                ]
+            },
+            'next_steps': [
+                '1. Verify the redirect URI is registered in your QBO app at developer.intuit.com',
+                '2. Check that your client ID and secret are correct',
+                '3. Try clicking "Connect to QuickBooks" and check browser console for errors',
+                '4. Check server logs for detailed OAuth flow information',
+                '5. If you see a blank screen, check for popup blockers'
+            ]
+        }
+        
+        return jsonify(diagnostic_info), 200
+    except Exception as e:
+        logger.error(f"Error generating OAuth diagnostics: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/qbo-settings-v2', methods=['GET'])
@@ -1720,9 +1890,17 @@ def qbo_oauth_authorize_v2():
         
         # Get the redirect URI based on current host
         # Force HTTPS since Cloud Run uses HTTPS externally even if request.host_url returns HTTP
-        # Use proper URL parsing to replace the scheme
+        # Construct URL with explicit HTTPS scheme
+        # Expected on Cloud Run: https://feb42026-286597576168.us-central1.run.app/api/qbo/oauth/callback
         parsed_url = urlparse(request.host_url.rstrip('/'))
-        https_url = urlunparse(parsed_url._replace(scheme='https'))
+        https_url = urlunparse((
+            'https',  # scheme
+            parsed_url.netloc,  # netloc
+            parsed_url.path,  # path
+            parsed_url.params,  # params
+            parsed_url.query,  # query
+            parsed_url.fragment  # fragment
+        ))
         redirect_uri = https_url + '/api/qbo/oauth/callback'
         
         # Store client credentials in session for later use in callback
@@ -1749,6 +1927,23 @@ def qbo_oauth_authorize_v2():
             f"state={state}"
         )
         
+        # Log detailed OAuth initiation information for debugging
+        logger.info("=" * 80)
+        logger.info("QuickBooks OAuth 2.0 Flow Initiated")
+        logger.info("=" * 80)
+        logger.info(f"Client ID: {client_id[:10]}... (masked for security)")
+        logger.info(f"Redirect URI (unencoded): {redirect_uri}")
+        logger.info(f"Redirect URI (encoded): {encoded_redirect_uri}")
+        logger.info(f"State Token: {state}")
+        logger.info(f"Authorization URL: [Generated - check browser for actual URL]")
+        logger.info("=" * 80)
+        logger.info("IMPORTANT: Verify the following in your QuickBooks Developer Portal:")
+        logger.info(f"  1. The redirect URI '{redirect_uri}' is registered EXACTLY as shown")
+        logger.info(f"  2. The client ID (shown above, masked) matches your app's credentials")
+        logger.info("  3. Your app is in the correct environment (Sandbox vs Production)")
+        logger.info("  4. The 'com.intuit.quickbooks.accounting' scope is enabled")
+        logger.info("=" * 80)
+        
         # Log the action
         database.log_audit(
             user_id=session.get('user_id'),
@@ -1756,7 +1951,7 @@ def qbo_oauth_authorize_v2():
             action='initiate_qbo_oauth_v2',
             resource_type='qbo_credentials',
             resource_id='1',
-            details='Initiated QBO OAuth flow v2 with hardcoded credentials',
+            details=f'Initiated QBO OAuth flow v2 - Redirect URI: {redirect_uri}',
             ip_address=request.remote_addr,
             user_agent=request.user_agent.string if request.user_agent else None
         )
