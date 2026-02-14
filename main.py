@@ -1286,6 +1286,8 @@ def qbo_oauth_authorize():
         
         # Build the authorization URL
         # URL encode the redirect_uri to ensure it matches exactly with QuickBooks settings
+        # Per RFC 3986, when used as a query parameter VALUE, reserved characters must be encoded
+        # Using safe='' ensures full encoding of all special characters including :, /, ?, etc.
         encoded_redirect_uri = quote(redirect_uri, safe='')
         auth_url = (
             f"https://appcenter.intuit.com/connect/oauth2?"
