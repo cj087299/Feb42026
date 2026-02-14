@@ -437,10 +437,13 @@
                         return;
                     }
 
-                    // Poll for popup closure or message from callback
+                    // Flag to track if OAuth callback was successful (takes precedence over polling)
+                    let oauthCompleted = false;
                     let pollTimerCleared = false;
+                    
+                    // Poll for popup closure or message from callback
                     const pollTimer = setInterval(() => {
-                        if (popup.closed && !pollTimerCleared) {
+                        if (popup.closed && !pollTimerCleared && !oauthCompleted) {
                             clearInterval(pollTimer);
                             pollTimerCleared = true;
                             connectButton.disabled = false;
@@ -456,6 +459,7 @@
                         }
 
                         if (event.data.type === 'qbo_oauth_success') {
+                            oauthCompleted = true;
                             if (!pollTimerCleared) {
                                 clearInterval(pollTimer);
                                 pollTimerCleared = true;
@@ -467,6 +471,7 @@
                             // Reload the status to show updated credentials
                             loadStatus();
                         } else if (event.data.type === 'qbo_oauth_error') {
+                            oauthCompleted = true;
                             if (!pollTimerCleared) {
                                 clearInterval(pollTimer);
                                 pollTimerCleared = true;
