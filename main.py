@@ -4,6 +4,8 @@ import json
 import uuid
 import base64
 import requests
+import threading
+from queue import Queue
 from urllib.parse import quote
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from src.qbo_client import QBOClient
@@ -44,6 +46,52 @@ email_service = EmailService()
 
 # Initialize Webhook Handler
 webhook_handler = WebhookHandler()
+
+# Webhook Queue for asynchronous processing
+# This ensures webhook endpoint responds immediately with 200 OK
+webhook_queue = Queue()
+
+def process_webhook_queue():
+    """
+    Background thread that processes webhook events asynchronously.
+    This allows the webhook endpoint to return 200 OK immediately.
+    """
+    while True:
+        try:
+            # Get event from queue (blocks until event available)
+            event_data = webhook_queue.get()
+            
+            if event_data is None:  # Poison pill to stop thread
+                break
+            
+            logger.info(f"Processing queued webhook event: {event_data.get('event_id', 'unknown')}")
+            
+            # Parse CloudEvents format
+            parsed_data = webhook_handler.parse_cloudevents(event_data)
+            
+            if not parsed_data:
+                logger.error("Failed to parse queued CloudEvents payload")
+            else:
+                # Process the webhook event
+                result = webhook_handler.process_webhook_event(parsed_data)
+                logger.info(f"Completed processing webhook event: {result}")
+            
+            # Mark task as done
+            webhook_queue.task_done()
+            
+        except Exception as e:
+            logger.error(f"Error processing queued webhook event: {e}")
+            webhook_queue.task_done()
+
+# Start background webhook processor thread
+# Note: Using daemon=True is appropriate for Cloud Run deployment:
+# - Webhook events are idempotent (QBO will retry on failure)
+# - Container lifecycle is managed by Cloud Run
+# - Critical requirement is fast response time (< 1 sec), not zero event loss
+# - For production at scale, consider using Cloud Tasks or Pub/Sub for durability
+webhook_processor_thread = threading.Thread(target=process_webhook_queue, daemon=True)
+webhook_processor_thread.start()
+logger.info("Webhook background processor started")
 
 # Initialize QBO client with credentials from Secret Manager (which now checks database first)
 qbo_credentials = secret_manager.get_qbo_credentials()
@@ -189,6 +237,9 @@ def qbo_webhook():
     This endpoint receives notifications from QBO when entities change.
     It uses CloudEvents format and requires verifier token validation.
     
+    IMPORTANT: Per QBO requirements, this endpoint MUST respond immediately
+    with 200 OK. Event processing happens asynchronously in a background thread.
+    
     CSRF Exemption: This endpoint is called by QBO's servers and doesn't 
     have CSRF tokens. Authentication is done via verifier token.
     """
@@ -220,34 +271,41 @@ def qbo_webhook():
             return jsonify({'error': 'No payload received'}), 400
         
         # Log the incoming webhook
+        # INFO level: truncated for readability
         logger.info(f"Received webhook: {json.dumps(payload, default=str)[:500]}")
+        # DEBUG level: full payload for troubleshooting
+        logger.debug(f"Full webhook payload: {json.dumps(payload, default=str)}")
         
         # Handle array of events (CloudEvents can be sent as array)
         events = payload if isinstance(payload, list) else [payload]
         
-        results = []
+        # Queue events for asynchronous processing
+        # This ensures we respond to QBO immediately
+        queued_count = 0
         for event in events:
-            # Parse CloudEvents format
-            parsed_data = webhook_handler.parse_cloudevents(event)
-            
-            if not parsed_data:
-                logger.error("Failed to parse CloudEvents payload")
-                results.append({'status': 'error', 'message': 'Invalid CloudEvents format'})
-                continue
-            
-            # Process the webhook event
-            result = webhook_handler.process_webhook_event(parsed_data)
-            results.append(result)
+            try:
+                webhook_queue.put(event)
+                queued_count += 1
+            except Exception as e:
+                logger.error(f"Failed to queue webhook event: {e}")
         
+        logger.info(f"Queued {queued_count} webhook event(s) for background processing")
+        
+        # Return 200 OK immediately (as required by QBO)
         return jsonify({
-            'status': 'success',
-            'processed': len(results),
-            'results': results
+            'status': 'accepted',
+            'message': f'Received {len(events)} event(s), queued for processing',
+            'queued': queued_count
         }), 200
         
     except Exception as e:
-        logger.error(f"Error processing webhook: {e}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error receiving webhook: {e}")
+        # Even on error, return 200 to prevent QBO from retrying
+        # Log the error for investigation but don't block QBO
+        return jsonify({
+            'status': 'accepted',
+            'message': 'Event received, errors logged'
+        }), 200
 
 
 @app.route('/', methods=['GET'])
@@ -1411,7 +1469,7 @@ def qbo_oauth_callback():
     
     # Only admin and master_admin can complete OAuth
     if user_role not in ['admin', 'master_admin']:
-        return jsonify({'error': 'Permission denied'}), 403
+        return render_template('oauth_callback.html', error='Permission denied')
     
     try:
         # Get authorization code and state from query params
@@ -1423,15 +1481,22 @@ def qbo_oauth_callback():
         # Check for errors from QBO
         if error:
             logger.error(f"QBO OAuth error: {error}")
-            return jsonify({'error': f'QBO authorization failed: {error}'}), 400
+            return render_template('oauth_callback.html', error=f'QBO authorization failed: {error}')
         
         # Verify state to prevent CSRF
         if state != session.get('qbo_oauth_state'):
-            logger.error("OAuth state mismatch")
-            return jsonify({'error': 'Invalid state parameter'}), 400
+            # Log security incident with details
+            logger.error(
+                f"SECURITY: OAuth state mismatch - possible CSRF attack. "
+                f"IP: {request.remote_addr}, "
+                f"User: {session.get('user_email', 'unknown')}, "
+                f"Expected state: {session.get('qbo_oauth_state')}, "
+                f"Received state: {state}"
+            )
+            return render_template('oauth_callback.html', error='Invalid state parameter - possible CSRF attack')
         
         if not code or not realm_id:
-            return jsonify({'error': 'Missing authorization code or realm ID'}), 400
+            return render_template('oauth_callback.html', error='Missing authorization code or realm ID')
         
         # Get stored credentials from session
         client_id = session.get('qbo_oauth_client_id')
@@ -1439,7 +1504,7 @@ def qbo_oauth_callback():
         redirect_uri = session.get('qbo_oauth_redirect_uri')
         
         if not all([client_id, client_secret, redirect_uri]):
-            return jsonify({'error': 'OAuth session expired. Please restart the flow.'}), 400
+            return render_template('oauth_callback.html', error='OAuth session expired. Please restart the flow.')
         
         # Exchange authorization code for tokens
         token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
@@ -1521,17 +1586,17 @@ def qbo_oauth_callback():
                 user_agent=request.user_agent.string if request.user_agent else None
             )
             
-            # Redirect to QBO settings page with success message
-            return redirect(url_for('qbo_settings_page') + '?oauth_success=true')
+            # Render callback page that will notify parent window and close popup
+            return render_template('oauth_callback.html', success='true')
         else:
-            return jsonify({"error": "Failed to save QBO credentials"}), 500
+            return render_template('oauth_callback.html', error='Failed to save QBO credentials')
             
     except requests.exceptions.RequestException as e:
         logger.error(f"Error exchanging authorization code: {e}")
-        return jsonify({"error": f"Failed to exchange authorization code: {str(e)}"}), 500
+        return render_template('oauth_callback.html', error=f'Failed to exchange authorization code: {str(e)}')
     except Exception as e:
         logger.error(f"Error in OAuth callback: {e}")
-        return jsonify({"error": str(e)}), 500
+        return render_template('oauth_callback.html', error=str(e))
 
 
 @app.route('/qbo-settings', methods=['GET'])

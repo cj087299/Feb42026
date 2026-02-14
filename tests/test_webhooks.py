@@ -302,11 +302,10 @@ class TestWebhookEndpoint(unittest.TestCase):
         
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['processed'], 1)
-        self.assertIsInstance(data['results'], list)
-        self.assertEqual(data['results'][0]['entity'], 'Invoice')
-        self.assertEqual(data['results'][0]['entity_id'], '1047')
+        # Webhook now queues events asynchronously and returns 'accepted'
+        self.assertEqual(data['status'], 'accepted')
+        self.assertEqual(data['queued'], 1)
+        self.assertIn('message', data)
     
     def test_webhook_endpoint_post_valid_multiple_events(self):
         """Test POST request with multiple CloudEvents payloads."""
@@ -357,17 +356,10 @@ class TestWebhookEndpoint(unittest.TestCase):
         
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['processed'], 3)
-        self.assertEqual(len(data['results']), 3)
-        
-        # Verify each entity was processed correctly
-        self.assertEqual(data['results'][0]['entity'], 'Invoice')
-        self.assertEqual(data['results'][0]['entity_id'], '1047')
-        self.assertEqual(data['results'][1]['entity'], 'Payment')
-        self.assertEqual(data['results'][1]['entity_id'], '3789')
-        self.assertEqual(data['results'][2]['entity'], 'Account')
-        self.assertEqual(data['results'][2]['entity_id'], '35')
+        # Webhook now queues events asynchronously and returns 'accepted'
+        self.assertEqual(data['status'], 'accepted')
+        self.assertEqual(data['queued'], 3)
+        self.assertIn('message', data)
     
     def test_webhook_endpoint_post_no_payload(self):
         """Test POST request with no payload."""
@@ -393,11 +385,12 @@ class TestWebhookEndpoint(unittest.TestCase):
             content_type='application/json'
         )
         
-        # Should still return 200 but with error in results
+        # Should still return 200 (accepted) even with invalid CloudEvents
+        # Invalid events are queued and errors are logged during processing
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
-        self.assertEqual(data['status'], 'success')
-        self.assertIsInstance(data['results'], list)
+        self.assertEqual(data['status'], 'accepted')
+        self.assertEqual(data['queued'], 1)
 
 
 if __name__ == '__main__':
