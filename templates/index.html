@@ -57,7 +57,7 @@
                 <span class="card-link">Manage Users →</span>
             </a>
             
-            <a href="/qbo-settings" class="card" id="qboSettingsCard" style="display: none;">
+            <a href="/qbo-settings-v2" class="card" id="qboSettingsCard" style="display: none;">
                 <div class="card-icon">⚙️</div>
                 <h2>QuickBooks Settings</h2>
                 <p>Manage QuickBooks Online credentials and connection settings. Configure API access for all users.</p>
@@ -107,7 +107,7 @@
                         nav.insertBefore(auditLink, nav.lastElementChild);
                         
                         const qboLink = document.createElement('a');
-                        qboLink.href = '/qbo-settings';
+                        qboLink.href = '/qbo-settings-v2';
                         qboLink.textContent = 'QBO Settings';
                         nav.insertBefore(qboLink, nav.lastElementChild);
                     }

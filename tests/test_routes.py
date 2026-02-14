@@ -79,6 +79,20 @@ class TestRoutes(AuthenticatedTestCase):
         response = self.client.get('/cashflow')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Cash Flow Projection', response.data)
+    
+    def test_qbo_settings_v2_page_accessible_for_admin(self):
+        """Test that the QBO settings v2 page is accessible for admin users"""
+        response = self.client.get('/qbo-settings-v2')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'QuickBooks Settings', response.data)
+        self.assertIn(b'v2', response.data)
+    
+    def test_qbo_settings_v2_page_has_last_revised(self):
+        """Test that the QBO settings v2 page has last revised date/time"""
+        response = self.client.get('/qbo-settings-v2')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Last Revised:', response.data)
+        self.assertIn(b'lastRevised', response.data)
 
 
 if __name__ == '__main__':

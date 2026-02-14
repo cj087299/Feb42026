@@ -1599,19 +1599,6 @@ def qbo_oauth_callback():
         return render_template('oauth_callback.html', error=str(e))
 
 
-@app.route('/qbo-settings', methods=['GET'])
-@login_required
-def qbo_settings_page():
-    """QBO settings page (admin and master_admin only)."""
-    user_role = session.get('user_role')
-    
-    # Only admin and master_admin can access QBO settings
-    if user_role not in ['admin', 'master_admin']:
-        return jsonify({'error': 'Permission denied'}), 403
-    
-    return render_template('qbo_settings.html')
-
-
 @app.route('/qbo-settings-v2', methods=['GET'])
 @login_required
 def qbo_settings_v2_page():
