@@ -30,12 +30,16 @@ This project provides comprehensive tools for managing QuickBooks Online invoice
 - **Shared Access**: One admin connects, all users can access QBO for 101 days
 - **Secure Flow**: Full OAuth 2.0 implementation with CSRF protection
 - **No Manual Token Entry Required**: Just connect and go!
+- **Credential Validation**: Automatic detection of invalid or expired credentials with helpful error messages
+- **Health Check**: Use `check_oauth_health.py` to diagnose OAuth issues
 - See `QBO_OAUTH_FLOW.md` for step-by-step instructions
+- See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for troubleshooting OAuth errors
 
 ### 2. Centralized QBO Token Management
 - **Admin-Configured Credentials**: Master admin and admin users can configure QuickBooks Online credentials once for all users
 - **Automatic Token Refresh**: Access tokens automatically refresh before expiration
 - **Token Expiration Tracking**: Visual indicators show token status and expiration times
+- **Credential Validation**: System validates credentials before use and provides actionable error messages
 - **Secure Storage**: Credentials stored in database with audit logging
 - **Easy Setup**: Web-based UI at `/qbo-settings` for credential management
 - **Long-Lived Sessions**: Refresh tokens valid for 101 days
@@ -352,6 +356,41 @@ Routes are protected based on permissions:
 - `/audit` - Requires 'view_audit_log' permission
 - Invoice metadata editing - Requires 'edit_invoice_metadata' permission
 - Custom cash flows - Requires specific permissions based on flow type
+
+## Troubleshooting
+
+### QuickBooks OAuth Issues
+
+If you encounter OAuth-related errors (such as "401 Unauthorized" when refreshing tokens):
+
+1. **Check Credential Status**:
+   ```bash
+   python3 check_oauth_health.py
+   ```
+   This diagnostic script will check your OAuth configuration and provide recommendations.
+
+2. **Common Error: "Failed to refresh access token: 401 Unauthorized"**
+   - This means your OAuth credentials are invalid, expired, or not configured
+   - **Solution**: Reconfigure credentials at `/qbo-settings` by connecting to QuickBooks
+   - See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for detailed troubleshooting steps
+
+3. **Credentials Not Configured**:
+   - The application uses dummy placeholder values by default
+   - **Solution**: Configure credentials via the admin UI at `/qbo-settings` or set environment variables
+   - Priority: Database > Google Secret Manager > Environment Variables
+
+4. **Token Expired (after 101 days)**:
+   - Refresh tokens expire after 101 days
+   - **Solution**: Reconnect to QuickBooks at `/qbo-settings`
+
+For detailed OAuth troubleshooting, see `OAUTH_CREDENTIAL_SETUP_GUIDE.md`.
+
+### Email Configuration Issues
+
+If password reset emails are not working:
+- Check SMTP configuration in environment variables
+- See `EMAIL_CONFIGURATION.md` for setup instructions
+- Verify SMTP credentials are correct
 
 ## Future Enhancements
 
