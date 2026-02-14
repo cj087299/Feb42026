@@ -6,7 +6,7 @@ import base64
 import requests
 import threading
 from queue import Queue
-from urllib.parse import quote
+from urllib.parse import quote, urlparse, urlunparse
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
@@ -1630,7 +1630,11 @@ def qbo_oauth_authorize_v2():
         client_secret = '8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl'
         
         # Get the redirect URI based on current host
-        redirect_uri = request.host_url.rstrip('/') + '/api/qbo/oauth/callback'
+        # Force HTTPS since Cloud Run uses HTTPS externally even if request.host_url returns HTTP
+        # Use proper URL parsing to replace the scheme
+        parsed_url = urlparse(request.host_url.rstrip('/'))
+        https_url = urlunparse(parsed_url._replace(scheme='https'))
+        redirect_uri = https_url + '/api/qbo/oauth/callback'
         
         # Store client credentials in session for later use in callback
         session['qbo_oauth_client_id'] = client_id
