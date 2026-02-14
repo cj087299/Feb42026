@@ -22,8 +22,14 @@ def initialize_credentials():
     """
     Initialize the database with valid QuickBooks OAuth credentials.
     
-    These credentials are from the QuickBooks OAuth 2.0 Playground
-    and include valid access and refresh tokens.
+    Credentials can be provided in two ways:
+    1. Edit this script and replace the placeholder values (not recommended for production)
+    2. Set environment variables (recommended for production):
+       - QBO_INIT_CLIENT_ID
+       - QBO_INIT_CLIENT_SECRET
+       - QBO_INIT_REFRESH_TOKEN
+       - QBO_INIT_ACCESS_TOKEN
+       - QBO_INIT_REALM_ID
     """
     
     print("=" * 70)
@@ -35,16 +41,31 @@ def initialize_credentials():
     database = Database('vzt_accounting.db')
     print("✅ Database initialized")
     
-    # OAuth credentials from QuickBooks OAuth 2.0 Playground
+    # OAuth credentials - check environment variables first, then fall back to hardcoded values
     credentials = {
-        'client_id': 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA',
-        'client_secret': '8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl',
-        'refresh_token': 'RT1-179-H0-1779755712nwk7zh3ezbzyx74bcywg',
-        'access_token': 'eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwieC5vcmciOiJIMCJ9..-QU4ZCiyr0tXb4DA76pICA.NhozMoPfnB4hKu59spusb5sBldEYe_AxrBTQe27Lm4m2zISmhYtTepfMjtw74Xtx_xJZZDGAXCtrXJeswd53JbKGpwH0G2tzri5tjUTdHF3fi0GSdlVwD9OS8DwczaUjKeoB77PeY8uSSNR4tAqHFlFlQgiWoR_WgxiOe7ypZFCRRb-YWs_g3lcHojGE6yFkh6_npU1NET5z-oJbM6yRoAghHAKtVHdrAh058QAN6jTgocr_O2N4nun0y4357GpC_hVEQhOYIs7rZToGzakAKGEjX9MKCWrqG9LgxaUdIf71suZ6No5BLBsNmXrtTlVL701irm1JWRy3LRa-6z5WxC57neJdC8tK_up2k0nLkiH1ZmfBqCu2LvkDDRs-5-LpFQS2az2KDbMneFmEkY_LNlZz8fnKEkZVp7A3Bby7U2ttkD5kXlY7zEG4MbW6IY1NW6dbsy13hqKKxI5-wY6uXfX_eeZTG9OVm4PWCnfB9_gORFEYQQa3pJ5-9jwcu1r07hB4BztiIVB1Ve2GBktuoLLdQKcDn712tBKtKYJGmf0iXKtkSoKnVOJrrfP-TmycyVMCuiUHg9M3GlBo8r5poeU_L54XQ0jinccIYGUDLIjV_gkmsbqqfJRQv4J9z35b.8xh1SjsgKxpIpD5LUD3B7A',
-        'realm_id': '9341453050298464',
+        'client_id': os.environ.get('QBO_INIT_CLIENT_ID', 'YOUR_CLIENT_ID_HERE'),
+        'client_secret': os.environ.get('QBO_INIT_CLIENT_SECRET', 'YOUR_CLIENT_SECRET_HERE'),
+        'refresh_token': os.environ.get('QBO_INIT_REFRESH_TOKEN', 'YOUR_REFRESH_TOKEN_HERE'),
+        'access_token': os.environ.get('QBO_INIT_ACCESS_TOKEN', 'YOUR_ACCESS_TOKEN_HERE'),
+        'realm_id': os.environ.get('QBO_INIT_REALM_ID', 'YOUR_REALM_ID_HERE'),
         'expires_in': 3600,  # Access token expires in 1 hour
         'x_refresh_token_expires_in': 8726400  # Refresh token expires in 101 days
     }
+    
+    # Check if placeholders are still present
+    if any('YOUR_' in str(v) and '_HERE' in str(v) for v in credentials.values()):
+        print("\n❌ ERROR: Placeholder values detected!")
+        print("\nYou must provide your actual credentials using one of these methods:")
+        print("\n1. Environment Variables (Recommended):")
+        print("   export QBO_INIT_CLIENT_ID='your_client_id'")
+        print("   export QBO_INIT_CLIENT_SECRET='your_client_secret'")
+        print("   export QBO_INIT_REFRESH_TOKEN='your_refresh_token'")
+        print("   export QBO_INIT_ACCESS_TOKEN='your_access_token'")
+        print("   export QBO_INIT_REALM_ID='your_realm_id'")
+        print("\n2. Edit Script (Not recommended for production):")
+        print("   Edit initialize_qbo_credentials.py and replace the placeholders")
+        print("\nGet credentials from: https://developer.intuit.com/app/developer/playground")
+        return 1
     
     print("\n🔑 Saving OAuth credentials to database...")
     print(f"   Client ID: {credentials['client_id'][:20]}...")

@@ -14,13 +14,13 @@ Created `initialize_qbo_credentials.py` script that:
 
 ## Credentials Stored
 
-The following credentials from the QuickBooks OAuth 2.0 Playground have been stored in the database:
+The following credentials from the QuickBooks OAuth 2.0 Playground need to be provided:
 
-- **Client ID**: AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA
-- **Client Secret**: 8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl
-- **Refresh Token**: RT1-179-H0-1779755712nwk7zh3ezbzyx74bcywg
-- **Access Token**: eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2IiwieC5vcmciOiJIMCJ9... (full token stored)
-- **Realm ID**: 9341453050298464
+- **Client ID**: YOUR_CLIENT_ID_HERE (e.g., 'AB224ne26K...')
+- **Client Secret**: YOUR_CLIENT_SECRET_HERE (e.g., '8LyYgJt...')
+- **Refresh Token**: YOUR_REFRESH_TOKEN_HERE (e.g., 'RT1-179-H0-...')
+- **Access Token**: YOUR_ACCESS_TOKEN_HERE (long JWT token)
+- **Realm ID**: YOUR_REALM_ID_HERE (your QuickBooks Company ID)
 
 ## Token Expiration
 
@@ -39,7 +39,19 @@ The following credentials from the QuickBooks OAuth 2.0 Playground have been sto
 
 ### To Initialize Database with Credentials
 
+**Method 1: Using Environment Variables (Recommended)**
 ```bash
+export QBO_INIT_CLIENT_ID='your_client_id'
+export QBO_INIT_CLIENT_SECRET='your_client_secret'
+export QBO_INIT_REFRESH_TOKEN='your_refresh_token'
+export QBO_INIT_ACCESS_TOKEN='your_access_token'
+export QBO_INIT_REALM_ID='your_realm_id'
+python3 initialize_qbo_credentials.py
+```
+
+**Method 2: Edit Script (Development Only)**
+```bash
+# Edit initialize_qbo_credentials.py to replace placeholders
 python3 initialize_qbo_credentials.py
 ```
 
