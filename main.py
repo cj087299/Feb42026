@@ -28,6 +28,12 @@ from src.webhook_handler import WebhookHandler
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Constants for QBO dummy credentials (used when credentials are not configured)
+DUMMY_QBO_CLIENT_ID = 'dummy_id'
+DUMMY_QBO_CLIENT_SECRET = 'dummy_secret'
+DUMMY_QBO_REFRESH_TOKEN = 'dummy_refresh'
+DUMMY_QBO_REALM_ID = 'dummy_realm'
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
 
@@ -254,7 +260,13 @@ def get_fresh_qbo_client():
             logger.error(f"Missing required QBO credential fields: {missing_fields}")
             # Return a client with dummy values and invalid flag
             # This maintains backward compatibility with existing error handling
-            client = QBOClient('dummy_id', 'dummy_secret', 'dummy_refresh', 'dummy_realm', database=database)
+            client = QBOClient(
+                DUMMY_QBO_CLIENT_ID, 
+                DUMMY_QBO_CLIENT_SECRET, 
+                DUMMY_QBO_REFRESH_TOKEN, 
+                DUMMY_QBO_REALM_ID, 
+                database=database
+            )
             return client, False
         
         client = QBOClient(
@@ -265,7 +277,10 @@ def get_fresh_qbo_client():
             database=database
         )
         
-        # If we have an access token in the database, use it
+        # Set the access token if available in the database
+        # The access token is stored separately and needs to be set after client creation
+        # because it's not part of the QBOClient constructor (only refresh token is)
+        # This allows the client to skip an initial token refresh if we have a valid token
         if qbo_creds.get('access_token'):
             client.access_token = qbo_creds['access_token']
         
@@ -273,7 +288,14 @@ def get_fresh_qbo_client():
     except Exception as e:
         logger.error(f"Error creating fresh QBO client: {e}")
         # Return a client with dummy values and invalid flag on error
-        client = QBOClient('dummy_id', 'dummy_secret', 'dummy_refresh', 'dummy_realm', database=database)
+        # This ensures the function always returns a valid tuple, maintaining API contract
+        client = QBOClient(
+            DUMMY_QBO_CLIENT_ID, 
+            DUMMY_QBO_CLIENT_SECRET, 
+            DUMMY_QBO_REFRESH_TOKEN, 
+            DUMMY_QBO_REALM_ID, 
+            database=database
+        )
         return client, False
 
 
