@@ -1630,7 +1630,8 @@ def qbo_oauth_authorize_v2():
         client_secret = '8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl'
         
         # Get the redirect URI based on current host
-        redirect_uri = request.host_url.rstrip('/') + '/api/qbo/oauth/callback'
+        # Force HTTPS since Cloud Run uses HTTPS externally even if request.host_url returns HTTP
+        redirect_uri = request.host_url.replace('http://', 'https://').rstrip('/') + '/api/qbo/oauth/callback'
         
         # Store client credentials in session for later use in callback
         session['qbo_oauth_client_id'] = client_id
