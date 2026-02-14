@@ -84,6 +84,11 @@ def process_webhook_queue():
             webhook_queue.task_done()
 
 # Start background webhook processor thread
+# Note: Using daemon=True is appropriate for Cloud Run deployment:
+# - Webhook events are idempotent (QBO will retry on failure)
+# - Container lifecycle is managed by Cloud Run
+# - Critical requirement is fast response time (< 1 sec), not zero event loss
+# - For production at scale, consider using Cloud Tasks or Pub/Sub for durability
 webhook_processor_thread = threading.Thread(target=process_webhook_queue, daemon=True)
 webhook_processor_thread.start()
 logger.info("Webhook background processor started")
@@ -265,8 +270,11 @@ def qbo_webhook():
             logger.error("No payload received in webhook request")
             return jsonify({'error': 'No payload received'}), 400
         
-        # Log the incoming webhook (truncated to avoid excessive logging)
+        # Log the incoming webhook
+        # INFO level: truncated for readability
         logger.info(f"Received webhook: {json.dumps(payload, default=str)[:500]}")
+        # DEBUG level: full payload for troubleshooting
+        logger.debug(f"Full webhook payload: {json.dumps(payload, default=str)}")
         
         # Handle array of events (CloudEvents can be sent as array)
         events = payload if isinstance(payload, list) else [payload]
@@ -1477,7 +1485,14 @@ def qbo_oauth_callback():
         
         # Verify state to prevent CSRF
         if state != session.get('qbo_oauth_state'):
-            logger.error("OAuth state mismatch")
+            # Log security incident with details
+            logger.error(
+                f"SECURITY: OAuth state mismatch - possible CSRF attack. "
+                f"IP: {request.remote_addr}, "
+                f"User: {session.get('user_email', 'unknown')}, "
+                f"Expected state: {session.get('qbo_oauth_state')}, "
+                f"Received state: {state}"
+            )
             return render_template('oauth_callback.html', error='Invalid state parameter - possible CSRF attack')
         
         if not code or not realm_id:
