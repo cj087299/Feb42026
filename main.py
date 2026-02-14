@@ -1144,6 +1144,7 @@ def get_audit_log():
 @login_required
 def manage_qbo_credentials():
     """Get or update QBO credentials (admin and master_admin only)."""
+    global qbo_client, secret_manager
     user_role = session.get('user_role')
     
     # Only admin and master_admin can manage QBO credentials
@@ -1211,7 +1212,6 @@ def manage_qbo_credentials():
             
             if success:
                 # Update the QBO client with new credentials
-                global qbo_client, secret_manager
                 qbo_credentials = secret_manager.get_qbo_credentials()
                 qbo_client = QBOClient(
                     qbo_credentials['client_id'],
@@ -1288,19 +1288,6 @@ def refresh_qbo_token():
             }), 401
         
         return jsonify({"error": error_msg}), 500
-            user_email=session.get('user_email'),
-            action='refresh_qbo_token',
-            resource_type='qbo_credentials',
-            resource_id='1',
-            details='Manually refreshed QBO access token',
-            ip_address=request.remote_addr,
-            user_agent=request.user_agent.string if request.user_agent else None
-        )
-        
-        return jsonify({"message": "QBO access token refreshed successfully"}), 200
-    except Exception as e:
-        logger.error(f"Error refreshing QBO token: {e}")
-        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/qbo/oauth/authorize', methods=['POST'])
