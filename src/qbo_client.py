@@ -17,12 +17,44 @@ class QBOClient:
         self.access_token = None
         self.base_url = "https://sandbox-quickbooks.api.intuit.com/v3/company"
         self.database = database  # Optional database for persistent token storage
+        
+        # Check if credentials are valid
+        self._validate_credentials()
+    
+    def _validate_credentials(self):
+        """Validate that credentials are not dummy values."""
+        if (self.client_id == 'dummy_id' or 
+            self.client_secret == 'dummy_secret' or 
+            self.refresh_token == 'dummy_refresh' or 
+            self.realm_id == 'dummy_realm'):
+            logger.warning(
+                "QBO credentials are not configured properly. "
+                "Please configure OAuth credentials at /qbo-settings or set environment variables. "
+                "Current operations will fail until valid credentials are provided."
+            )
+            self.credentials_valid = False
+        else:
+            self.credentials_valid = True
 
     def refresh_access_token(self):
         """
         Refreshes the access token using the refresh token.
         Updates the database if available.
+        
+        Raises:
+            ValueError: If credentials are not valid
+            Exception: If token refresh fails
         """
+        # Check if credentials are valid before attempting refresh
+        if not self.credentials_valid:
+            error_msg = (
+                "Cannot refresh access token: QBO credentials are not configured. "
+                "Please configure OAuth credentials at /qbo-settings or set environment variables "
+                "(QBO_CLIENT_ID, QBO_CLIENT_SECRET, QBO_REFRESH_TOKEN, QBO_REALM_ID)."
+            )
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
         logger.info("Refreshing access token...")
         try:
             token_url = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
@@ -70,6 +102,17 @@ class QBOClient:
                     logger.warning(f"Failed to update tokens in database: {db_error}")
                 
             logger.info("Access token refreshed successfully")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                error_msg = (
+                    f"Failed to refresh access token: 401 Unauthorized. "
+                    f"The refresh token or client credentials are invalid or expired. "
+                    f"Please reconfigure OAuth credentials at /qbo-settings by connecting to QuickBooks again."
+                )
+                logger.error(error_msg)
+                raise Exception(error_msg) from e
+            logger.error(f"Failed to refresh access token: {e}")
+            raise
         except Exception as e:
             logger.error(f"Failed to refresh access token: {e}")
             raise

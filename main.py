@@ -1154,6 +1154,12 @@ def manage_qbo_credentials():
         try:
             credentials = database.get_qbo_credentials()
             if credentials:
+                # Check if credentials are valid (not dummy values)
+                is_valid = not (credentials['client_id'] == 'dummy_id' or 
+                              credentials['client_secret'] == 'dummy_secret' or 
+                              credentials['refresh_token'] == 'dummy_refresh' or 
+                              credentials['realm_id'] == 'dummy_realm')
+                
                 # Don't expose sensitive data
                 safe_credentials = {
                     'client_id': credentials['client_id'][:10] + '...' if credentials['client_id'] else None,
@@ -1163,11 +1169,22 @@ def manage_qbo_credentials():
                     'access_token_expires_at': credentials.get('access_token_expires_at'),
                     'refresh_token_expires_at': credentials.get('refresh_token_expires_at'),
                     'created_at': credentials.get('created_at'),
-                    'updated_at': credentials.get('updated_at')
+                    'updated_at': credentials.get('updated_at'),
+                    'is_valid': is_valid,
+                    'status': 'configured' if is_valid else 'invalid_or_dummy'
                 }
                 return jsonify(safe_credentials), 200
             else:
-                return jsonify({'message': 'No QBO credentials configured'}), 404
+                # Check if environment variables are set
+                qbo_creds = secret_manager.get_qbo_credentials()
+                is_env_valid = qbo_creds.get('is_valid', False)
+                
+                return jsonify({
+                    'message': 'No QBO credentials configured in database',
+                    'is_valid': is_env_valid,
+                    'status': 'using_environment_variables' if is_env_valid else 'not_configured',
+                    'help': 'Please configure credentials at /qbo-settings or set environment variables'
+                }), 404
         except Exception as e:
             logger.error(f"Error fetching QBO credentials: {e}")
             return jsonify({"error": str(e)}), 500
@@ -1241,6 +1258,36 @@ def refresh_qbo_token():
         # Log the action
         database.log_audit(
             user_id=session.get('user_id'),
+            user_email=session.get('user_email'),
+            action='refresh_qbo_token',
+            resource_type='qbo_credentials',
+            resource_id='1',
+            details='Manually refreshed QBO access token',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string if request.user_agent else None
+        )
+        
+        return jsonify({"message": "QBO access token refreshed successfully"}), 200
+    except ValueError as ve:
+        # Credentials are not valid
+        logger.error(f"Cannot refresh QBO token: {ve}")
+        return jsonify({
+            "error": str(ve),
+            "action_required": "Please configure valid OAuth credentials at /qbo-settings"
+        }), 400
+    except Exception as e:
+        logger.error(f"Error refreshing QBO token: {e}")
+        error_msg = str(e)
+        
+        # Check if it's a 401 error
+        if "401" in error_msg or "Unauthorized" in error_msg:
+            return jsonify({
+                "error": "The OAuth credentials are invalid or expired",
+                "details": error_msg,
+                "action_required": "Please reconfigure credentials at /qbo-settings by connecting to QuickBooks again"
+            }), 401
+        
+        return jsonify({"error": error_msg}), 500
             user_email=session.get('user_email'),
             action='refresh_qbo_token',
             resource_type='qbo_credentials',
