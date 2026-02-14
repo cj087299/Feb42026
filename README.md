@@ -180,6 +180,30 @@ python main.py
 
 The application will start on `http://localhost:8080`
 
+### Cloud Run Deployment
+
+To deploy this application to Google Cloud Run:
+
+```bash
+gcloud builds submit --config cloudbuild.yaml
+```
+
+**Important**: After deploying to Cloud Run, you MUST configure QuickBooks credentials. The application will log warnings on startup until credentials are configured. To fix the "QBO credentials not configured" errors:
+
+1. **Option 1 (RECOMMENDED)**: Use the Web UI
+   - Access your Cloud Run URL
+   - Log in with admin credentials (admin@vzt.com / admin1234)
+   - Navigate to `/qbo-settings`
+   - Click "Connect to QuickBooks"
+
+2. **Option 2**: Use Google Secret Manager
+   - See `CLOUDRUN_DEPLOYMENT_GUIDE.md` for detailed instructions
+
+3. **Option 3**: Set environment variables
+   - See `CLOUDRUN_DEPLOYMENT_GUIDE.md` for detailed instructions
+
+**📖 For complete Cloud Run deployment instructions, credential configuration, and troubleshooting**, see `CLOUDRUN_DEPLOYMENT_GUIDE.md`.
+
 ### Using the Web Interface
 
 1. **Home Page** (`/`): Landing page with navigation to all features
