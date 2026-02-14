@@ -4,6 +4,7 @@ import json
 import uuid
 import base64
 import requests
+from urllib.parse import quote
 from flask import Flask, jsonify, request, render_template, session, redirect, url_for
 from src.qbo_client import QBOClient
 from src.invoice_manager import InvoiceManager
@@ -1284,11 +1285,15 @@ def qbo_oauth_authorize():
         session['qbo_oauth_state'] = state
         
         # Build the authorization URL
+        # URL encode the redirect_uri to ensure it matches exactly with QuickBooks settings
+        # Per RFC 3986, when used as a query parameter VALUE, reserved characters must be encoded
+        # Using safe='' ensures full encoding of all special characters including :, /, ?, etc.
+        encoded_redirect_uri = quote(redirect_uri, safe='')
         auth_url = (
             f"https://appcenter.intuit.com/connect/oauth2?"
             f"client_id={client_id}&"
             f"scope=com.intuit.quickbooks.accounting&"
-            f"redirect_uri={redirect_uri}&"
+            f"redirect_uri={encoded_redirect_uri}&"
             f"response_type=code&"
             f"state={state}"
         )
