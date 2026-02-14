@@ -1571,9 +1571,9 @@ def qbo_oauth_callback():
         logger.info("=" * 80)
         logger.info("QuickBooks OAuth 2.0 Callback Received")
         logger.info("=" * 80)
-        logger.info(f"Authorization Code: {code[:20]}..." if code else "No code received")
+        logger.info(f"Authorization Code: {'[RECEIVED]' if code else 'No code received'}")
         logger.info(f"Realm ID: {realm_id}")
-        logger.info(f"State Token: {state}")
+        logger.info(f"State Token: {'[VALID]' if state else '[MISSING]'}")
         logger.info(f"Error (if any): {error}")
         logger.info("=" * 80)
         
@@ -1767,11 +1767,20 @@ def qbo_oauth_diagnostic():
         
         # Get the redirect URI that would be used
         parsed_url = urlparse(request.host_url.rstrip('/'))
-        https_url = urlunparse(parsed_url._replace(scheme='https'))
+        # Construct new URL with HTTPS scheme
+        https_url = urlunparse((
+            'https',  # scheme
+            parsed_url.netloc,  # netloc
+            parsed_url.path,  # path
+            parsed_url.params,  # params
+            parsed_url.query,  # query
+            parsed_url.fragment  # fragment
+        ))
         redirect_uri = https_url + '/api/qbo/oauth/callback'
         
-        # Get hardcoded client ID from the code
-        hardcoded_client_id = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+        # Get hardcoded client ID from the code (masked for security)
+        hardcoded_client_id_full = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+        hardcoded_client_id_masked = hardcoded_client_id_full[:10] + '...'
         
         diagnostic_info = {
             'oauth_configuration': {
@@ -1782,13 +1791,13 @@ def qbo_oauth_diagnostic():
             },
             'current_setup': {
                 'redirect_uri': redirect_uri,
-                'client_id_in_use': hardcoded_client_id,
+                'client_id_in_use': hardcoded_client_id_masked,
                 'host_url': request.host_url,
                 'using_https': parsed_url.scheme == 'https'
             },
             'database_credentials': {
                 'configured': bool(credentials),
-                'client_id': credentials['client_id'][:10] + '...' if credentials and credentials.get('client_id') else 'Not set',
+                'client_id': 'Set (masked for security)' if credentials and credentials.get('client_id') else 'Not set',
                 'realm_id': credentials.get('realm_id') if credentials else 'Not set',
                 'has_refresh_token': bool(credentials.get('refresh_token')) if credentials else False,
                 'has_access_token': bool(credentials.get('access_token')) if credentials else False,
@@ -1803,7 +1812,7 @@ def qbo_oauth_diagnostic():
                 },
                 {
                     'item': 'Client ID must match the one in your QBO app',
-                    'value': hardcoded_client_id[:10] + '...',
+                    'value': hardcoded_client_id_masked,
                     'status': 'unknown',
                     'action': 'Verify this client ID matches your QBO app credentials'
                 },
@@ -1914,15 +1923,15 @@ def qbo_oauth_authorize_v2():
         logger.info("=" * 80)
         logger.info("QuickBooks OAuth 2.0 Flow Initiated")
         logger.info("=" * 80)
-        logger.info(f"Client ID: {client_id}")
+        logger.info(f"Client ID: {client_id[:10]}... (masked for security)")
         logger.info(f"Redirect URI (unencoded): {redirect_uri}")
         logger.info(f"Redirect URI (encoded): {encoded_redirect_uri}")
         logger.info(f"State Token: {state}")
-        logger.info(f"Full Authorization URL: {auth_url}")
+        logger.info(f"Authorization URL: [Generated - check browser for actual URL]")
         logger.info("=" * 80)
         logger.info("IMPORTANT: Verify the following in your QuickBooks Developer Portal:")
         logger.info(f"  1. The redirect URI '{redirect_uri}' is registered EXACTLY as shown")
-        logger.info(f"  2. The client ID '{client_id}' matches your app's credentials")
+        logger.info(f"  2. The client ID (shown above, masked) matches your app's credentials")
         logger.info("  3. Your app is in the correct environment (Sandbox vs Production)")
         logger.info("  4. The 'com.intuit.quickbooks.accounting' scope is enabled")
         logger.info("=" * 80)

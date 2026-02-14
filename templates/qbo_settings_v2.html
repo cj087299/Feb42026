@@ -243,6 +243,34 @@
             font-weight: 600;
             margin-left: 10px;
         }
+
+        .btn-diagnostics {
+            padding: 10px 20px;
+            background: #f0f0f0;
+            color: #667eea;
+            border: 1px solid #667eea;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-diagnostics:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .diagnostic-box {
+            display: none;
+            margin-top: 20px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: left;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -274,12 +302,12 @@
                 </button>
 
                 <div style="margin-top: 20px; text-align: center;">
-                    <button style="padding: 10px 20px; background: #f0f0f0; color: #667eea; border: 1px solid #667eea; border-radius: 5px; cursor: pointer; font-size: 14px;" onclick="showDiagnostics()">
+                    <button class="btn-diagnostics" onclick="showDiagnostics()">
                         🔍 View OAuth Diagnostics
                     </button>
                 </div>
 
-                <div id="diagnosticBox" style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: left; font-size: 13px; max-height: 400px; overflow-y: auto;">
+                <div id="diagnosticBox" class="diagnostic-box">
                     <h3 style="margin-bottom: 10px; color: #333;">OAuth Configuration Diagnostics</h3>
                     <div id="diagnosticContent">Loading...</div>
                 </div>
