@@ -1890,9 +1890,17 @@ def qbo_oauth_authorize_v2():
         
         # Get the redirect URI based on current host
         # Force HTTPS since Cloud Run uses HTTPS externally even if request.host_url returns HTTP
-        # Use proper URL parsing to replace the scheme
+        # Construct URL with explicit HTTPS scheme
+        # Expected on Cloud Run: https://feb42026-286597576168.us-central1.run.app/api/qbo/oauth/callback
         parsed_url = urlparse(request.host_url.rstrip('/'))
-        https_url = urlunparse(parsed_url._replace(scheme='https'))
+        https_url = urlunparse((
+            'https',  # scheme
+            parsed_url.netloc,  # netloc
+            parsed_url.path,  # path
+            parsed_url.params,  # params
+            parsed_url.query,  # query
+            parsed_url.fragment  # fragment
+        ))
         redirect_uri = https_url + '/api/qbo/oauth/callback'
         
         # Store client credentials in session for later use in callback
