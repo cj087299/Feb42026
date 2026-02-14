@@ -1521,10 +1521,10 @@ def qbo_oauth_callback():
                 user_agent=request.user_agent.string if request.user_agent else None
             )
             
-            # Redirect to QBO settings page with success message
-            return redirect(url_for('qbo_settings_page') + '?oauth_success=true')
+            # Render callback page that will notify parent window and close popup
+            return render_template('oauth_callback.html', success='true')
         else:
-            return jsonify({"error": "Failed to save QBO credentials"}), 500
+            return render_template('oauth_callback.html', error='Failed to save QBO credentials')
             
     except requests.exceptions.RequestException as e:
         logger.error(f"Error exchanging authorization code: {e}")

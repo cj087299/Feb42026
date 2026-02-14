@@ -566,8 +566,53 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    // Redirect to QuickBooks authorization page
-                    window.location.href = data.authorization_url;
+                    // Open QuickBooks authorization in a popup window
+                    const width = 600;
+                    const height = 700;
+                    const left = (screen.width / 2) - (width / 2);
+                    const top = (screen.height / 2) - (height / 2);
+                    
+                    const popup = window.open(
+                        data.authorization_url,
+                        'QuickBooks Authorization',
+                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                    );
+                    
+                    if (!popup) {
+                        showAlert('Please allow popups for this site to connect to QuickBooks', 'error');
+                        buttonText.textContent = originalText;
+                        return;
+                    }
+                    
+                    // Poll for popup closure or message from callback
+                    const pollTimer = setInterval(() => {
+                        if (popup.closed) {
+                            clearInterval(pollTimer);
+                            buttonText.textContent = originalText;
+                        }
+                    }, 500);
+                    
+                    // Listen for message from OAuth callback popup
+                    window.addEventListener('message', function oauthCallback(event) {
+                        // Verify the message origin for security
+                        if (event.origin !== window.location.origin) {
+                            return;
+                        }
+                        
+                        if (event.data.type === 'qbo_oauth_success') {
+                            clearInterval(pollTimer);
+                            window.removeEventListener('message', oauthCallback);
+                            showAlert('Successfully connected to QuickBooks Online!', 'success');
+                            buttonText.textContent = originalText;
+                            // Reload the status to show updated credentials
+                            loadStatus();
+                        } else if (event.data.type === 'qbo_oauth_error') {
+                            clearInterval(pollTimer);
+                            window.removeEventListener('message', oauthCallback);
+                            showAlert(event.data.message || 'Failed to connect to QuickBooks', 'error');
+                            buttonText.textContent = originalText;
+                        }
+                    });
                 } else {
                     showAlert(data.error || 'Failed to initiate OAuth', 'error');
                     buttonText.textContent = originalText;
