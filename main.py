@@ -674,25 +674,16 @@ def get_cashflow_calendar():
     try:
         from datetime import datetime, timedelta
         
-        # Check if QBO credentials are configured
-        if not qbo_client.credentials_valid:
-            return jsonify({
-                "error": "QuickBooks credentials not configured",
-                "message": "Please configure QuickBooks OAuth credentials to access cashflow calendar data.",
-                "action": "Go to /qbo-settings to connect to QuickBooks",
-                "calendar_data": []
-            }), 200
-        
         # Get parameters
         days = int(request.args.get('days', 90))
         initial_balance_param = request.args.get('initial_balance')
         start_date_param = request.args.get('start_date')
         end_date_param = request.args.get('end_date')
         
-        # Get initial balance from QBO if not provided
+        # Get initial balance from QBO if not provided and credentials are valid
         if initial_balance_param:
             initial_balance = float(initial_balance_param)
-        else:
+        elif qbo_client.credentials_valid:
             # Fetch from QBO
             bank_accounts = qbo_client.fetch_bank_accounts()
             initial_balance = 0.0
@@ -700,6 +691,10 @@ def get_cashflow_calendar():
                 balance = account.get('CurrentBalance', 0)
                 initial_balance += float(balance) if balance else 0
             logger.info(f"Using QBO bank balance: {initial_balance}")
+        else:
+            # Default to 0 if no initial balance provided and no QBO credentials
+            initial_balance = 0.0
+            logger.info("Using default initial balance: 0.0 (QBO credentials not configured)")
         
         # Toggle parameters
         show_projected_inflows = request.args.get('show_projected_inflows', 'true').lower() == 'true'
@@ -715,8 +710,8 @@ def get_cashflow_calendar():
             start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=days)
         
-        # Fetch data
-        invoices = invoice_manager.fetch_invoices()
+        # Fetch data (invoices will be empty if QBO credentials not configured)
+        invoices = invoice_manager.fetch_invoices() if qbo_client.credentials_valid else []
         accounts_payable = []  # TODO: Fetch from QBO when available
         custom_flows = database.get_custom_cash_flows()
         
