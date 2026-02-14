@@ -280,6 +280,9 @@
                         You'll be redirected to QuickBooks where you can log in with your QuickBooks credentials and grant access. 
                         Once authorized, your tokens will be securely stored and you'll be able to access your financial data.
                     </p>
+                    <p style="margin-top: 15px; font-size: 12px; color: #666; border-top: 1px solid #ccc; padding-top: 10px;">
+                        <strong>Last Revised:</strong> <span id="lastRevised"></span>
+                    </p>
                 </div>
             </div>
         </div>
@@ -344,6 +347,7 @@
                 const statusBox = document.getElementById('statusBox');
                 const connectButton = document.getElementById('connectButton');
                 const buttonText = document.getElementById('buttonText');
+                const lastRevised = document.getElementById('lastRevised');
 
                 if (response.status === 404) {
                     statusBox.innerHTML = `
@@ -358,6 +362,9 @@
                         </p>
                     `;
                     buttonText.textContent = 'Connect to QuickBooks';
+                    if (lastRevised) {
+                        lastRevised.textContent = 'Never';
+                    }
                     return;
                 }
 
@@ -390,11 +397,22 @@
                 } else {
                     buttonText.textContent = 'Connect to QuickBooks';
                 }
+                
+                // Update last revised date
+                if (lastRevised && data.updated_at) {
+                    lastRevised.textContent = formatDate(data.updated_at);
+                } else if (lastRevised) {
+                    lastRevised.textContent = 'Never';
+                }
             } catch (error) {
                 console.error('Error loading status:', error);
                 document.getElementById('statusBox').innerHTML = `
                     <p style="color: #dc3545; text-align: center;">Failed to load connection status</p>
                 `;
+                const lastRevised = document.getElementById('lastRevised');
+                if (lastRevised) {
+                    lastRevised.textContent = 'Unknown';
+                }
             }
         }
 
