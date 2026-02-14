@@ -34,6 +34,7 @@ This project provides comprehensive tools for managing QuickBooks Online invoice
 - **Health Check**: Use `check_oauth_health.py` to diagnose OAuth issues
 - See `QBO_OAUTH_FLOW.md` for step-by-step instructions
 - See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for troubleshooting OAuth errors
+- **NEW**: QuickBooks Settings v2 available at `/qbo-settings-v2` with simplified one-click OAuth flow
 
 ### 2. Centralized QBO Token Management
 - **Admin-Configured Credentials**: Master admin and admin users can configure QuickBooks Online credentials once for all users
@@ -42,6 +43,7 @@ This project provides comprehensive tools for managing QuickBooks Online invoice
 - **Credential Validation**: System validates credentials before use and provides actionable error messages
 - **Secure Storage**: Credentials stored in database with audit logging
 - **Easy Setup**: Web-based UI at `/qbo-settings` for credential management
+- **Simplified v2**: New `/qbo-settings-v2` page with one-click OAuth (recommended)
 - **Long-Lived Sessions**: Refresh tokens valid for 101 days
 - **Manual Entry Option**: Can still manually enter tokens if preferred
 - See `QBO_TOKEN_MANAGEMENT.md` for detailed documentation
