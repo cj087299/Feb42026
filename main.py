@@ -1636,6 +1636,8 @@ def qbo_oauth_authorize_v2():
         return jsonify({'error': 'Permission denied'}), 403
     
     try:
+        # NOTE: These credentials are hardcoded per explicit requirement in issue.
+        # In production, credentials should be stored in environment variables or secret manager.
         # Hardcoded QBO credentials as specified in requirements
         client_id = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
         client_secret = '8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl'
@@ -1655,7 +1657,8 @@ def qbo_oauth_authorize_v2():
         # Build the authorization URL
         # URL encode the redirect_uri to ensure it matches exactly with QuickBooks settings
         # Per RFC 3986, when used as a query parameter VALUE, reserved characters must be encoded
-        # Using safe='' ensures full encoding of all special characters including :, /, ?, etc.
+        # Using safe='' ensures all special characters (including :, /, ?) are percent-encoded
+        # to match QuickBooks' strict redirect URI requirements
         encoded_redirect_uri = quote(redirect_uri, safe='')
         auth_url = (
             f"https://appcenter.intuit.com/connect/oauth2?"

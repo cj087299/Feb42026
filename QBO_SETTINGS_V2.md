@@ -31,9 +31,7 @@ The new template provides:
 
 #### `POST /api/qbo/oauth/authorize-v2`
 - Initiates OAuth flow with hardcoded credentials
-- Credentials used:
-  - Client ID: `AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA`
-  - Client Secret: `8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl`
+- **Note**: Credentials are hardcoded per explicit requirement. In production environments, these should be stored in environment variables or a secrets manager.
 - Generates authorization URL and CSRF state token
 - Stores credentials in session for callback processing
 

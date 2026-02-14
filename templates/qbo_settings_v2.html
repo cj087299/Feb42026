@@ -438,9 +438,11 @@
                     }
 
                     // Poll for popup closure or message from callback
+                    let pollTimerCleared = false;
                     const pollTimer = setInterval(() => {
-                        if (popup.closed) {
+                        if (popup.closed && !pollTimerCleared) {
                             clearInterval(pollTimer);
+                            pollTimerCleared = true;
                             connectButton.disabled = false;
                             buttonText.textContent = originalText;
                         }
@@ -454,7 +456,10 @@
                         }
 
                         if (event.data.type === 'qbo_oauth_success') {
-                            clearInterval(pollTimer);
+                            if (!pollTimerCleared) {
+                                clearInterval(pollTimer);
+                                pollTimerCleared = true;
+                            }
                             window.removeEventListener('message', oauthCallback);
                             showAlert('Successfully connected to QuickBooks Online!', 'success');
                             connectButton.disabled = false;
@@ -462,7 +467,10 @@
                             // Reload the status to show updated credentials
                             loadStatus();
                         } else if (event.data.type === 'qbo_oauth_error') {
-                            clearInterval(pollTimer);
+                            if (!pollTimerCleared) {
+                                clearInterval(pollTimer);
+                                pollTimerCleared = true;
+                            }
                             window.removeEventListener('message', oauthCallback);
                             showAlert(event.data.message || 'Failed to connect to QuickBooks', 'error');
                             connectButton.disabled = false;
