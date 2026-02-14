@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickBooks Settings v2 - VZT Accounting</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 20px 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+
+        .nav-links a, .logout-btn {
+            padding: 8px 16px;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #667eea;
+            background: #f0f0f0;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .nav-links a:hover, .logout-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .main-content {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 15px;
+        }
+
+        .section p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .status-box {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .status-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .status-row:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .status-value {
+            color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .status-badge.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-badge.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .connect-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 40px;
+            background: #2ca01c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(44, 160, 28, 0.3);
+        }
+
+        .connect-button:hover {
+            background: #239916;
+            box-shadow: 0 6px 20px rgba(44, 160, 28, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .connect-button:active {
+            transform: translateY(0);
+        }
+
+        .connect-button:disabled {
+            background: #999;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .qbo-logo {
+            font-size: 24px;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .info-note {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #0066cc;
+            margin-top: 30px;
+            text-align: left;
+        }
+
+        .info-note h3 {
+            color: #0066cc;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .info-note p {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 0;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid #ffffff;
+            border-top: 3px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .version-badge {
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ QuickBooks Settings <span class="version-badge">v2</span></h1>
+            <div class="nav-links">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="alert" id="alertBox"></div>
+
+            <div class="section">
+                <h2>QuickBooks Online Connection</h2>
+                <p>Connect your QuickBooks Online account to sync invoices, manage cash flow, and access financial data.</p>
+
+                <div class="status-box" id="statusBox">
+                    <p style="text-align: center; color: #999;">Loading connection status...</p>
+                </div>
+
+                <button class="connect-button" id="connectButton" onclick="connectToQuickBooks()">
+                    <span class="qbo-logo">📊</span>
+                    <span id="buttonText">Connect to QuickBooks</span>
+                </button>
+
+                <div class="info-note">
+                    <h3>ℹ️ How It Works</h3>
+                    <p>
+                        Click the "Connect to QuickBooks" button above to authorize access to your QuickBooks Online account. 
+                        You'll be redirected to QuickBooks where you can log in with your QuickBooks credentials and grant access. 
+                        Once authorized, your tokens will be securely stored and you'll be able to access your financial data.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showAlert(message, type) {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.textContent = message;
+            alertBox.className = `alert ${type}`;
+            alertBox.style.display = 'block';
+            setTimeout(() => {
+                alertBox.style.display = 'none';
+            }, 5000);
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+
+        function getConnectionStatus(data) {
+            if (!data || !data.realm_id) {
+                return {
+                    text: 'Not Connected',
+                    class: 'disconnected',
+                    connected: false
+                };
+            }
+
+            const now = new Date();
+            const accessExpires = data.access_token_expires_at ? new Date(data.access_token_expires_at) : null;
+            const refreshExpires = data.refresh_token_expires_at ? new Date(data.refresh_token_expires_at) : null;
+
+            if (refreshExpires && refreshExpires < now) {
+                return {
+                    text: 'Connection Expired',
+                    class: 'disconnected',
+                    connected: false
+                };
+            }
+
+            if (accessExpires && accessExpires < now) {
+                return {
+                    text: 'Token Needs Refresh',
+                    class: 'warning',
+                    connected: true
+                };
+            }
+
+            return {
+                text: 'Connected',
+                class: 'connected',
+                connected: true
+            };
+        }
+
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/qbo/credentials');
+                const statusBox = document.getElementById('statusBox');
+                const connectButton = document.getElementById('connectButton');
+                const buttonText = document.getElementById('buttonText');
+
+                if (response.status === 404) {
+                    statusBox.innerHTML = `
+                        <div class="status-row">
+                            <span class="status-label">Connection Status</span>
+                            <span class="status-value">
+                                <span class="status-badge disconnected">Not Connected</span>
+                            </span>
+                        </div>
+                        <p style="margin-top: 15px; color: #666; text-align: center;">
+                            Click the button below to connect to QuickBooks Online
+                        </p>
+                    `;
+                    buttonText.textContent = 'Connect to QuickBooks';
+                    return;
+                }
+
+                if (!response.ok) {
+                    throw new Error('Failed to load connection status');
+                }
+
+                const data = await response.json();
+                const status = getConnectionStatus(data);
+
+                statusBox.innerHTML = `
+                    <div class="status-row">
+                        <span class="status-label">Connection Status</span>
+                        <span class="status-value">
+                            <span class="status-badge ${status.class}">${status.text}</span>
+                        </span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Company ID</span>
+                        <span class="status-value">${data.realm_id || 'Not set'}</span>
+                    </div>
+                    <div class="status-row">
+                        <span class="status-label">Last Connected</span>
+                        <span class="status-value">${formatDate(data.updated_at)}</span>
+                    </div>
+                `;
+
+                if (status.connected) {
+                    buttonText.textContent = 'Reconnect to QuickBooks';
+                } else {
+                    buttonText.textContent = 'Connect to QuickBooks';
+                }
+            } catch (error) {
+                console.error('Error loading status:', error);
+                document.getElementById('statusBox').innerHTML = `
+                    <p style="color: #dc3545; text-align: center;">Failed to load connection status</p>
+                `;
+            }
+        }
+
+        async function connectToQuickBooks() {
+            const connectButton = document.getElementById('connectButton');
+            const buttonText = document.getElementById('buttonText');
+            const originalText = buttonText.textContent;
+
+            connectButton.disabled = true;
+            buttonText.innerHTML = '<span class="loading-spinner"></span> Connecting...';
+
+            try {
+                // Call the backend to initiate OAuth with hardcoded credentials
+                const response = await fetch('/api/qbo/oauth/authorize-v2', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Open QuickBooks authorization in a popup window
+                    const width = 600;
+                    const height = 700;
+                    const left = (screen.width / 2) - (width / 2);
+                    const top = (screen.height / 2) - (height / 2);
+
+                    const popup = window.open(
+                        data.authorization_url,
+                        'QuickBooks Authorization',
+                        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+                    );
+
+                    if (!popup) {
+                        showAlert('Please allow popups for this site to connect to QuickBooks', 'error');
+                        connectButton.disabled = false;
+                        buttonText.textContent = originalText;
+                        return;
+                    }
+
+                    // Flag to track if OAuth callback was successful (takes precedence over polling)
+                    let oauthCompleted = false;
+                    let pollTimerCleared = false;
+                    
+                    // Poll for popup closure or message from callback
+                    const pollTimer = setInterval(() => {
+                        if (popup.closed && !pollTimerCleared && !oauthCompleted) {
+                            clearInterval(pollTimer);
+                            pollTimerCleared = true;
+                            connectButton.disabled = false;
+                            buttonText.textContent = originalText;
+                        }
+                    }, 500);
+
+                    // Listen for message from OAuth callback popup
+                    window.addEventListener('message', function oauthCallback(event) {
+                        // Verify the message origin for security
+                        if (event.origin !== window.location.origin) {
+                            return;
+                        }
+
+                        if (event.data.type === 'qbo_oauth_success') {
+                            oauthCompleted = true;
+                            if (!pollTimerCleared) {
+                                clearInterval(pollTimer);
+                                pollTimerCleared = true;
+                            }
+                            window.removeEventListener('message', oauthCallback);
+                            showAlert('Successfully connected to QuickBooks Online!', 'success');
+                            connectButton.disabled = false;
+                            buttonText.textContent = originalText;
+                            // Reload the status to show updated credentials
+                            loadStatus();
+                        } else if (event.data.type === 'qbo_oauth_error') {
+                            oauthCompleted = true;
+                            if (!pollTimerCleared) {
+                                clearInterval(pollTimer);
+                                pollTimerCleared = true;
+                            }
+                            window.removeEventListener('message', oauthCallback);
+                            showAlert(event.data.message || 'Failed to connect to QuickBooks', 'error');
+                            connectButton.disabled = false;
+                            buttonText.textContent = originalText;
+                        }
+                    });
+                } else {
+                    showAlert(data.error || 'Failed to initiate connection', 'error');
+                    connectButton.disabled = false;
+                    buttonText.textContent = originalText;
+                }
+            } catch (error) {
+                console.error('Error connecting to QuickBooks:', error);
+                showAlert('An error occurred while connecting to QuickBooks', 'error');
+                connectButton.disabled = false;
+                buttonText.textContent = originalText;
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // Load status on page load
+        loadStatus();
+    </script>
+</body>
+</html>

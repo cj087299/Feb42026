@@ -1612,6 +1612,81 @@ def qbo_settings_page():
     return render_template('qbo_settings.html')
 
 
+@app.route('/qbo-settings-v2', methods=['GET'])
+@login_required
+def qbo_settings_v2_page():
+    """QBO settings page v2 with simplified OAuth flow (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can access QBO settings
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    return render_template('qbo_settings_v2.html')
+
+
+@app.route('/api/qbo/oauth/authorize-v2', methods=['POST'])
+@login_required
+def qbo_oauth_authorize_v2():
+    """Initiate QBO OAuth 2.0 flow with hardcoded credentials (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can initiate OAuth
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        # NOTE: These credentials are hardcoded per explicit requirement in issue.
+        # In production, credentials should be stored in environment variables or secret manager.
+        # Hardcoded QBO credentials as specified in requirements
+        client_id = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+        client_secret = '8LyYgJtmfo7znuWjilV5B3HUGzeiOmZ8hw0dt1Yl'
+        
+        # Get the redirect URI based on current host
+        redirect_uri = request.host_url.rstrip('/') + '/api/qbo/oauth/callback'
+        
+        # Store client credentials in session for later use in callback
+        session['qbo_oauth_client_id'] = client_id
+        session['qbo_oauth_client_secret'] = client_secret
+        session['qbo_oauth_redirect_uri'] = redirect_uri
+        
+        # Generate a state token for CSRF protection
+        state = str(uuid.uuid4())
+        session['qbo_oauth_state'] = state
+        
+        # Build the authorization URL
+        # URL encode the redirect_uri to ensure it matches exactly with QuickBooks settings
+        # Per RFC 3986, when used as a query parameter VALUE, reserved characters must be encoded
+        # Using safe='' ensures all special characters (including :, /, ?) are percent-encoded
+        # to match QuickBooks' strict redirect URI requirements
+        encoded_redirect_uri = quote(redirect_uri, safe='')
+        auth_url = (
+            f"https://appcenter.intuit.com/connect/oauth2?"
+            f"client_id={client_id}&"
+            f"scope=com.intuit.quickbooks.accounting&"
+            f"redirect_uri={encoded_redirect_uri}&"
+            f"response_type=code&"
+            f"state={state}"
+        )
+        
+        # Log the action
+        database.log_audit(
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email'),
+            action='initiate_qbo_oauth_v2',
+            resource_type='qbo_credentials',
+            resource_id='1',
+            details='Initiated QBO OAuth flow v2 with hardcoded credentials',
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string if request.user_agent else None
+        )
+        
+        return jsonify({'authorization_url': auth_url}), 200
+    except Exception as e:
+        logger.error(f"Error initiating QBO OAuth v2: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 # AI Chat API routes
 
 @app.route('/api/ai/chat', methods=['POST'])
