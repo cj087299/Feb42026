@@ -273,6 +273,17 @@
                     <span id="buttonText">Connect to QuickBooks</span>
                 </button>
 
+                <div style="margin-top: 20px; text-align: center;">
+                    <button style="padding: 10px 20px; background: #f0f0f0; color: #667eea; border: 1px solid #667eea; border-radius: 5px; cursor: pointer; font-size: 14px;" onclick="showDiagnostics()">
+                        🔍 View OAuth Diagnostics
+                    </button>
+                </div>
+
+                <div id="diagnosticBox" style="display: none; margin-top: 20px; background: #f8f9fa; padding: 20px; border-radius: 8px; text-align: left; font-size: 13px; max-height: 400px; overflow-y: auto;">
+                    <h3 style="margin-bottom: 10px; color: #333;">OAuth Configuration Diagnostics</h3>
+                    <div id="diagnosticContent">Loading...</div>
+                </div>
+
                 <div class="info-note">
                     <h3>ℹ️ How It Works</h3>
                     <p>
@@ -280,6 +291,15 @@
                         You'll be redirected to QuickBooks where you can log in with your QuickBooks credentials and grant access. 
                         Once authorized, your tokens will be securely stored and you'll be able to access your financial data.
                     </p>
+                    <p style="margin-top: 15px;">
+                        <strong>Troubleshooting:</strong> If you don't see a QuickBooks login screen:
+                    </p>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>Make sure your browser allows popups for this site</li>
+                        <li>Check that the redirect URI is registered in your QuickBooks app</li>
+                        <li>Verify your client credentials are correct</li>
+                        <li>Click "View OAuth Diagnostics" above for detailed information</li>
+                    </ul>
                     <p style="margin-top: 15px; font-size: 12px; color: #666; border-top: 1px solid #ccc; padding-top: 10px;">
                         <strong>Last Revised:</strong> <span id="lastRevised"></span>
                     </p>
@@ -509,6 +529,84 @@
                 showAlert('An error occurred while connecting to QuickBooks', 'error');
                 connectButton.disabled = false;
                 buttonText.textContent = originalText;
+            }
+        }
+
+        async function showDiagnostics() {
+            const diagnosticBox = document.getElementById('diagnosticBox');
+            const diagnosticContent = document.getElementById('diagnosticContent');
+            
+            if (diagnosticBox.style.display === 'none') {
+                diagnosticBox.style.display = 'block';
+                diagnosticContent.innerHTML = '<p style="text-align: center;">Loading diagnostics...</p>';
+                
+                try {
+                    const response = await fetch('/api/qbo/oauth/diagnostic');
+                    if (!response.ok) {
+                        throw new Error('Failed to load diagnostics');
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Build diagnostic display
+                    let html = '<div style="font-family: monospace; font-size: 12px;">';
+                    
+                    // Current Setup
+                    html += '<h4 style="color: #667eea; margin-top: 0;">Current Setup</h4>';
+                    html += '<table style="width: 100%; border-collapse: collapse;">';
+                    html += `<tr><td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>Redirect URI:</strong></td><td style="padding: 5px; border-bottom: 1px solid #ddd; word-break: break-all;">${data.current_setup.redirect_uri}</td></tr>`;
+                    html += `<tr><td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>Client ID:</strong></td><td style="padding: 5px; border-bottom: 1px solid #ddd;">${data.current_setup.client_id_in_use}</td></tr>`;
+                    html += `<tr><td style="padding: 5px; border-bottom: 1px solid #ddd;"><strong>Using HTTPS:</strong></td><td style="padding: 5px; border-bottom: 1px solid #ddd;">${data.current_setup.using_https ? '✅ Yes' : '❌ No'}</td></tr>`;
+                    html += '</table>';
+                    
+                    // Troubleshooting Checklist
+                    html += '<h4 style="color: #667eea; margin-top: 20px;">Troubleshooting Checklist</h4>';
+                    html += '<ul style="margin-left: 0; padding-left: 0; list-style: none;">';
+                    data.troubleshooting_checklist.forEach(item => {
+                        const icon = item.status === 'ok' ? '✅' : item.status === 'warning' ? '⚠️' : '❓';
+                        html += `<li style="margin-bottom: 15px; padding: 10px; background: white; border-radius: 5px;">`;
+                        html += `<div style="font-weight: bold;">${icon} ${item.item}</div>`;
+                        html += `<div style="color: #666; margin-top: 5px;">Value: ${item.value}</div>`;
+                        html += `<div style="color: #0066cc; margin-top: 5px; font-size: 11px;">${item.action}</div>`;
+                        html += `</li>`;
+                    });
+                    html += '</ul>';
+                    
+                    // Next Steps
+                    html += '<h4 style="color: #667eea; margin-top: 20px;">Next Steps</h4>';
+                    html += '<ol style="margin-left: 20px;">';
+                    data.next_steps.forEach(step => {
+                        html += `<li style="margin-bottom: 8px; color: #333;">${step}</li>`;
+                    });
+                    html += '</ol>';
+                    
+                    // Common Issues
+                    html += '<h4 style="color: #667eea; margin-top: 20px;">Common Issues</h4>';
+                    html += '<div style="background: white; padding: 10px; border-radius: 5px; margin-bottom: 10px;">';
+                    html += '<strong>No Login Screen Appears:</strong>';
+                    html += '<ul style="margin-left: 20px; margin-top: 5px;">';
+                    data.common_issues.no_login_screen.forEach(issue => {
+                        html += `<li style="margin-bottom: 5px; color: #666;">${issue}</li>`;
+                    });
+                    html += '</ul></div>';
+                    
+                    html += '<div style="background: white; padding: 10px; border-radius: 5px;">';
+                    html += '<strong>403 Forbidden Error:</strong>';
+                    html += '<ul style="margin-left: 20px; margin-top: 5px;">';
+                    data.common_issues['403_forbidden'].forEach(issue => {
+                        html += `<li style="margin-bottom: 5px; color: #666;">${issue}</li>`;
+                    });
+                    html += '</ul></div>';
+                    
+                    html += '</div>';
+                    
+                    diagnosticContent.innerHTML = html;
+                } catch (error) {
+                    console.error('Error loading diagnostics:', error);
+                    diagnosticContent.innerHTML = '<p style="color: #dc3545;">Failed to load diagnostics. Please check the browser console for errors.</p>';
+                }
+            } else {
+                diagnosticBox.style.display = 'none';
             }
         }
 

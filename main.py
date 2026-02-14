@@ -1748,6 +1748,107 @@ def qbo_settings_redirect():
     return redirect('/qbo-settings-v2')
 
 
+@app.route('/api/qbo/oauth/diagnostic', methods=['GET'])
+@login_required
+def qbo_oauth_diagnostic():
+    """
+    Diagnostic endpoint to help troubleshoot OAuth configuration.
+    Returns information about the current OAuth setup.
+    """
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can access diagnostics
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        # Get current credentials
+        credentials = database.get_qbo_credentials()
+        
+        # Get the redirect URI that would be used
+        parsed_url = urlparse(request.host_url.rstrip('/'))
+        https_url = urlunparse(parsed_url._replace(scheme='https'))
+        redirect_uri = https_url + '/api/qbo/oauth/callback'
+        
+        # Get hardcoded client ID from the code
+        hardcoded_client_id = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+        
+        diagnostic_info = {
+            'oauth_configuration': {
+                'authorization_endpoint': 'https://appcenter.intuit.com/connect/oauth2',
+                'token_endpoint': 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+                'scope': 'com.intuit.quickbooks.accounting',
+                'response_type': 'code'
+            },
+            'current_setup': {
+                'redirect_uri': redirect_uri,
+                'client_id_in_use': hardcoded_client_id,
+                'host_url': request.host_url,
+                'using_https': parsed_url.scheme == 'https'
+            },
+            'database_credentials': {
+                'configured': bool(credentials),
+                'client_id': credentials['client_id'][:10] + '...' if credentials and credentials.get('client_id') else 'Not set',
+                'realm_id': credentials.get('realm_id') if credentials else 'Not set',
+                'has_refresh_token': bool(credentials.get('refresh_token')) if credentials else False,
+                'has_access_token': bool(credentials.get('access_token')) if credentials else False,
+                'tokens_valid': credentials.get('is_valid', False) if credentials else False
+            },
+            'troubleshooting_checklist': [
+                {
+                    'item': 'Redirect URI must be registered in QBO Developer Portal',
+                    'value': redirect_uri,
+                    'status': 'unknown',
+                    'action': f'Log into developer.intuit.com and verify "{redirect_uri}" is in your app\'s redirect URIs'
+                },
+                {
+                    'item': 'Client ID must match the one in your QBO app',
+                    'value': hardcoded_client_id[:10] + '...',
+                    'status': 'unknown',
+                    'action': 'Verify this client ID matches your QBO app credentials'
+                },
+                {
+                    'item': 'Using correct environment',
+                    'value': 'Sandbox (based on endpoint)',
+                    'status': 'info',
+                    'action': 'Ensure your client credentials are from the Sandbox environment if using sandbox-quickbooks.api.intuit.com'
+                },
+                {
+                    'item': 'Browser allows popups',
+                    'value': 'Unknown',
+                    'status': 'warning',
+                    'action': 'Ensure your browser allows popups for this site'
+                }
+            ],
+            'common_issues': {
+                'no_login_screen': [
+                    'Redirect URI not registered in QBO Developer Portal',
+                    'Client ID is invalid or for wrong environment',
+                    'Browser popup blocker is preventing the OAuth window',
+                    'Client secret is incorrect (check during callback)'
+                ],
+                '403_forbidden': [
+                    'Invalid or expired credentials',
+                    'Refresh token expired (>101 days old)',
+                    'Realm ID is not accessible with these credentials',
+                    'Need to reconnect via OAuth flow'
+                ]
+            },
+            'next_steps': [
+                '1. Verify the redirect URI is registered in your QBO app at developer.intuit.com',
+                '2. Check that your client ID and secret are correct',
+                '3. Try clicking "Connect to QuickBooks" and check browser console for errors',
+                '4. Check server logs for detailed OAuth flow information',
+                '5. If you see a blank screen, check for popup blockers'
+            ]
+        }
+        
+        return jsonify(diagnostic_info), 200
+    except Exception as e:
+        logger.error(f"Error generating OAuth diagnostics: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/qbo-settings-v2', methods=['GET'])
 @login_required
 def qbo_settings_v2_page():
