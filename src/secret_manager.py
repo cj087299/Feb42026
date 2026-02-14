@@ -64,10 +64,10 @@ class SecretManager:
         1. Database (if available) - credentials set by admin
         2. Google Secret Manager
         3. Environment variables
-        4. Default dummy values
+        4. Default dummy values (with warning)
         
         Returns:
-            Dictionary with QBO credentials
+            Dictionary with QBO credentials and validity flag
         """
         # First, try to get credentials from database (highest priority)
         if self.database:
@@ -82,15 +82,29 @@ class SecretManager:
                         'realm_id': db_creds['realm_id'],
                         'access_token': db_creds.get('access_token'),
                         'access_token_expires_at': db_creds.get('access_token_expires_at'),
-                        'refresh_token_expires_at': db_creds.get('refresh_token_expires_at')
+                        'refresh_token_expires_at': db_creds.get('refresh_token_expires_at'),
+                        'is_valid': True
                     }
             except Exception as e:
                 logger.warning(f"Failed to get QBO credentials from database: {e}")
         
         # Fallback to Secret Manager and environment variables
+        client_id = self.get_secret('QBO_ID_2-3-26') or os.environ.get('QBO_CLIENT_ID', 'dummy_id')
+        client_secret = self.get_secret('QBO_Secret_2-3-26') or os.environ.get('QBO_CLIENT_SECRET', 'dummy_secret')
+        refresh_token = os.environ.get('QBO_REFRESH_TOKEN', 'dummy_refresh')
+        realm_id = os.environ.get('QBO_REALM_ID', 'dummy_realm')
+        
+        # Check if we're using dummy values
+        is_valid = not (client_id == 'dummy_id' or client_secret == 'dummy_secret' or 
+                       refresh_token == 'dummy_refresh' or realm_id == 'dummy_realm')
+        
+        if not is_valid:
+            logger.error("QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.")
+        
         return {
-            'client_id': self.get_secret('QBO_ID_2-3-26') or os.environ.get('QBO_CLIENT_ID', 'dummy_id'),
-            'client_secret': self.get_secret('QBO_Secret_2-3-26') or os.environ.get('QBO_CLIENT_SECRET', 'dummy_secret'),
-            'refresh_token': os.environ.get('QBO_REFRESH_TOKEN', 'dummy_refresh'),
-            'realm_id': os.environ.get('QBO_REALM_ID', 'dummy_realm')
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'refresh_token': refresh_token,
+            'realm_id': realm_id,
+            'is_valid': is_valid
         }
