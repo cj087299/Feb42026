@@ -55,6 +55,36 @@ qbo_client = QBOClient(
     database=database
 )
 invoice_manager = InvoiceManager(qbo_client)
+
+# Check and log QBO credential status on startup
+if not qbo_credentials.get('is_valid'):
+    logger.warning("=" * 70)
+    logger.warning("  QuickBooks credentials are NOT configured")
+    logger.warning("=" * 70)
+    logger.warning("The application is running, but QuickBooks integration will not work")
+    logger.warning("until you configure OAuth credentials.")
+    logger.warning("")
+    logger.warning("To configure credentials, choose ONE of these options:")
+    logger.warning("")
+    logger.warning("Option 1 (RECOMMENDED - Easiest):")
+    logger.warning("  → Log in to the application")
+    logger.warning("  → Navigate to /qbo-settings")
+    logger.warning("  → Click 'Connect to QuickBooks'")
+    logger.warning("")
+    logger.warning("Option 2 (Google Secret Manager):")
+    logger.warning("  → Create secrets: QBO_ID_2-3-26, QBO_Secret_2-3-26")
+    logger.warning("  → Set environment variables: QBO_REFRESH_TOKEN, QBO_REALM_ID")
+    logger.warning("  → See CLOUDRUN_DEPLOYMENT_GUIDE.md for details")
+    logger.warning("")
+    logger.warning("Option 3 (Environment Variables):")
+    logger.warning("  → Set QBO_CLIENT_ID, QBO_CLIENT_SECRET, QBO_REFRESH_TOKEN, QBO_REALM_ID")
+    logger.warning("  → Run: gcloud run services update feb42026 --update-env-vars=...")
+    logger.warning("")
+    logger.warning("Default admin login: admin@vzt.com / admin1234")
+    logger.warning("=" * 70)
+else:
+    logger.info("✓ QuickBooks credentials are configured and valid")
+    
 # Train predictor with dummy data initially or load a saved model
 predictor = PaymentPredictor()
 # Ideally, we would load training data from a persistent source here
@@ -513,6 +543,15 @@ def health_check():
 @audit_log('view_invoices', 'invoice')
 def get_invoices():
     try:
+        # Check if QBO credentials are configured
+        if not qbo_client.credentials_valid:
+            return jsonify({
+                "error": "QuickBooks credentials not configured",
+                "message": "Please configure QuickBooks OAuth credentials to access invoice data.",
+                "action": "Go to /qbo-settings to connect to QuickBooks",
+                "invoices": []
+            }), 200  # Return 200 so frontend can display the message nicely
+        
         # Extract query parameters for filtering
         filters = {
             'start_date': request.args.get('start_date'),
@@ -599,6 +638,16 @@ def invoice_metadata(invoice_id):
 @audit_log('view_cashflow', 'cashflow')
 def get_cashflow():
     try:
+        # Check if QBO credentials are configured
+        if not qbo_client.credentials_valid:
+            return jsonify({
+                "error": "QuickBooks credentials not configured",
+                "message": "Please configure QuickBooks OAuth credentials to access cashflow data.",
+                "action": "Go to /qbo-settings to connect to QuickBooks",
+                "days": 30,
+                "projected_balance_change": []
+            }), 200
+        
         days = int(request.args.get('days', 30))
         invoices = invoice_manager.fetch_invoices()
         # Mock expenses for now, or fetch from another source if available
@@ -624,6 +673,15 @@ def get_cashflow_calendar():
     """Get calendar-style cash flow projection with daily breakdown."""
     try:
         from datetime import datetime, timedelta
+        
+        # Check if QBO credentials are configured
+        if not qbo_client.credentials_valid:
+            return jsonify({
+                "error": "QuickBooks credentials not configured",
+                "message": "Please configure QuickBooks OAuth credentials to access cashflow calendar data.",
+                "action": "Go to /qbo-settings to connect to QuickBooks",
+                "calendar_data": []
+            }), 200
         
         # Get parameters
         days = int(request.args.get('days', 90))
