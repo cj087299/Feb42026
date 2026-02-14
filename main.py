@@ -228,6 +228,33 @@ with app.app_context():
     ensure_admin_users_initialized()
 
 
+def get_fresh_qbo_client():
+    """
+    Get a fresh QBO client instance with current credentials from database.
+    
+    This function always retrieves the latest credentials from the database,
+    ensuring that recently updated OAuth tokens are used. This solves the issue
+    where the global qbo_client might have stale credentials if it was initialized
+    before OAuth completion.
+    
+    Returns:
+        tuple: (QBOClient instance, bool indicating if credentials are valid)
+    """
+    qbo_creds = secret_manager.get_qbo_credentials()
+    client = QBOClient(
+        qbo_creds['client_id'],
+        qbo_creds['client_secret'],
+        qbo_creds['refresh_token'],
+        qbo_creds['realm_id'],
+        database=database
+    )
+    # If we have an access token in the database, use it
+    if qbo_creds.get('access_token'):
+        client.access_token = qbo_creds['access_token']
+    
+    return client, qbo_creds.get('is_valid', False)
+
+
 # Webhook endpoint - NO authentication required (external QBO service)
 @app.route('/api/qbo/webhook', methods=['POST', 'GET'])
 def qbo_webhook():
@@ -601,14 +628,20 @@ def health_check():
 @audit_log('view_invoices', 'invoice')
 def get_invoices():
     try:
+        # Get fresh QBO client with current credentials from database
+        fresh_client, credentials_valid = get_fresh_qbo_client()
+        
         # Check if QBO credentials are configured
-        if not qbo_client.credentials_valid:
+        if not credentials_valid:
             return jsonify({
                 "error": "QuickBooks credentials not configured",
                 "message": "Please configure QuickBooks OAuth credentials to access invoice data.",
                 "action": "Go to /qbo-settings to connect to QuickBooks",
                 "invoices": []
             }), 200  # Return 200 so frontend can display the message nicely
+        
+        # Create invoice manager with fresh client
+        fresh_invoice_manager = InvoiceManager(fresh_client)
         
         # Extract query parameters for filtering
         filters = {
@@ -624,13 +657,13 @@ def get_invoices():
         # Remove None values
         filters = {k: v for k, v in filters.items() if v is not None}
 
-        invoices = invoice_manager.fetch_invoices()
-        filtered_invoices = invoice_manager.filter_invoices(invoices, **filters)
+        invoices = fresh_invoice_manager.fetch_invoices()
+        filtered_invoices = fresh_invoice_manager.filter_invoices(invoices, **filters)
 
         sort_by = request.args.get('sort_by', 'due_date')
         reverse = request.args.get('reverse', 'false').lower() == 'true'
 
-        sorted_invoices = invoice_manager.sort_invoices(filtered_invoices, sort_by=sort_by, reverse=reverse)
+        sorted_invoices = fresh_invoice_manager.sort_invoices(filtered_invoices, sort_by=sort_by, reverse=reverse)
         
         # Enrich invoices with metadata from database
         all_metadata = database.get_all_invoice_metadata()
@@ -696,8 +729,11 @@ def invoice_metadata(invoice_id):
 @audit_log('view_cashflow', 'cashflow')
 def get_cashflow():
     try:
+        # Get fresh QBO client with current credentials from database
+        fresh_client, credentials_valid = get_fresh_qbo_client()
+        
         # Check if QBO credentials are configured
-        if not qbo_client.credentials_valid:
+        if not credentials_valid:
             return jsonify({
                 "error": "QuickBooks credentials not configured",
                 "message": "Please configure QuickBooks OAuth credentials to access cashflow data.",
@@ -706,8 +742,11 @@ def get_cashflow():
                 "projected_balance_change": []
             }), 200
         
+        # Create invoice manager with fresh client
+        fresh_invoice_manager = InvoiceManager(fresh_client)
+        
         days = int(request.args.get('days', 30))
-        invoices = invoice_manager.fetch_invoices()
+        invoices = fresh_invoice_manager.fetch_invoices()
         # Mock expenses for now, or fetch from another source if available
         expenses = []
 
@@ -732,6 +771,9 @@ def get_cashflow_calendar():
     try:
         from datetime import datetime, timedelta
         
+        # Get fresh QBO client with current credentials from database
+        fresh_client, credentials_valid = get_fresh_qbo_client()
+        
         # Get parameters
         days = int(request.args.get('days', 90))
         initial_balance_param = request.args.get('initial_balance')
@@ -741,9 +783,9 @@ def get_cashflow_calendar():
         # Get initial balance from QBO if not provided and credentials are valid
         if initial_balance_param:
             initial_balance = float(initial_balance_param)
-        elif qbo_client.credentials_valid:
+        elif credentials_valid:
             # Fetch from QBO
-            bank_accounts = qbo_client.fetch_bank_accounts()
+            bank_accounts = fresh_client.fetch_bank_accounts()
             initial_balance = 0.0
             for account in bank_accounts:
                 balance = account.get('CurrentBalance', 0)
@@ -768,8 +810,11 @@ def get_cashflow_calendar():
             start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             end_date = start_date + timedelta(days=days)
         
+        # Create invoice manager with fresh client
+        fresh_invoice_manager = InvoiceManager(fresh_client)
+        
         # Fetch data (invoices will be empty if QBO credentials not configured)
-        invoices = invoice_manager.fetch_invoices() if qbo_client.credentials_valid else []
+        invoices = fresh_invoice_manager.fetch_invoices() if credentials_valid else []
         accounts_payable = []  # TODO: Fetch from QBO when available
         custom_flows = database.get_custom_cash_flows()
         
