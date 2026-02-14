@@ -108,6 +108,11 @@ qbo_client = QBOClient(
     qbo_credentials['realm_id'],
     database=database
 )
+# Set the access token if available in the database
+# This allows the client to use a valid token without an initial refresh
+if qbo_credentials.get('access_token'):
+    qbo_client.access_token = qbo_credentials['access_token']
+    logger.info("Loaded access token from database for global qbo_client")
 invoice_manager = InvoiceManager(qbo_client)
 
 # Check and log QBO credential status on startup
