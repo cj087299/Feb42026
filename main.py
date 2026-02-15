@@ -2023,9 +2023,9 @@ def qbo_oauth_diagnostic():
                 },
                 {
                     'item': 'Using correct environment',
-                    'value': f"{os.environ.get('QBO_ENVIRONMENT', 'sandbox').upper()} (from QBO_ENVIRONMENT variable)",
+                    'value': f"{os.environ.get('QBO_ENVIRONMENT', 'production').upper()} (from QBO_ENVIRONMENT variable)",
                     'status': 'info',
-                    'action': f'Ensure your client credentials are from the {os.environ.get("QBO_ENVIRONMENT", "sandbox").title()} environment'
+                    'action': f'Ensure your client credentials are from the {os.environ.get("QBO_ENVIRONMENT", "production").title()} environment'
                 },
                 {
                     'item': 'Browser allows popups',

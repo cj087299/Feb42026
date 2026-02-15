@@ -10,11 +10,11 @@ The QuickBooks Online (QBO) integration now supports environment-based configura
 `QBO_ENVIRONMENT`
 
 ### Accepted Values
-- `production` - Connects to QuickBooks Production environment
-- `sandbox` - Connects to QuickBooks Sandbox environment (default)
+- `production` - Connects to QuickBooks Production environment (default)
+- `sandbox` - Connects to QuickBooks Sandbox environment
 
 ### Default Behavior
-If `QBO_ENVIRONMENT` is not set or contains an invalid value, the system will **default to the sandbox environment** for safety.
+If `QBO_ENVIRONMENT` is not set or contains an invalid value, the system will **default to the production environment**.
 
 ### Case Sensitivity
 The environment variable is **case-insensitive**. Both `production`, `PRODUCTION`, and `Production` will work.
@@ -53,17 +53,17 @@ env:
 
 ## Environments
 
-### Sandbox Environment (Default)
-- **Base URL:** `https://sandbox-quickbooks.api.intuit.com/v3/company`
-- **Use for:** Development, testing, and QA
-- **When to use:** When you want to test the integration without affecting real data
-- **Credentials:** Must use Sandbox app credentials from developer.intuit.com
-
-### Production Environment
+### Production Environment (Default)
 - **Base URL:** `https://quickbooks.api.intuit.com/v3/company`
 - **Use for:** Live production data
 - **When to use:** When you're ready to go live with real QuickBooks companies
 - **Credentials:** Must use Production app credentials from developer.intuit.com
+
+### Sandbox Environment
+- **Base URL:** `https://sandbox-quickbooks.api.intuit.com/v3/company`
+- **Use for:** Development, testing, and QA
+- **When to use:** When you want to test the integration without affecting real data
+- **Credentials:** Must use Sandbox app credentials from developer.intuit.com
 
 ## Important Notes
 
@@ -88,12 +88,16 @@ env:
 
 ### Development Setup (Sandbox)
 ```bash
-# No need to set the variable - defaults to sandbox
+# Need to explicitly set the variable to use sandbox
+export QBO_ENVIRONMENT=sandbox
 python3 main.py
 ```
 
 ### Production Setup
 ```bash
+# No need to set the variable - defaults to production
+python3 main.py
+# Or explicitly set it
 export QBO_ENVIRONMENT=production
 python3 main.py
 ```
@@ -119,7 +123,7 @@ This usually means your credentials don't match the environment:
 ### How to Check Current Environment
 1. Check the application logs for the initialization message
 2. Visit the diagnostic endpoint at `/api/qbo/oauth/diagnostic` (admin access required)
-3. The diagnostic page will show: "Using correct environment: SANDBOX (from QBO_ENVIRONMENT variable)"
+3. The diagnostic page will show: "Using correct environment: PRODUCTION (from QBO_ENVIRONMENT variable)" or similar
 
 ## Migration Path
 
