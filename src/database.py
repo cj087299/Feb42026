@@ -1012,48 +1012,26 @@ class Database:
             # Insert new credentials with explicit ID=1 to enforce singleton pattern
             placeholder = '%s' if self.use_cloud_sql else '?'
             
-            if self.use_cloud_sql:
-                # MySQL: Use INSERT with explicit ID=1
-                cursor.execute(f'''
-                    INSERT INTO qbo_tokens
-                    (id, client_id, client_secret, refresh_token, access_token, realm_id,
-                     access_token_expires_at, refresh_token_expires_at, created_by_user_id,
-                     created_at, updated_at)
-                    VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
-                            {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
-                ''', (
-                    credentials.get('client_id'),
-                    credentials.get('client_secret'),
-                    credentials.get('refresh_token'),
-                    credentials.get('access_token'),
-                    credentials.get('realm_id'),
-                    access_token_expires,
-                    refresh_token_expires,
-                    created_by_user_id,
-                    now,
-                    now
-                ))
-            else:
-                # SQLite: Use INSERT with explicit ID=1
-                cursor.execute(f'''
-                    INSERT INTO qbo_tokens
-                    (id, client_id, client_secret, refresh_token, access_token, realm_id,
-                     access_token_expires_at, refresh_token_expires_at, created_by_user_id,
-                     created_at, updated_at)
-                    VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
-                            {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
-                ''', (
-                    credentials.get('client_id'),
-                    credentials.get('client_secret'),
-                    credentials.get('refresh_token'),
-                    credentials.get('access_token'),
-                    credentials.get('realm_id'),
-                    access_token_expires,
-                    refresh_token_expires,
-                    created_by_user_id,
-                    now,
-                    now
-                ))
+            # Construct the INSERT query once (same for both MySQL and SQLite)
+            cursor.execute(f'''
+                INSERT INTO qbo_tokens
+                (id, client_id, client_secret, refresh_token, access_token, realm_id,
+                 access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                 created_at, updated_at)
+                VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
+                        {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+            ''', (
+                credentials.get('client_id'),
+                credentials.get('client_secret'),
+                credentials.get('refresh_token'),
+                credentials.get('access_token'),
+                credentials.get('realm_id'),
+                access_token_expires,
+                refresh_token_expires,
+                created_by_user_id,
+                now,
+                now
+            ))
             
             conn.commit()
             conn.close()

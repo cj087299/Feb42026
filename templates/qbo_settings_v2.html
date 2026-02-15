@@ -510,11 +510,12 @@
                     }
                 } else {
                     // Non-admin: Show read-only status message
+                    const envName = data.qbo_environment || 'Production';
                     buttonContainer.innerHTML = `
                         <div style="padding: 20px; background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 10px; text-align: center;">
                             <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
                             <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
-                                Connected to VZT Production Data
+                                Connected to VZT ${envName} Data
                             </div>
                             <div style="font-size: 14px; color: #075985;">
                                 Your team administrator has configured QuickBooks access for everyone.
