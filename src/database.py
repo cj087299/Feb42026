@@ -84,29 +84,37 @@ class Database:
             
             # Add migration to rename old columns if they exist
             try:
-                cursor.execute('''
-                    ALTER TABLE invoice_metadata 
-                    CHANGE COLUMN customer_portal customer_portal_name VARCHAR(255)
-                ''')
-            except:
-                pass  # Column doesn't exist or already renamed
+                # Check if old column exists before renaming
+                cursor.execute("SHOW COLUMNS FROM invoice_metadata LIKE 'customer_portal'")
+                if cursor.fetchone():
+                    cursor.execute('''
+                        ALTER TABLE invoice_metadata 
+                        CHANGE COLUMN customer_portal customer_portal_name VARCHAR(255)
+                    ''')
+            except Exception as e:
+                logger.debug(f"Column rename not needed or already done: {e}")
             
             try:
-                cursor.execute('''
-                    ALTER TABLE invoice_metadata 
-                    CHANGE COLUMN customer_portal_submission_date portal_submission_date VARCHAR(50)
-                ''')
-            except:
-                pass  # Column doesn't exist or already renamed
+                # Check if old column exists before renaming
+                cursor.execute("SHOW COLUMNS FROM invoice_metadata LIKE 'customer_portal_submission_date'")
+                if cursor.fetchone():
+                    cursor.execute('''
+                        ALTER TABLE invoice_metadata 
+                        CHANGE COLUMN customer_portal_submission_date portal_submission_date VARCHAR(50)
+                    ''')
+            except Exception as e:
+                logger.debug(f"Column rename not needed or already done: {e}")
             
             # Add new column if it doesn't exist
             try:
-                cursor.execute('''
-                    ALTER TABLE invoice_metadata 
-                    ADD COLUMN manual_override_pay_date VARCHAR(50)
-                ''')
-            except:
-                pass  # Column already exists
+                cursor.execute("SHOW COLUMNS FROM invoice_metadata LIKE 'manual_override_pay_date'")
+                if not cursor.fetchone():
+                    cursor.execute('''
+                        ALTER TABLE invoice_metadata 
+                        ADD COLUMN manual_override_pay_date VARCHAR(50)
+                    ''')
+            except Exception as e:
+                logger.debug(f"Column add not needed or already done: {e}")
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS custom_cash_flows (
@@ -205,31 +213,37 @@ class Database:
             # SQLite doesn't support column rename directly, so we need to check and migrate
             # Check if old columns exist and migrate data
             try:
-                cursor.execute("SELECT customer_portal FROM invoice_metadata LIMIT 1")
-                # Old column exists, need to migrate
-                cursor.execute('''
-                    CREATE TABLE IF NOT EXISTS invoice_metadata_new (
-                        invoice_id TEXT PRIMARY KEY,
-                        vzt_rep TEXT,
-                        sent_to_vzt_rep_date TEXT,
-                        customer_portal_name TEXT,
-                        portal_submission_date TEXT,
-                        manual_override_pay_date TEXT,
-                        created_at TEXT,
-                        updated_at TEXT
-                    )
-                ''')
-                cursor.execute('''
-                    INSERT OR IGNORE INTO invoice_metadata_new 
-                    SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, 
-                           customer_portal, customer_portal_submission_date, NULL,
-                           created_at, updated_at
-                    FROM invoice_metadata
-                ''')
-                cursor.execute('DROP TABLE invoice_metadata')
-                cursor.execute('ALTER TABLE invoice_metadata_new RENAME TO invoice_metadata')
-            except:
-                pass  # Old column doesn't exist or migration already done
+                # Check if table has old schema by inspecting column names
+                cursor.execute("PRAGMA table_info(invoice_metadata)")
+                columns = [row[1] for row in cursor.fetchall()]
+                
+                # Only migrate if old column names exist
+                if 'customer_portal' in columns or 'customer_portal_submission_date' in columns:
+                    logger.info("Migrating SQLite invoice_metadata table to new schema")
+                    cursor.execute('''
+                        CREATE TABLE IF NOT EXISTS invoice_metadata_new (
+                            invoice_id TEXT PRIMARY KEY,
+                            vzt_rep TEXT,
+                            sent_to_vzt_rep_date TEXT,
+                            customer_portal_name TEXT,
+                            portal_submission_date TEXT,
+                            manual_override_pay_date TEXT,
+                            created_at TEXT,
+                            updated_at TEXT
+                        )
+                    ''')
+                    cursor.execute('''
+                        INSERT OR IGNORE INTO invoice_metadata_new 
+                        SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, 
+                               customer_portal, customer_portal_submission_date, NULL,
+                               created_at, updated_at
+                        FROM invoice_metadata
+                    ''')
+                    cursor.execute('DROP TABLE invoice_metadata')
+                    cursor.execute('ALTER TABLE invoice_metadata_new RENAME TO invoice_metadata')
+                    logger.info("SQLite migration completed successfully")
+            except Exception as e:
+                logger.debug(f"Migration not needed or already done: {e}")
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS custom_cash_flows (

@@ -1,16 +1,20 @@
-/* Modern, user-friendly styling */
+/* VZT Solutions Brand Theme */
 :root {
-    --primary-color: #2563eb;
-    --primary-hover: #1d4ed8;
-    --secondary-color: #64748b;
-    --background: #f8fafc;
+    /* VZT Brand Colors - Professional Energy/Oilfield Services Theme */
+    --primary-color: #003d7a;  /* Deep Blue - trust, stability */
+    --primary-hover: #002856;
+    --secondary-color: #ff6b35;  /* Energy Orange - action, energy */
+    --secondary-hover: #e55a2b;
+    --accent-color: #00a0dc;  /* Light Blue - technology, innovation */
+    --background: #f5f7fa;
     --card-background: #ffffff;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --border-color: #e2e8f0;
-    --success-color: #10b981;
-    --error-color: #ef4444;
-    --warning-color: #f59e0b;
+    --text-primary: #2c3e50;
+    --text-secondary: #7f8c97;
+    --border-color: #e1e8ed;
+    --success-color: #27ae60;
+    --error-color: #e74c3c;
+    --warning-color: #f39c12;
+    --dark-bg: #1a2332;
 }
 
 * {
@@ -21,7 +25,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-    background-color: var(--background);
+    background: linear-gradient(135deg, var(--background) 0%, #e8eef3 100%);
     color: var(--text-primary);
     line-height: 1.6;
 }
@@ -34,10 +38,11 @@ body {
 
 /* Header */
 .header {
-    background-color: var(--card-background);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    background: linear-gradient(135deg, var(--dark-bg) 0%, var(--primary-color) 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     padding: 1rem 0;
     margin-bottom: 2rem;
+    border-bottom: 3px solid var(--secondary-color);
 }
 
 .header .container {
@@ -48,6 +53,21 @@ body {
 
 .logo {
     font-size: 1.5rem;
+    font-weight: 700;
+    color: #ffffff;
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logo::before {
+    content: "⚡";
+    font-size: 1.8rem;
+    color: var(--secondary-color);
+}
     font-weight: bold;
     color: var(--primary-color);
     text-decoration: none;
@@ -139,26 +159,36 @@ body {
 .btn {
     display: inline-block;
     padding: 0.75rem 1.5rem;
-    background-color: var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
     color: white;
     text-decoration: none;
     border-radius: 8px;
     font-weight: 600;
     border: none;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 61, 122, 0.2);
 }
 
 .btn:hover {
-    background-color: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 61, 122, 0.3);
 }
 
 .btn-secondary {
-    background-color: var(--secondary-color);
+    background: linear-gradient(135deg, var(--text-secondary) 0%, #5a6c7d 100%);
 }
 
 .btn-secondary:hover {
-    background-color: #475569;
+    background: linear-gradient(135deg, #5a6c7d 0%, var(--text-secondary) 100%);
+}
+
+.btn-action {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, #ff8555 100%);
+}
+
+.btn-action:hover {
+    background: linear-gradient(135deg, #ff8555 0%, var(--secondary-color) 100%);
 }
 
 /* Forms */
@@ -200,21 +230,28 @@ body {
     background: var(--card-background);
     border-radius: 12px;
     padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.06);
     overflow-x: auto;
+    border-top: 3px solid var(--secondary-color);
 }
 
 table {
     width: 100%;
     border-collapse: collapse;
+    font-size: 14px;
+    background: white;
 }
 
 th {
-    background-color: var(--background);
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+    color: white;
     padding: 1rem;
     text-align: left;
     font-weight: 600;
-    border-bottom: 2px solid var(--border-color);
+    text-transform: uppercase;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    border: none;
 }
 
 td {
@@ -223,31 +260,41 @@ td {
 }
 
 tr:hover {
-    background-color: var(--background);
+    background-color: #f8fbfd;
+}
+
+tbody tr {
+    transition: all 0.2s ease;
+}
+
+tbody tr:hover {
+    transform: scale(1.005);
 }
 
 /* Status badges */
 .status-badge {
     display: inline-block;
-    padding: 0.25rem 0.75rem;
-    border-radius: 12px;
-    font-size: 0.875rem;
-    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .status-paid {
-    background-color: #dcfce7;
-    color: #166534;
+    background: linear-gradient(135deg, var(--success-color) 0%, #2ecc71 100%);
+    color: white;
 }
 
-.status-pending {
-    background-color: #fef3c7;
-    color: #92400e;
+.status-pending, .status-unpaid {
+    background: linear-gradient(135deg, var(--warning-color) 0%, #f1c40f 100%);
+    color: white;
 }
 
 .status-overdue {
-    background-color: #fee2e2;
-    color: #991b1b;
+    background: linear-gradient(135deg, var(--error-color) 0%, #c0392b 100%);
+    color: white;
 }
 
 /* Loading */

@@ -10,7 +10,7 @@
 <body>
     <header class="header">
         <div class="container">
-            <a href="/" class="logo">💰 VZT Accounting</a>
+            <a href="/" class="logo">VZT Accounting</a>
             <nav class="nav">
                 <a href="/">Home</a>
                 <a href="/invoices">Invoices</a>
@@ -159,7 +159,7 @@
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h2 style="margin: 0;">Invoices (${invoices.length})</h2>
                             <div style="display: flex; gap: 0.5rem;">
-                                <button class="btn btn-secondary" onclick="exportToExcel()">📊 Export to Excel</button>
+                                <button class="btn btn-action" onclick="exportToExcel()">📊 Export to Excel</button>
                                 <button class="btn" onclick="openBulkActionsModal()" id="bulkActionsBtn" disabled>Bulk Assign (<span id="selectedCount">0</span>)</button>
                             </div>
                         </div>
@@ -190,12 +190,12 @@
                     const hasPortalSubmission = metadata.portal_submission_date;
                     const isPastDue = invoice.due_date && new Date(invoice.due_date) < new Date();
                     
-                    // Determine row highlighting
+                    // Determine row highlighting - check red first (more urgent)
                     let rowClass = '';
-                    if (isUnpaid && !hasPortalSubmission) {
-                        rowClass = 'highlight-yellow';
-                    } else if (isUnpaid && isPastDue && !hasPortalSubmission) {
-                        rowClass = 'highlight-red';
+                    if (isUnpaid && isPastDue && !hasPortalSubmission) {
+                        rowClass = 'highlight-red';  // Most urgent: overdue and not submitted
+                    } else if (isUnpaid && !hasPortalSubmission) {
+                        rowClass = 'highlight-yellow';  // Warning: unpaid and not submitted
                     }
                     
                     tableHTML += `
@@ -206,10 +206,10 @@
                             <td>${formatCurrency(invoice.amount || 0)}</td>
                             <td>${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
                             <td><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
-                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'vzt_rep', '${metadata.vzt_rep || ''}')">${metadata.vzt_rep || '-'}</td>
+                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'vzt_rep', '${metadata.vzt_rep || ''}', event)">${metadata.vzt_rep || '-'}</td>
                             <td>${metadata.sent_to_vzt_rep_date ? formatDate(metadata.sent_to_vzt_rep_date) : '-'}</td>
-                            <td class="editable-cell">${metadata.customer_portal_name || '-'}</td>
-                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'portal_submission_date', '${metadata.portal_submission_date || ''}')">${metadata.portal_submission_date ? formatDate(metadata.portal_submission_date) : '-'}</td>
+                            <td>${metadata.customer_portal_name || '-'}</td>
+                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'portal_submission_date', '${metadata.portal_submission_date || ''}', event)">${metadata.portal_submission_date ? formatDate(metadata.portal_submission_date) : '-'}</td>
                             <td>${metadata.manual_override_pay_date ? formatDate(metadata.manual_override_pay_date) : '-'}</td>
                             <td><button class="btn btn-secondary" onclick="editInvoiceMetadata('${invoiceId}')">Edit</button></td>
                         </tr>
@@ -345,7 +345,7 @@
         }
         
         // Inline editing functions
-        async function editInlineField(invoiceId, field, currentValue) {
+        async function editInlineField(invoiceId, field, currentValue, event) {
             const cell = event.target;
             const oldContent = cell.innerHTML;
             
@@ -368,7 +368,12 @@
                 });
                 
                 if (response.ok) {
-                    cell.innerHTML = value ? formatDate(value) : '-';
+                    // Format display based on field type
+                    if (field === 'portal_submission_date') {
+                        cell.innerHTML = value ? formatDate(value) : '-';
+                    } else {
+                        cell.innerHTML = value || '-';
+                    }
                     showToast('✓ Saved successfully!');
                     // Reload to update cash flow if needed
                     setTimeout(() => loadInvoices(), 500);
