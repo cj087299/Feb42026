@@ -1006,31 +1006,54 @@ class Database:
             refresh_expires_in = credentials.get('x_refresh_token_expires_in', 8726400)
             refresh_token_expires = (datetime.now() + timedelta(seconds=refresh_expires_in)).isoformat()
             
-            # First, delete any existing credentials (we only keep one set)
+            # GLOBAL SINGLETON: Delete any existing credentials (we only keep one set for the entire app)
             cursor.execute('DELETE FROM qbo_tokens')
             
-            # Insert new credentials
+            # Insert new credentials with explicit ID=1 to enforce singleton pattern
             placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 10)
             
-            cursor.execute(f'''
-                INSERT INTO qbo_tokens
-                (client_id, client_secret, refresh_token, access_token, realm_id,
-                 access_token_expires_at, refresh_token_expires_at, created_by_user_id,
-                 created_at, updated_at)
-                VALUES ({placeholders})
-            ''', (
-                credentials.get('client_id'),
-                credentials.get('client_secret'),
-                credentials.get('refresh_token'),
-                credentials.get('access_token'),
-                credentials.get('realm_id'),
-                access_token_expires,
-                refresh_token_expires,
-                created_by_user_id,
-                now,
-                now
-            ))
+            if self.use_cloud_sql:
+                # MySQL: Use INSERT with explicit ID=1
+                cursor.execute(f'''
+                    INSERT INTO qbo_tokens
+                    (id, client_id, client_secret, refresh_token, access_token, realm_id,
+                     access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                     created_at, updated_at)
+                    VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
+                            {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+                ''', (
+                    credentials.get('client_id'),
+                    credentials.get('client_secret'),
+                    credentials.get('refresh_token'),
+                    credentials.get('access_token'),
+                    credentials.get('realm_id'),
+                    access_token_expires,
+                    refresh_token_expires,
+                    created_by_user_id,
+                    now,
+                    now
+                ))
+            else:
+                # SQLite: Use INSERT with explicit ID=1
+                cursor.execute(f'''
+                    INSERT INTO qbo_tokens
+                    (id, client_id, client_secret, refresh_token, access_token, realm_id,
+                     access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                     created_at, updated_at)
+                    VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
+                            {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+                ''', (
+                    credentials.get('client_id'),
+                    credentials.get('client_secret'),
+                    credentials.get('refresh_token'),
+                    credentials.get('access_token'),
+                    credentials.get('realm_id'),
+                    access_token_expires,
+                    refresh_token_expires,
+                    created_by_user_id,
+                    now,
+                    now
+                ))
             
             conn.commit()
             conn.close()
@@ -1041,7 +1064,10 @@ class Database:
             return False
     
     def get_qbo_credentials(self) -> Optional[Dict]:
-        """Get the current QBO credentials from the database.
+        """Get the current QBO credentials from the database (Global Singleton).
+        
+        IMPORTANT: This returns the global QBO tokens regardless of which user is logged in.
+        All users share the same QBO connection established by an admin.
         
         Returns:
             Dictionary with QBO credentials or None if not found
@@ -1083,7 +1109,11 @@ class Database:
     
     def update_qbo_tokens(self, access_token: str, refresh_token: Optional[str] = None, 
                           expires_in: int = 3600, x_refresh_token_expires_in: int = 8726400) -> bool:
-        """Update QBO access token and optionally refresh token.
+        """Update QBO access token and optionally refresh token (Global Singleton).
+        
+        IMPORTANT: This always updates the single global row (ID=1) to ensure all users
+        get the latest tokens. This is called automatically when tokens are refreshed,
+        ensuring the 101-day refresh token window stays open for the entire team.
         
         Args:
             access_token: New access token
@@ -1104,7 +1134,7 @@ class Database:
             placeholder = '%s' if self.use_cloud_sql else '?'
             
             if refresh_token:
-                # Update both tokens
+                # Update both tokens on the global row (ID=1)
                 refresh_token_expires = (datetime.now() + timedelta(seconds=x_refresh_token_expires_in)).isoformat()
                 cursor.execute(f'''
                     UPDATE qbo_tokens
@@ -1113,21 +1143,21 @@ class Database:
                         access_token_expires_at = {placeholder},
                         refresh_token_expires_at = {placeholder},
                         updated_at = {placeholder}
-                    WHERE id = (SELECT id FROM qbo_tokens ORDER BY created_at DESC LIMIT 1)
+                    WHERE id = 1
                 ''', (access_token, refresh_token, access_token_expires, refresh_token_expires, now))
             else:
-                # Update only access token
+                # Update only access token on the global row (ID=1)
                 cursor.execute(f'''
                     UPDATE qbo_tokens
                     SET access_token = {placeholder},
                         access_token_expires_at = {placeholder},
                         updated_at = {placeholder}
-                    WHERE id = (SELECT id FROM qbo_tokens ORDER BY created_at DESC LIMIT 1)
+                    WHERE id = 1
                 ''', (access_token, access_token_expires, now))
             
             conn.commit()
             conn.close()
-            logger.info("Updated QBO tokens in database")
+            logger.info("Updated global QBO tokens in database (ID=1)")
             return True
         except Exception as e:
             logger.error(f"Failed to update QBO tokens: {e}")

@@ -96,6 +96,7 @@ class QBOClient:
                 self.refresh_token = new_refresh_token
             
             # Update tokens in database if available
+            # IMPORTANT: This updates the global singleton row (ID=1) so all users get the new tokens
             if self.database:
                 try:
                     # Get expiration times from QBO response
