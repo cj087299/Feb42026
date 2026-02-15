@@ -113,6 +113,13 @@ qbo_client = QBOClient(
 if qbo_credentials.get('access_token'):
     qbo_client.access_token = qbo_credentials['access_token']
     logger.info("Loaded access token from database for global qbo_client")
+
+# Initialize predictor before invoice_manager
+# Train predictor with dummy data initially or load a saved model
+predictor = PaymentPredictor()
+# Ideally, we would load training data from a persistent source here
+# For now, we leave it untrained or train on demand if data is available
+
 invoice_manager = InvoiceManager(qbo_client, database=database, predictor=predictor)
 
 # Check and log QBO credential status on startup
@@ -143,11 +150,6 @@ if not qbo_credentials.get('is_valid'):
     logger.warning("=" * 70)
 else:
     logger.info("✓ QuickBooks credentials are configured and valid")
-    
-# Train predictor with dummy data initially or load a saved model
-predictor = PaymentPredictor()
-# Ideally, we would load training data from a persistent source here
-# For now, we leave it untrained or train on demand if data is available
 
 
 def initialize_admin_users():
