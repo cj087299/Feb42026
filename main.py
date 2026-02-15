@@ -698,32 +698,47 @@ def get_invoices():
         filters = {
             'start_date': request.args.get('start_date'),
             'end_date': request.args.get('end_date'),
+            'invoice_start_date': request.args.get('invoice_start_date'),
+            'invoice_end_date': request.args.get('invoice_end_date'),
             'customer_id': request.args.get('customer_id'),
             'status': request.args.get('status'),
             'min_amount': request.args.get('min_amount'),
             'max_amount': request.args.get('max_amount'),
-            'region': request.args.get('region')
+            'region': request.args.get('region'),
+            'vzt_rep': request.args.get('vzt_rep'),
+            'customer_portal': request.args.get('customer_portal'),
+            'missing_portal_submission': request.args.get('missing_portal_submission'),
+            'search_query': request.args.get('search_query')
         }
 
         # Remove None values
         filters = {k: v for k, v in filters.items() if v is not None}
 
-        invoices = invoice_mgr.fetch_invoices()
+        # Build QBO server-side filters for efficiency
+        qbo_filters = {}
+        if 'status' in filters:
+            qbo_filters['status'] = filters['status']
+
+        # Fetch invoices with server-side filtering
+        invoices = invoice_mgr.fetch_invoices(qbo_filters=qbo_filters)
+        
+        # Enrich invoices with metadata from database BEFORE client-side filtering
+        # This allows filtering by metadata fields
+        all_metadata = database.get_all_invoice_metadata()
+        metadata_map = {m['invoice_id']: m for m in all_metadata}
+        
+        for invoice in invoices:
+            invoice_id = invoice.get('id') or invoice.get('doc_number')
+            if invoice_id and invoice_id in metadata_map:
+                invoice['metadata'] = metadata_map[invoice_id]
+        
+        # Apply client-side filters (includes metadata filters)
         filtered_invoices = invoice_mgr.filter_invoices(invoices, **filters)
 
         sort_by = request.args.get('sort_by', 'due_date')
         reverse = request.args.get('reverse', 'false').lower() == 'true'
 
         sorted_invoices = invoice_mgr.sort_invoices(filtered_invoices, sort_by=sort_by, reverse=reverse)
-        
-        # Enrich invoices with metadata from database
-        all_metadata = database.get_all_invoice_metadata()
-        metadata_map = {m['invoice_id']: m for m in all_metadata}
-        
-        for invoice in sorted_invoices:
-            invoice_id = invoice.get('id') or invoice.get('doc_number')
-            if invoice_id and invoice_id in metadata_map:
-                invoice['metadata'] = metadata_map[invoice_id]
 
         return jsonify(sorted_invoices), 200
     except Exception as e:
@@ -829,29 +844,41 @@ def export_invoices_to_excel():
         filters = {
             'start_date': request.args.get('start_date'),
             'end_date': request.args.get('end_date'),
+            'invoice_start_date': request.args.get('invoice_start_date'),
+            'invoice_end_date': request.args.get('invoice_end_date'),
             'customer_id': request.args.get('customer_id'),
             'status': request.args.get('status'),
             'min_amount': request.args.get('min_amount'),
             'max_amount': request.args.get('max_amount'),
-            'region': request.args.get('region')
+            'region': request.args.get('region'),
+            'vzt_rep': request.args.get('vzt_rep'),
+            'customer_portal': request.args.get('customer_portal'),
+            'missing_portal_submission': request.args.get('missing_portal_submission'),
+            'search_query': request.args.get('search_query')
         }
         filters = {k: v for k, v in filters.items() if v is not None}
         
-        invoices = invoice_mgr.fetch_invoices()
+        # Build QBO server-side filters
+        qbo_filters = {}
+        if 'status' in filters:
+            qbo_filters['status'] = filters['status']
+        
+        invoices = invoice_mgr.fetch_invoices(qbo_filters=qbo_filters)
+        
+        # Enrich invoices with metadata BEFORE filtering
+        all_metadata = database.get_all_invoice_metadata()
+        metadata_map = {m['invoice_id']: m for m in all_metadata}
+        
+        for invoice in invoices:
+            invoice_id = invoice.get('id') or invoice.get('doc_number')
+            if invoice_id and invoice_id in metadata_map:
+                invoice['metadata'] = metadata_map[invoice_id]
+        
         filtered_invoices = invoice_mgr.filter_invoices(invoices, **filters)
         
         sort_by = request.args.get('sort_by', 'due_date')
         reverse = request.args.get('reverse', 'false').lower() == 'true'
         sorted_invoices = invoice_mgr.sort_invoices(filtered_invoices, sort_by=sort_by, reverse=reverse)
-        
-        # Enrich invoices with metadata
-        all_metadata = database.get_all_invoice_metadata()
-        metadata_map = {m['invoice_id']: m for m in all_metadata}
-        
-        for invoice in sorted_invoices:
-            invoice_id = invoice.get('id') or invoice.get('doc_number')
-            if invoice_id and invoice_id in metadata_map:
-                invoice['metadata'] = metadata_map[invoice_id]
             
             # Calculate projected pay date
             projected_date = invoice_mgr.calculate_projected_pay_date(invoice)
