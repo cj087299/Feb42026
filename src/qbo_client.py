@@ -19,7 +19,7 @@ class QBOClient:
         
         # Set base URL based on QBO_ENVIRONMENT variable
         # Default to production if not specified
-        qbo_environment = os.getenv('QBO_ENVIRONMENT', 'production').lower()
+        qbo_environment = os.environ.get('QBO_ENVIRONMENT', 'production').lower()
         if qbo_environment == 'production':
             self.base_url = "https://quickbooks.api.intuit.com/v3/company"
             logger.info("QBOClient initialized for PRODUCTION environment")
