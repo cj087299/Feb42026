@@ -879,8 +879,9 @@ def export_invoices_to_excel():
         sort_by = request.args.get('sort_by', 'due_date')
         reverse = request.args.get('reverse', 'false').lower() == 'true'
         sorted_invoices = invoice_mgr.sort_invoices(filtered_invoices, sort_by=sort_by, reverse=reverse)
-            
-            # Calculate projected pay date
+        
+        # Calculate projected pay date for each invoice
+        for invoice in sorted_invoices:
             projected_date = invoice_mgr.calculate_projected_pay_date(invoice)
             invoice['projected_pay_date'] = projected_date.strftime('%Y-%m-%d') if projected_date else None
         
