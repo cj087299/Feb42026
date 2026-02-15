@@ -484,11 +484,12 @@
                     </div>
                 `;
 
-                // Show both buttons when connected (Disconnect + Connect/Reconnect)
+                // Show only the appropriate button based on connection status
+                // When connected (has realm_id): Show ONLY Disconnect button
+                // When disconnected (no realm_id): Show ONLY Connect button
                 if (data.realm_id) {
-                    connectButton.style.display = 'inline-flex';
+                    connectButton.style.display = 'none';
                     disconnectButton.style.display = 'inline-flex';
-                    buttonText.textContent = 'Reconnect';
                 } else {
                     // Show only Connect button when no realm_id (not connected)
                     connectButton.style.display = 'inline-flex';
