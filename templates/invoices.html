@@ -27,13 +27,33 @@
 
         <div class="table-container">
             <h2 style="margin-bottom: 1.5rem;">Filter Invoices</h2>
+            
+            <!-- Live Search Bar -->
+            <div style="margin-bottom: 1.5rem;">
+                <label for="search_query" style="display: block; font-weight: 600; color: #555; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                    Live Search
+                </label>
+                <input type="text" id="search_query" name="search_query" 
+                       placeholder="🔍 Search by Invoice # or Customer Name..." 
+                       aria-label="Search invoices by invoice number or customer name"
+                       style="width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+            
             <form id="filterForm" class="form-row" style="margin-bottom: 2rem;">
                 <div class="form-group">
-                    <label for="start_date">Start Date</label>
+                    <label for="invoice_start_date">Invoice Date From</label>
+                    <input type="date" id="invoice_start_date" name="invoice_start_date">
+                </div>
+                <div class="form-group">
+                    <label for="invoice_end_date">Invoice Date To</label>
+                    <input type="date" id="invoice_end_date" name="invoice_end_date">
+                </div>
+                <div class="form-group">
+                    <label for="start_date">Due Date From</label>
                     <input type="date" id="start_date" name="start_date">
                 </div>
                 <div class="form-group">
-                    <label for="end_date">End Date</label>
+                    <label for="end_date">Due Date To</label>
                     <input type="date" id="end_date" name="end_date">
                 </div>
                 <div class="form-group">
@@ -46,16 +66,33 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label for="vzt_rep">VZT Rep</label>
+                    <select id="vzt_rep" name="vzt_rep">
+                        <option value="">All Reps</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="customer_portal">Customer Portal</label>
+                    <select id="customer_portal" name="customer_portal">
+                        <option value="">All Portals</option>
+                        <option value="OpenInvoice">OpenInvoice</option>
+                        <option value="Cortex">Cortex</option>
+                        <option value="APAccountsPayable">APAccountsPayable</option>
+                        <option value="EnergyLink">EnergyLink</option>
+                        <option value="Oildex">Oildex</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="customer_id">Customer ID</label>
                     <input type="text" id="customer_id" name="customer_id" placeholder="Enter customer ID">
                 </div>
                 <div class="form-group">
-                    <label for="min_amount">Min Amount</label>
-                    <input type="number" id="min_amount" name="min_amount" placeholder="0.00" step="0.01">
+                    <label for="min_amount">Min Amount ($)</label>
+                    <input type="number" id="min_amount" name="min_amount" placeholder="Leave blank for no min" step="0.01">
                 </div>
                 <div class="form-group">
-                    <label for="max_amount">Max Amount</label>
-                    <input type="number" id="max_amount" name="max_amount" placeholder="0.00" step="0.01">
+                    <label for="max_amount">Max Amount ($)</label>
+                    <input type="number" id="max_amount" name="max_amount" placeholder="Leave blank for no max" step="0.01">
                 </div>
                 <div class="form-group">
                     <label for="region">Region</label>
@@ -65,10 +102,17 @@
                     <label for="sort_by">Sort By</label>
                     <select id="sort_by" name="sort_by">
                         <option value="due_date">Due Date</option>
+                        <option value="invoice_date">Invoice Date</option>
                         <option value="amount">Amount</option>
                         <option value="customer">Customer</option>
                         <option value="status">Status</option>
                     </select>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; padding-top: 1.5rem;">
+                    <label for="missing_portal_submission" style="margin: 0; display: flex; align-items: center; cursor: pointer;">
+                        <input type="checkbox" id="missing_portal_submission" name="missing_portal_submission" value="true" style="margin-right: 0.5rem;">
+                        Missing Portal Submission
+                    </label>
                 </div>
             </form>
             <button type="button" class="btn" onclick="loadInvoices()">Apply Filters</button>
@@ -114,11 +158,54 @@
         // Load invoices on page load
         window.addEventListener('DOMContentLoaded', () => {
             loadInvoices();
+            populateVztRepFilter();
+            
+            // Add live search functionality with debouncing
+            let searchTimeout;
+            document.getElementById('search_query').addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    loadInvoices();
+                }, 300); // Wait 300ms after user stops typing
+            });
         });
 
         function clearFilters() {
+            // Reset all form fields
             document.getElementById('filterForm').reset();
+            document.getElementById('search_query').value = '';
+            document.getElementById('missing_portal_submission').checked = false;
             loadInvoices();
+        }
+
+        async function populateVztRepFilter() {
+            try {
+                // Fetch all invoices to get unique VZT reps
+                const invoices = await fetchAPI('/api/invoices');
+                const reps = new Set();
+                
+                invoices.forEach(invoice => {
+                    if (invoice.metadata && invoice.metadata.vzt_rep) {
+                        reps.add(invoice.metadata.vzt_rep);
+                    }
+                });
+                
+                const select = document.getElementById('vzt_rep');
+                // Clear existing options except the first one
+                while (select.options.length > 1) {
+                    select.remove(1);
+                }
+                
+                // Add unique reps to dropdown
+                Array.from(reps).sort().forEach(rep => {
+                    const option = document.createElement('option');
+                    option.value = rep;
+                    option.textContent = rep;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Failed to populate VZT Rep filter:', error);
+            }
         }
 
         async function loadInvoices() {
@@ -135,6 +222,18 @@
                     if (value) {
                         params.append(key, value);
                     }
+                }
+                
+                // Add search query separately
+                const searchQuery = document.getElementById('search_query').value;
+                if (searchQuery) {
+                    params.append('search_query', searchQuery);
+                }
+                
+                // Add missing portal submission checkbox
+                const missingPortal = document.getElementById('missing_portal_submission').checked;
+                if (missingPortal) {
+                    params.append('missing_portal_submission', 'true');
                 }
 
                 const queryString = params.toString();
@@ -170,6 +269,7 @@
                                     <th>Invoice ID</th>
                                     <th>Customer</th>
                                     <th>Amount</th>
+                                    <th>Invoice Date</th>
                                     <th>Due Date</th>
                                     <th>Status</th>
                                     <th>VZT Rep</th>
@@ -204,6 +304,7 @@
                             <td>${invoiceId}</td>
                             <td>${invoice.customer || invoice.customer_id || 'N/A'}</td>
                             <td>${formatCurrency(invoice.amount || 0)}</td>
+                            <td>${invoice.txn_date ? formatDate(invoice.txn_date) : 'N/A'}</td>
                             <td>${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
                             <td><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
                             <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'vzt_rep', '${metadata.vzt_rep || ''}', event)">${metadata.vzt_rep || '-'}</td>
@@ -470,6 +571,18 @@
                     if (value) {
                         params.append(key, value);
                     }
+                }
+                
+                // Add search query
+                const searchQuery = document.getElementById('search_query').value;
+                if (searchQuery) {
+                    params.append('search_query', searchQuery);
+                }
+                
+                // Add missing portal submission checkbox
+                const missingPortal = document.getElementById('missing_portal_submission').checked;
+                if (missingPortal) {
+                    params.append('missing_portal_submission', 'true');
                 }
                 
                 const queryString = params.toString();
