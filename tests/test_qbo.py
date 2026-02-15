@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock
+import os
 from src.qbo_client import QBOClient
 
 
@@ -10,6 +11,36 @@ class TestQBOClient(unittest.TestCase):
     def test_init(self):
         self.assertEqual(self.client.client_id, "id")
         self.assertEqual(self.client.realm_id, "realm")
+    
+    @patch.dict(os.environ, {}, clear=True)
+    def test_default_environment_is_sandbox(self):
+        """Test that sandbox is used when QBO_ENVIRONMENT is not set"""
+        client = QBOClient("id", "secret", "refresh", "realm")
+        self.assertEqual(client.base_url, "https://sandbox-quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'sandbox'})
+    def test_sandbox_environment(self):
+        """Test that sandbox URL is used when QBO_ENVIRONMENT is 'sandbox'"""
+        client = QBOClient("id", "secret", "refresh", "realm")
+        self.assertEqual(client.base_url, "https://sandbox-quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'production'})
+    def test_production_environment(self):
+        """Test that production URL is used when QBO_ENVIRONMENT is 'production'"""
+        client = QBOClient("id", "secret", "refresh", "realm")
+        self.assertEqual(client.base_url, "https://quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'PRODUCTION'})
+    def test_production_environment_case_insensitive(self):
+        """Test that environment variable is case-insensitive"""
+        client = QBOClient("id", "secret", "refresh", "realm")
+        self.assertEqual(client.base_url, "https://quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'invalid_value'})
+    def test_invalid_environment_defaults_to_sandbox(self):
+        """Test that invalid environment values default to sandbox"""
+        client = QBOClient("id", "secret", "refresh", "realm")
+        self.assertEqual(client.base_url, "https://sandbox-quickbooks.api.intuit.com/v3/company")
 
     @patch('src.qbo_client.requests.post')
     @patch('src.qbo_client.requests.request')
