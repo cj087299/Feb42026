@@ -206,7 +206,7 @@ class InvoiceManager:
 
         # Amount filters - only apply if value is not empty string
         min_amount = kwargs.get('min_amount')
-        if min_amount and min_amount != '':
+        if min_amount:
             try:
                 min_val = float(min_amount)
                 filtered = [inv for inv in filtered if float(inv.get('amount', 0)) >= min_val]
@@ -214,7 +214,7 @@ class InvoiceManager:
                 logger.warning(f"Invalid min_amount: {min_amount}")
 
         max_amount = kwargs.get('max_amount')
-        if max_amount and max_amount != '':
+        if max_amount:
             try:
                 max_val = float(max_amount)
                 filtered = [inv for inv in filtered if float(inv.get('amount', 0)) <= max_val]

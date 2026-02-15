@@ -30,7 +30,12 @@
             
             <!-- Live Search Bar -->
             <div style="margin-bottom: 1.5rem;">
-                <input type="text" id="search_query" name="search_query" placeholder="🔍 Search by Invoice # or Customer Name..." 
+                <label for="search_query" style="display: block; font-weight: 600; color: #555; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                    Live Search
+                </label>
+                <input type="text" id="search_query" name="search_query" 
+                       placeholder="🔍 Search by Invoice # or Customer Name..." 
+                       aria-label="Search invoices by invoice number or customer name"
                        style="width: 100%; padding: 0.75rem; font-size: 1rem; border: 1px solid #ddd; border-radius: 4px;">
             </div>
             
@@ -104,7 +109,7 @@
                     </select>
                 </div>
                 <div class="form-group" style="display: flex; align-items: center; padding-top: 1.5rem;">
-                    <label style="margin: 0; display: flex; align-items: center; cursor: pointer;">
+                    <label for="missing_portal_submission" style="margin: 0; display: flex; align-items: center; cursor: pointer;">
                         <input type="checkbox" id="missing_portal_submission" name="missing_portal_submission" value="true" style="margin-right: 0.5rem;">
                         Missing Portal Submission
                     </label>
