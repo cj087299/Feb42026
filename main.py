@@ -1997,7 +1997,9 @@ def qbo_disconnect():
                 user_agent=request.user_agent.string if request.user_agent else None
             )
             
-            # Reinitialize QBO client with empty/dummy credentials
+            # Reinitialize QBO client - will have invalid dummy credentials after disconnect
+            # get_qbo_credentials() returns dummy values when no credentials exist in database
+            # The QBOClient will mark credentials_valid=False to prevent API calls
             qbo_credentials = secret_manager.get_qbo_credentials()
             qbo_client = QBOClient(
                 client_id=qbo_credentials.get('client_id', 'dummy_id'),

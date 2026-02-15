@@ -95,12 +95,11 @@ class TestQBODisconnect(unittest.TestCase):
         # Create SecretManager with mock database
         secret_manager = SecretManager(database=mock_db)
         
-        # Call delete_qbo_secrets - should still return True
-        # (because it catches and logs the database error)
+        # Call delete_qbo_secrets - should return False due to database error
         result = secret_manager.delete_qbo_secrets()
         
-        # Verify it still returns True (graceful handling)
-        self.assertTrue(result)
+        # Verify it returns False (proper error handling)
+        self.assertFalse(result)
 
 
 if __name__ == '__main__':
