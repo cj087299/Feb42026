@@ -18,8 +18,8 @@ class QBOClient:
         self.access_token = None
         
         # Set base URL based on QBO_ENVIRONMENT variable
-        # Default to sandbox if not specified
-        qbo_environment = os.environ.get('QBO_ENVIRONMENT', 'sandbox').lower()
+        # Default to production if not specified
+        qbo_environment = os.environ.get('QBO_ENVIRONMENT', 'production').lower()
         if qbo_environment == 'production':
             self.base_url = "https://quickbooks.api.intuit.com/v3/company"
             logger.info("QBOClient initialized for PRODUCTION environment")
@@ -96,6 +96,7 @@ class QBOClient:
                 self.refresh_token = new_refresh_token
             
             # Update tokens in database if available
+            # IMPORTANT: This updates the global singleton row (ID=1) so all users get the new tokens
             if self.database:
                 try:
                     # Get expiration times from QBO response

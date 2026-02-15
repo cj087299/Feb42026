@@ -13,10 +13,10 @@ class TestQBOClient(unittest.TestCase):
         self.assertEqual(self.client.realm_id, "realm")
     
     @patch.dict(os.environ, {}, clear=True)
-    def test_default_environment_is_sandbox(self):
-        """Test that sandbox is used when QBO_ENVIRONMENT is not set"""
+    def test_default_environment_is_production(self):
+        """Test that production is used when QBO_ENVIRONMENT is not set"""
         client = QBOClient("id", "secret", "refresh", "realm")
-        self.assertEqual(client.base_url, "https://sandbox-quickbooks.api.intuit.com/v3/company")
+        self.assertEqual(client.base_url, "https://quickbooks.api.intuit.com/v3/company")
     
     @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'sandbox'})
     def test_sandbox_environment(self):

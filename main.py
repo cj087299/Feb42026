@@ -1548,15 +1548,16 @@ def get_audit_log():
 @app.route('/api/qbo/credentials', methods=['GET', 'POST'])
 @login_required
 def manage_qbo_credentials():
-    """Get or update QBO credentials (admin and master_admin only)."""
+    """Get or update QBO credentials.
+    
+    GET: All authenticated users can view connection status (shared global tokens)
+    POST: Only admin and master_admin can update credentials
+    """
     global qbo_client, secret_manager
     user_role = session.get('user_role')
     
-    # Only admin and master_admin can manage QBO credentials
-    if user_role not in ['admin', 'master_admin']:
-        return jsonify({'error': 'Permission denied'}), 403
-    
     if request.method == 'GET':
+        # All authenticated users can view connection status
         try:
             credentials = database.get_qbo_credentials()
             if credentials:
@@ -1577,7 +1578,9 @@ def manage_qbo_credentials():
                     'created_at': credentials.get('created_at'),
                     'updated_at': credentials.get('updated_at'),
                     'is_valid': is_valid,
-                    'status': 'configured' if is_valid else 'invalid_or_dummy'
+                    'status': 'configured' if is_valid else 'invalid_or_dummy',
+                    'is_admin': user_role in ['admin', 'master_admin'],  # Tell frontend if user is admin
+                    'qbo_environment': os.environ.get('QBO_ENVIRONMENT', 'production').upper()  # Environment name in uppercase
                 }
                 return jsonify(safe_credentials), 200
             else:
@@ -1589,13 +1592,19 @@ def manage_qbo_credentials():
                     'message': 'No QBO credentials configured in database',
                     'is_valid': is_env_valid,
                     'status': 'using_environment_variables' if is_env_valid else 'not_configured',
-                    'help': 'Please configure credentials at /qbo-settings or set environment variables'
+                    'help': 'Please configure credentials at /qbo-settings or set environment variables',
+                    'is_admin': user_role in ['admin', 'master_admin'],
+                    'qbo_environment': os.environ.get('QBO_ENVIRONMENT', 'production').upper()
                 }), 404
         except Exception as e:
             logger.error(f"Error fetching QBO credentials: {e}")
             return jsonify({"error": str(e)}), 500
     
     elif request.method == 'POST':
+        # Only admin and master_admin can update QBO credentials
+        if user_role not in ['admin', 'master_admin']:
+            return jsonify({'error': 'Permission denied. Only administrators can update QBO credentials.'}), 403
+        
         try:
             data = request.get_json()
             client_id = data.get('client_id')
@@ -2023,9 +2032,9 @@ def qbo_oauth_diagnostic():
                 },
                 {
                     'item': 'Using correct environment',
-                    'value': f"{os.environ.get('QBO_ENVIRONMENT', 'sandbox').upper()} (from QBO_ENVIRONMENT variable)",
+                    'value': f"{os.environ.get('QBO_ENVIRONMENT', 'production').upper()} (from QBO_ENVIRONMENT variable)",
                     'status': 'info',
-                    'action': f'Ensure your client credentials are from the {os.environ.get("QBO_ENVIRONMENT", "sandbox").title()} environment'
+                    'action': f'Ensure your client credentials are from the {os.environ.get("QBO_ENVIRONMENT", "production").title()} environment'
                 },
                 {
                     'item': 'Browser allows popups',
@@ -2066,14 +2075,17 @@ def qbo_oauth_diagnostic():
 @app.route('/qbo-settings-v2', methods=['GET'])
 @login_required
 def qbo_settings_v2_page():
-    """QBO settings page v2 with simplified OAuth flow (admin and master_admin only)."""
+    """QBO settings page v2 with simplified OAuth flow.
+    
+    - Admins and master_admins can connect/disconnect QuickBooks
+    - Regular users can view connection status (read-only)
+    """
     user_role = session.get('user_role')
+    is_admin = user_role in ['admin', 'master_admin']
     
-    # Only admin and master_admin can access QBO settings
-    if user_role not in ['admin', 'master_admin']:
-        return jsonify({'error': 'Permission denied'}), 403
-    
-    return render_template('qbo_settings_v2.html')
+    # All authenticated users can view this page
+    # Admins see connection controls, regular users see status only
+    return render_template('qbo_settings_v2.html', is_admin=is_admin, user_role=user_role)
 
 
 @app.route('/api/qbo/oauth/authorize-v2', methods=['POST'])

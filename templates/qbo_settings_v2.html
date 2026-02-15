@@ -435,10 +435,14 @@
                 const statusBox = document.getElementById('statusBox');
                 const connectButton = document.getElementById('connectButton');
                 const disconnectButton = document.getElementById('disconnectButton');
+                const buttonContainer = document.getElementById('buttonContainer');
                 const buttonText = document.getElementById('buttonText');
                 const lastRevised = document.getElementById('lastRevised');
 
                 if (response.status === 404) {
+                    const responseData = await response.json();
+                    const isAdmin = responseData.is_admin;
+                    
                     statusBox.innerHTML = `
                         <div class="status-row">
                             <span class="status-label">Connection Status</span>
@@ -447,13 +451,20 @@
                             </span>
                         </div>
                         <p style="margin-top: 15px; color: #666; text-align: center;">
-                            Click the button below to connect to QuickBooks Online
+                            ${isAdmin ? 'Click the button below to connect to QuickBooks Online' : 'QuickBooks is not connected yet. Please contact an administrator.'}
                         </p>
                     `;
-                    // Show only Connect button when not connected
-                    connectButton.style.display = 'inline-flex';
-                    disconnectButton.style.display = 'none';
-                    buttonText.textContent = 'Connect to QuickBooks';
+                    
+                    if (isAdmin) {
+                        // Show only Connect button when not connected
+                        connectButton.style.display = 'inline-flex';
+                        disconnectButton.style.display = 'none';
+                        buttonText.textContent = 'Connect to QuickBooks';
+                    } else {
+                        // Hide buttons for non-admin users
+                        buttonContainer.style.display = 'none';
+                    }
+                    
                     if (lastRevised) {
                         lastRevised.textContent = 'Never';
                     }
@@ -466,6 +477,7 @@
 
                 const data = await response.json();
                 const status = getConnectionStatus(data);
+                const isAdmin = data.is_admin;
 
                 statusBox.innerHTML = `
                     <div class="status-row">
@@ -484,17 +496,33 @@
                     </div>
                 `;
 
-                // Show only the appropriate button based on connection status
-                // When connected (has realm_id): Show ONLY Disconnect button
-                // When disconnected (no realm_id): Show ONLY Connect button
-                if (data.realm_id) {
-                    connectButton.style.display = 'none';
-                    disconnectButton.style.display = 'inline-flex';
+                // Show buttons or status message based on user role
+                if (isAdmin) {
+                    // Admin: Show Connect/Disconnect buttons
+                    buttonContainer.style.display = 'block';
+                    if (data.realm_id) {
+                        connectButton.style.display = 'none';
+                        disconnectButton.style.display = 'inline-flex';
+                    } else {
+                        connectButton.style.display = 'inline-flex';
+                        disconnectButton.style.display = 'none';
+                        buttonText.textContent = 'Connect to QuickBooks';
+                    }
                 } else {
-                    // Show only Connect button when no realm_id (not connected)
-                    connectButton.style.display = 'inline-flex';
-                    disconnectButton.style.display = 'none';
-                    buttonText.textContent = 'Connect to QuickBooks';
+                    // Non-admin: Show read-only status message
+                    // Use uppercase for environment name (matches backend .upper())
+                    const envName = data.qbo_environment || 'PRODUCTION';
+                    buttonContainer.innerHTML = `
+                        <div style="padding: 20px; background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 10px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                            <div style="font-size: 18px; font-weight: 600; color: #0c4a6e; margin-bottom: 8px;">
+                                Connected to VZT ${envName} Data
+                            </div>
+                            <div style="font-size: 14px; color: #075985;">
+                                Your team administrator has configured QuickBooks access for everyone.
+                            </div>
+                        </div>
+                    `;
                 }
                 
                 // Update last revised date
@@ -508,7 +536,8 @@
                 document.getElementById('statusBox').innerHTML = `
                     <p style="color: #dc3545; text-align: center;">Failed to load connection status</p>
                 `;
-                // Show only Connect button on error
+                // Try to show connect button on error for admins
+                document.getElementById('buttonContainer').style.display = 'block';
                 document.getElementById('connectButton').style.display = 'inline-flex';
                 document.getElementById('disconnectButton').style.display = 'none';
                 if (lastRevised) {
