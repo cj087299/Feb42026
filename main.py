@@ -113,7 +113,7 @@ qbo_client = QBOClient(
 if qbo_credentials.get('access_token'):
     qbo_client.access_token = qbo_credentials['access_token']
     logger.info("Loaded access token from database for global qbo_client")
-invoice_manager = InvoiceManager(qbo_client)
+invoice_manager = InvoiceManager(qbo_client, database=database, predictor=predictor)
 
 # Check and log QBO credential status on startup
 if not qbo_credentials.get('is_valid'):
@@ -690,7 +690,7 @@ def get_invoices():
             }), 200  # Return 200 so frontend can display the message nicely
         
         # Create invoice manager with fresh client
-        invoice_mgr = InvoiceManager(fresh_client)
+        invoice_mgr = InvoiceManager(fresh_client, database=database, predictor=predictor)
         
         # Extract query parameters for filtering
         filters = {
@@ -772,6 +772,176 @@ def invoice_metadata(invoice_id):
             return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/invoices/bulk-assign', methods=['POST'])
+@login_required
+@permission_required('edit_invoice_metadata')
+def bulk_assign_invoices():
+    """Bulk assign metadata to multiple invoices."""
+    try:
+        data = request.get_json()
+        invoice_ids = data.get('invoice_ids', [])
+        metadata = data.get('metadata', {})
+        
+        if not invoice_ids or not metadata:
+            return jsonify({"error": "Missing invoice_ids or metadata"}), 400
+        
+        updated = 0
+        for invoice_id in invoice_ids:
+            success = database.save_invoice_metadata(invoice_id, metadata)
+            if success:
+                updated += 1
+                # Log the action
+                database.log_audit(
+                    user_id=session.get('user_id'),
+                    user_email=session.get('user_email'),
+                    action='bulk_assign_invoice_metadata',
+                    resource_type='invoice',
+                    resource_id=invoice_id,
+                    details=str(metadata),
+                    ip_address=request.remote_addr,
+                    user_agent=request.user_agent.string if request.user_agent else None
+                )
+        
+        return jsonify({"message": f"Updated {updated} invoice(s)", "updated": updated}), 200
+    except Exception as e:
+        logger.error(f"Error bulk assigning: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/invoices/export-excel', methods=['GET'])
+@login_required
+@permission_required('view_invoices')
+def export_invoices_to_excel():
+    """Export invoices to Excel file."""
+    try:
+        # Get fresh QBO client with current credentials from database
+        fresh_client, credentials_valid = get_fresh_qbo_client()
+        
+        if not credentials_valid:
+            return jsonify({"error": "QuickBooks credentials not configured"}), 400
+        
+        # Create invoice manager with fresh client
+        invoice_mgr = InvoiceManager(fresh_client, database=database, predictor=predictor)
+        
+        # Extract query parameters for filtering (same as get_invoices)
+        filters = {
+            'start_date': request.args.get('start_date'),
+            'end_date': request.args.get('end_date'),
+            'customer_id': request.args.get('customer_id'),
+            'status': request.args.get('status'),
+            'min_amount': request.args.get('min_amount'),
+            'max_amount': request.args.get('max_amount'),
+            'region': request.args.get('region')
+        }
+        filters = {k: v for k, v in filters.items() if v is not None}
+        
+        invoices = invoice_mgr.fetch_invoices()
+        filtered_invoices = invoice_mgr.filter_invoices(invoices, **filters)
+        
+        sort_by = request.args.get('sort_by', 'due_date')
+        reverse = request.args.get('reverse', 'false').lower() == 'true'
+        sorted_invoices = invoice_mgr.sort_invoices(filtered_invoices, sort_by=sort_by, reverse=reverse)
+        
+        # Enrich invoices with metadata
+        all_metadata = database.get_all_invoice_metadata()
+        metadata_map = {m['invoice_id']: m for m in all_metadata}
+        
+        for invoice in sorted_invoices:
+            invoice_id = invoice.get('id') or invoice.get('doc_number')
+            if invoice_id and invoice_id in metadata_map:
+                invoice['metadata'] = metadata_map[invoice_id]
+            
+            # Calculate projected pay date
+            projected_date = invoice_mgr.calculate_projected_pay_date(invoice)
+            invoice['projected_pay_date'] = projected_date.strftime('%Y-%m-%d') if projected_date else None
+        
+        # Create Excel file using openpyxl
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment
+            from io import BytesIO
+            from flask import send_file
+        except ImportError:
+            return jsonify({"error": "openpyxl not installed. Please install it."}), 500
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "2026 Pay Schedule"
+        
+        # Headers
+        headers = [
+            "Invoice ID", "Customer", "Amount", "Due Date", "Status", 
+            "VZT Rep", "Sent to Rep", "Customer Portal", "Portal Submission", 
+            "Manual Pay Date", "Projected Pay Date"
+        ]
+        ws.append(headers)
+        
+        # Style headers
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF")
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Add data
+        for invoice in sorted_invoices:
+            metadata = invoice.get('metadata', {})
+            ws.append([
+                invoice.get('id') or invoice.get('doc_number'),
+                invoice.get('customer') or invoice.get('customer_id'),
+                invoice.get('amount', 0),
+                invoice.get('due_date'),
+                invoice.get('status'),
+                metadata.get('vzt_rep', ''),
+                metadata.get('sent_to_vzt_rep_date', ''),
+                metadata.get('customer_portal_name', ''),
+                metadata.get('portal_submission_date', ''),
+                metadata.get('manual_override_pay_date', ''),
+                invoice.get('projected_pay_date', '')
+            ])
+        
+        # Auto-adjust column widths
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 50)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        # Save to BytesIO
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        # Log the action
+        database.log_audit(
+            user_id=session.get('user_id'),
+            user_email=session.get('user_email'),
+            action='export_invoices_to_excel',
+            resource_type='invoice',
+            resource_id=None,
+            details=f"Exported {len(sorted_invoices)} invoices",
+            ip_address=request.remote_addr,
+            user_agent=request.user_agent.string if request.user_agent else None
+        )
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'pay_schedule_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        )
+    except Exception as e:
+        logger.error(f"Error exporting to Excel: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/api/cashflow', methods=['GET'])
 @login_required
 @permission_required('view_cashflow')
@@ -792,7 +962,7 @@ def get_cashflow():
             }), 200
         
         # Create invoice manager with fresh client
-        invoice_mgr = InvoiceManager(fresh_client)
+        invoice_mgr = InvoiceManager(fresh_client, database=database, predictor=predictor)
         
         days = int(request.args.get('days', 30))
         invoices = invoice_mgr.fetch_invoices()
@@ -860,7 +1030,7 @@ def get_cashflow_calendar():
             end_date = start_date + timedelta(days=days)
         
         # Create invoice manager with fresh client
-        invoice_mgr = InvoiceManager(fresh_client)
+        invoice_mgr = InvoiceManager(fresh_client, database=database, predictor=predictor)
         
         # Fetch data (invoices will be empty if QBO credentials not configured)
         invoices = invoice_mgr.fetch_invoices() if credentials_valid else []

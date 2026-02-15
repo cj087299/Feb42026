@@ -78,6 +78,35 @@
         <div id="invoiceResults" style="margin-top: 2rem;">
             <!-- Results will be loaded here -->
         </div>
+        
+        <!-- Bulk Actions Modal -->
+        <div id="bulkActionsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div style="background: white; padding: 2rem; border-radius: 8px; max-width: 600px; width: 90%;">
+                <h2 style="margin-bottom: 1.5rem;">Bulk Assign</h2>
+                <form id="bulkAssignForm">
+                    <div class="form-group">
+                        <label for="bulk_vzt_rep">VZT Rep (optional)</label>
+                        <input type="text" id="bulk_vzt_rep" name="vzt_rep" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="bulk_customer_portal">Customer Portal (optional)</label>
+                        <select id="bulk_customer_portal" name="customer_portal_name" class="form-control">
+                            <option value="">-- Select Portal --</option>
+                            <option value="OpenInvoice">OpenInvoice</option>
+                            <option value="Cortex">Cortex</option>
+                            <option value="APAccountsPayable">APAccountsPayable</option>
+                            <option value="EnergyLink">EnergyLink</option>
+                            <option value="Oildex">Oildex</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                        <button type="submit" class="btn">Apply to Selected</button>
+                        <button type="button" class="btn btn-secondary" onclick="closeBulkActionsModal()">Cancel</button>
+                    </div>
+                </form>
+                <p id="bulkActionsStatus" style="margin-top: 1rem; color: var(--primary-color);"></p>
+            </div>
+        </div>
     </main>
 
     <script src="/static/js/common.js"></script>
@@ -127,19 +156,27 @@
                 // Build table
                 let tableHTML = `
                     <div class="table-container">
-                        <h2 style="margin-bottom: 1rem;">Invoices (${invoices.length})</h2>
-                        <table>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h2 style="margin: 0;">Invoices (${invoices.length})</h2>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-secondary" onclick="exportToExcel()">📊 Export to Excel</button>
+                                <button class="btn" onclick="openBulkActionsModal()" id="bulkActionsBtn" disabled>Bulk Assign (<span id="selectedCount">0</span>)</button>
+                            </div>
+                        </div>
+                        <table id="invoicesTable">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" id="selectAll" onchange="toggleSelectAll()"></th>
                                     <th>Invoice ID</th>
                                     <th>Customer</th>
                                     <th>Amount</th>
                                     <th>Due Date</th>
                                     <th>Status</th>
                                     <th>VZT Rep</th>
-                                    <th>Sent to VZT Rep</th>
+                                    <th>Sent to Rep</th>
                                     <th>Customer Portal</th>
                                     <th>Portal Submission</th>
+                                    <th>Manual Pay Date</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -149,17 +186,31 @@
                 invoices.forEach(invoice => {
                     const metadata = invoice.metadata || {};
                     const invoiceId = invoice.id || invoice.doc_number || 'N/A';
+                    const isUnpaid = invoice.status !== 'Paid' && invoice.status !== 'paid';
+                    const hasPortalSubmission = metadata.portal_submission_date;
+                    const isPastDue = invoice.due_date && new Date(invoice.due_date) < new Date();
+                    
+                    // Determine row highlighting
+                    let rowClass = '';
+                    if (isUnpaid && !hasPortalSubmission) {
+                        rowClass = 'highlight-yellow';
+                    } else if (isUnpaid && isPastDue && !hasPortalSubmission) {
+                        rowClass = 'highlight-red';
+                    }
+                    
                     tableHTML += `
-                        <tr data-invoice-id="${invoiceId}">
+                        <tr data-invoice-id="${invoiceId}" class="${rowClass}">
+                            <td><input type="checkbox" class="invoice-checkbox" value="${invoiceId}"></td>
                             <td>${invoiceId}</td>
                             <td>${invoice.customer || invoice.customer_id || 'N/A'}</td>
                             <td>${formatCurrency(invoice.amount || 0)}</td>
                             <td>${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
                             <td><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
-                            <td class="editable-cell" data-field="vzt_rep">${metadata.vzt_rep || '-'}</td>
-                            <td class="editable-cell" data-field="sent_to_vzt_rep_date">${metadata.sent_to_vzt_rep_date ? formatDate(metadata.sent_to_vzt_rep_date) : '-'}</td>
-                            <td class="editable-cell" data-field="customer_portal">${metadata.customer_portal || '-'}</td>
-                            <td class="editable-cell" data-field="customer_portal_submission_date">${metadata.customer_portal_submission_date ? formatDate(metadata.customer_portal_submission_date) : '-'}</td>
+                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'vzt_rep', '${metadata.vzt_rep || ''}')">${metadata.vzt_rep || '-'}</td>
+                            <td>${metadata.sent_to_vzt_rep_date ? formatDate(metadata.sent_to_vzt_rep_date) : '-'}</td>
+                            <td class="editable-cell">${metadata.customer_portal_name || '-'}</td>
+                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'portal_submission_date', '${metadata.portal_submission_date || ''}')">${metadata.portal_submission_date ? formatDate(metadata.portal_submission_date) : '-'}</td>
+                            <td>${metadata.manual_override_pay_date ? formatDate(metadata.manual_override_pay_date) : '-'}</td>
                             <td><button class="btn btn-secondary" onclick="editInvoiceMetadata('${invoiceId}')">Edit</button></td>
                         </tr>
                     `;
@@ -172,6 +223,11 @@
                 `;
 
                 resultsDiv.innerHTML = tableHTML;
+                
+                // Add event listeners to checkboxes
+                document.querySelectorAll('.invoice-checkbox').forEach(cb => {
+                    cb.addEventListener('change', updateSelectedCount);
+                });
 
             } catch (error) {
                 showError('invoiceResults', `Failed to load invoices: ${error.message}`);
@@ -207,12 +263,23 @@
                             <input type="date" id="sent_to_vzt_rep_date" name="sent_to_vzt_rep_date" value="${metadata.sent_to_vzt_rep_date || ''}" class="form-control">
                         </div>
                         <div class="form-group">
-                            <label for="customer_portal">Customer Portal</label>
-                            <input type="text" id="customer_portal" name="customer_portal" value="${metadata.customer_portal || ''}" class="form-control">
+                            <label for="customer_portal_name">Customer Portal</label>
+                            <select id="customer_portal_name" name="customer_portal_name" class="form-control">
+                                <option value="">-- Select Portal --</option>
+                                <option value="OpenInvoice" ${metadata.customer_portal_name === 'OpenInvoice' ? 'selected' : ''}>OpenInvoice</option>
+                                <option value="Cortex" ${metadata.customer_portal_name === 'Cortex' ? 'selected' : ''}>Cortex</option>
+                                <option value="APAccountsPayable" ${metadata.customer_portal_name === 'APAccountsPayable' ? 'selected' : ''}>APAccountsPayable</option>
+                                <option value="EnergyLink" ${metadata.customer_portal_name === 'EnergyLink' ? 'selected' : ''}>EnergyLink</option>
+                                <option value="Oildex" ${metadata.customer_portal_name === 'Oildex' ? 'selected' : ''}>Oildex</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label for="customer_portal_submission_date">Customer Portal Submission Date</label>
-                            <input type="date" id="customer_portal_submission_date" name="customer_portal_submission_date" value="${metadata.customer_portal_submission_date || ''}" class="form-control">
+                            <label for="portal_submission_date">Portal Submission Date</label>
+                            <input type="date" id="portal_submission_date" name="portal_submission_date" value="${metadata.portal_submission_date || ''}" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="manual_override_pay_date">Manual Override Pay Date</label>
+                            <input type="date" id="manual_override_pay_date" name="manual_override_pay_date" value="${metadata.manual_override_pay_date || ''}" class="form-control">
                         </div>
                         <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                             <button type="submit" class="btn">Save</button>
@@ -243,9 +310,8 @@
                     
                     if (response.ok) {
                         modal.remove();
+                        showToast('✓ Metadata saved successfully!');
                         loadInvoices(); // Reload the table
-                        showSuccess('invoiceResults', 'Metadata saved successfully!');
-                        setTimeout(() => loadInvoices(), 2000);
                     } else {
                         throw new Error('Failed to save metadata');
                     }
@@ -262,6 +328,152 @@
             } catch (error) {
                 console.error('Logout failed:', error);
                 window.location.href = '/login';
+            }
+        }
+        
+        // Toast notification helper
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast-notification ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // Inline editing functions
+        async function editInlineField(invoiceId, field, currentValue) {
+            const cell = event.target;
+            const oldContent = cell.innerHTML;
+            
+            if (field === 'portal_submission_date') {
+                cell.innerHTML = `<input type="date" value="${currentValue}" onblur="saveInlineField('${invoiceId}', '${field}', this.value, this.parentElement)" style="width: 100%;">`;
+                cell.querySelector('input').focus();
+            } else if (field === 'vzt_rep') {
+                cell.innerHTML = `<input type="text" value="${currentValue}" onblur="saveInlineField('${invoiceId}', '${field}', this.value, this.parentElement)" style="width: 100%;">`;
+                cell.querySelector('input').focus();
+            }
+        }
+        
+        async function saveInlineField(invoiceId, field, value, cell) {
+            try {
+                const data = { [field]: value };
+                const response = await fetch(`/api/invoices/${invoiceId}/metadata`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                
+                if (response.ok) {
+                    cell.innerHTML = value ? formatDate(value) : '-';
+                    showToast('✓ Saved successfully!');
+                    // Reload to update cash flow if needed
+                    setTimeout(() => loadInvoices(), 500);
+                } else {
+                    throw new Error('Failed to save');
+                }
+            } catch (error) {
+                showToast('Failed to save: ' + error.message, 'error');
+                loadInvoices();
+            }
+        }
+        
+        // Bulk actions functions
+        function toggleSelectAll() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.invoice-checkbox');
+            checkboxes.forEach(cb => cb.checked = selectAll.checked);
+            updateSelectedCount();
+        }
+        
+        function updateSelectedCount() {
+            const selected = document.querySelectorAll('.invoice-checkbox:checked');
+            document.getElementById('selectedCount').textContent = selected.length;
+            document.getElementById('bulkActionsBtn').disabled = selected.length === 0;
+        }
+        
+        function openBulkActionsModal() {
+            const selected = document.querySelectorAll('.invoice-checkbox:checked');
+            if (selected.length === 0) {
+                alert('Please select at least one invoice');
+                return;
+            }
+            document.getElementById('bulkActionsModal').style.display = 'flex';
+        }
+        
+        function closeBulkActionsModal() {
+            document.getElementById('bulkActionsModal').style.display = 'none';
+            document.getElementById('bulkAssignForm').reset();
+        }
+        
+        // Handle bulk assign form submission
+        document.addEventListener('DOMContentLoaded', () => {
+            const bulkForm = document.getElementById('bulkAssignForm');
+            if (bulkForm) {
+                bulkForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(e.target);
+                    const data = {};
+                    for (const [key, value] of formData.entries()) {
+                        if (value) data[key] = value;
+                    }
+                    
+                    if (Object.keys(data).length === 0) {
+                        alert('Please fill at least one field');
+                        return;
+                    }
+                    
+                    const selected = Array.from(document.querySelectorAll('.invoice-checkbox:checked')).map(cb => cb.value);
+                    
+                    try {
+                        const response = await fetch('/api/invoices/bulk-assign', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ invoice_ids: selected, metadata: data })
+                        });
+                        
+                        if (response.ok) {
+                            const result = await response.json();
+                            document.getElementById('bulkActionsStatus').textContent = `Successfully updated ${result.updated} invoice(s)`;
+                            setTimeout(() => {
+                                closeBulkActionsModal();
+                                loadInvoices();
+                            }, 1500);
+                        } else {
+                            throw new Error('Failed to bulk assign');
+                        }
+                    } catch (error) {
+                        alert('Failed to bulk assign: ' + error.message);
+                    }
+                });
+            }
+        });
+        
+        // Export to Excel function
+        async function exportToExcel() {
+            try {
+                // Build query parameters from form
+                const form = document.getElementById('filterForm');
+                const formData = new FormData(form);
+                const params = new URLSearchParams();
+                
+                for (const [key, value] of formData.entries()) {
+                    if (value) {
+                        params.append(key, value);
+                    }
+                }
+                
+                const queryString = params.toString();
+                const endpoint = queryString ? `/api/invoices/export-excel?${queryString}` : '/api/invoices/export-excel';
+                
+                // Download the file
+                window.location.href = endpoint;
+            } catch (error) {
+                alert('Failed to export: ' + error.message);
             }
         }
     </script>

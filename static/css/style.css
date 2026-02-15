@@ -305,6 +305,53 @@ tr:hover {
     margin-bottom: 0.5rem;
 }
 
+/* Invoice row highlighting */
+.highlight-yellow {
+    background-color: #fef3c7 !important;
+}
+
+.highlight-red {
+    background-color: #fee2e2 !important;
+}
+
+.editable-cell {
+    cursor: pointer;
+    padding: 0.5rem;
+}
+
+.editable-cell:hover {
+    background-color: #f3f4f6;
+}
+
+/* Success Toast Notification */
+.toast-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: var(--success-color);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    z-index: 10000;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast-notification.error {
+    background-color: var(--error-color);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .hero h1 {

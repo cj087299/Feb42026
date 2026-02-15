@@ -74,12 +74,39 @@ class Database:
                     invoice_id VARCHAR(255) PRIMARY KEY,
                     vzt_rep VARCHAR(255),
                     sent_to_vzt_rep_date VARCHAR(50),
-                    customer_portal VARCHAR(255),
-                    customer_portal_submission_date VARCHAR(50),
+                    customer_portal_name VARCHAR(255),
+                    portal_submission_date VARCHAR(50),
+                    manual_override_pay_date VARCHAR(50),
                     created_at VARCHAR(50),
                     updated_at VARCHAR(50)
                 )
             ''')
+            
+            # Add migration to rename old columns if they exist
+            try:
+                cursor.execute('''
+                    ALTER TABLE invoice_metadata 
+                    CHANGE COLUMN customer_portal customer_portal_name VARCHAR(255)
+                ''')
+            except:
+                pass  # Column doesn't exist or already renamed
+            
+            try:
+                cursor.execute('''
+                    ALTER TABLE invoice_metadata 
+                    CHANGE COLUMN customer_portal_submission_date portal_submission_date VARCHAR(50)
+                ''')
+            except:
+                pass  # Column doesn't exist or already renamed
+            
+            # Add new column if it doesn't exist
+            try:
+                cursor.execute('''
+                    ALTER TABLE invoice_metadata 
+                    ADD COLUMN manual_override_pay_date VARCHAR(50)
+                ''')
+            except:
+                pass  # Column already exists
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS custom_cash_flows (
@@ -167,12 +194,42 @@ class Database:
                     invoice_id TEXT PRIMARY KEY,
                     vzt_rep TEXT,
                     sent_to_vzt_rep_date TEXT,
-                    customer_portal TEXT,
-                    customer_portal_submission_date TEXT,
+                    customer_portal_name TEXT,
+                    portal_submission_date TEXT,
+                    manual_override_pay_date TEXT,
                     created_at TEXT,
                     updated_at TEXT
                 )
             ''')
+            
+            # SQLite doesn't support column rename directly, so we need to check and migrate
+            # Check if old columns exist and migrate data
+            try:
+                cursor.execute("SELECT customer_portal FROM invoice_metadata LIMIT 1")
+                # Old column exists, need to migrate
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS invoice_metadata_new (
+                        invoice_id TEXT PRIMARY KEY,
+                        vzt_rep TEXT,
+                        sent_to_vzt_rep_date TEXT,
+                        customer_portal_name TEXT,
+                        portal_submission_date TEXT,
+                        manual_override_pay_date TEXT,
+                        created_at TEXT,
+                        updated_at TEXT
+                    )
+                ''')
+                cursor.execute('''
+                    INSERT OR IGNORE INTO invoice_metadata_new 
+                    SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, 
+                           customer_portal, customer_portal_submission_date, NULL,
+                           created_at, updated_at
+                    FROM invoice_metadata
+                ''')
+                cursor.execute('DROP TABLE invoice_metadata')
+                cursor.execute('ALTER TABLE invoice_metadata_new RENAME TO invoice_metadata')
+            except:
+                pass  # Old column doesn't exist or migration already done
             
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS custom_cash_flows (
@@ -275,21 +332,23 @@ class Database:
                 # MySQL syntax with ON DUPLICATE KEY UPDATE
                 cursor.execute('''
                     INSERT INTO invoice_metadata 
-                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal, 
-                     customer_portal_submission_date, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name, 
+                     portal_submission_date, manual_override_pay_date, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     ON DUPLICATE KEY UPDATE
                         vzt_rep = VALUES(vzt_rep),
                         sent_to_vzt_rep_date = VALUES(sent_to_vzt_rep_date),
-                        customer_portal = VALUES(customer_portal),
-                        customer_portal_submission_date = VALUES(customer_portal_submission_date),
+                        customer_portal_name = VALUES(customer_portal_name),
+                        portal_submission_date = VALUES(portal_submission_date),
+                        manual_override_pay_date = VALUES(manual_override_pay_date),
                         updated_at = VALUES(updated_at)
                 ''', (
                     invoice_id,
                     metadata.get('vzt_rep'),
                     metadata.get('sent_to_vzt_rep_date'),
-                    metadata.get('customer_portal'),
-                    metadata.get('customer_portal_submission_date'),
+                    metadata.get('customer_portal_name'),
+                    metadata.get('portal_submission_date'),
+                    metadata.get('manual_override_pay_date'),
                     now,
                     now
                 ))
@@ -297,21 +356,23 @@ class Database:
                 # SQLite syntax
                 cursor.execute('''
                     INSERT INTO invoice_metadata 
-                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal, 
-                     customer_portal_submission_date, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name, 
+                     portal_submission_date, manual_override_pay_date, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(invoice_id) DO UPDATE SET
                         vzt_rep = excluded.vzt_rep,
                         sent_to_vzt_rep_date = excluded.sent_to_vzt_rep_date,
-                        customer_portal = excluded.customer_portal,
-                        customer_portal_submission_date = excluded.customer_portal_submission_date,
+                        customer_portal_name = excluded.customer_portal_name,
+                        portal_submission_date = excluded.portal_submission_date,
+                        manual_override_pay_date = excluded.manual_override_pay_date,
                         updated_at = excluded.updated_at
                 ''', (
                     invoice_id,
                     metadata.get('vzt_rep'),
                     metadata.get('sent_to_vzt_rep_date'),
-                    metadata.get('customer_portal'),
-                    metadata.get('customer_portal_submission_date'),
+                    metadata.get('customer_portal_name'),
+                    metadata.get('portal_submission_date'),
+                    metadata.get('manual_override_pay_date'),
                     now,
                     now
                 ))
@@ -332,8 +393,8 @@ class Database:
             
             placeholder = '%s' if self.use_cloud_sql else '?'
             cursor.execute(f'''
-                SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal,
-                       customer_portal_submission_date, created_at, updated_at
+                SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                       portal_submission_date, manual_override_pay_date, created_at, updated_at
                 FROM invoice_metadata
                 WHERE invoice_id = {placeholder}
             ''', (invoice_id,))
@@ -346,10 +407,11 @@ class Database:
                     'invoice_id': row[0],
                     'vzt_rep': row[1],
                     'sent_to_vzt_rep_date': row[2],
-                    'customer_portal': row[3],
-                    'customer_portal_submission_date': row[4],
-                    'created_at': row[5],
-                    'updated_at': row[6]
+                    'customer_portal_name': row[3],
+                    'portal_submission_date': row[4],
+                    'manual_override_pay_date': row[5],
+                    'created_at': row[6],
+                    'updated_at': row[7]
                 }
             return None
         except Exception as e:
@@ -363,8 +425,8 @@ class Database:
             cursor = conn.cursor()
             
             cursor.execute('''
-                SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal,
-                       customer_portal_submission_date, created_at, updated_at
+                SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                       portal_submission_date, manual_override_pay_date, created_at, updated_at
                 FROM invoice_metadata
             ''')
             
@@ -375,10 +437,11 @@ class Database:
                 'invoice_id': row[0],
                 'vzt_rep': row[1],
                 'sent_to_vzt_rep_date': row[2],
-                'customer_portal': row[3],
-                'customer_portal_submission_date': row[4],
-                'created_at': row[5],
-                'updated_at': row[6]
+                'customer_portal_name': row[3],
+                'portal_submission_date': row[4],
+                'manual_override_pay_date': row[5],
+                'created_at': row[6],
+                'updated_at': row[7]
             } for row in rows]
         except Exception as e:
             logger.error(f"Failed to get all invoice metadata: {e}")
