@@ -14,7 +14,8 @@ The QuickBooks Online (QBO) integration now supports environment-based configura
 - `sandbox` - Connects to QuickBooks Sandbox environment
 
 ### Default Behavior
-If `QBO_ENVIRONMENT` is not set or contains an invalid value, the system will **default to the production environment**.
+- If `QBO_ENVIRONMENT` is **not set**, the system defaults to the **production environment**.
+- If `QBO_ENVIRONMENT` is set to an **invalid value** (anything other than 'production'), the system falls back to the **sandbox environment** for safety.
 
 ### Case Sensitivity
 The environment variable is **case-insensitive**. Both `production`, `PRODUCTION`, and `Production` will work.
