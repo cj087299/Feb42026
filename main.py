@@ -1823,9 +1823,9 @@ def qbo_oauth_diagnostic():
                 },
                 {
                     'item': 'Using correct environment',
-                    'value': 'Sandbox (based on endpoint)',
+                    'value': f"{os.environ.get('QBO_ENVIRONMENT', 'sandbox').upper()} (from QBO_ENVIRONMENT variable)",
                     'status': 'info',
-                    'action': 'Ensure your client credentials are from the Sandbox environment if using sandbox-quickbooks.api.intuit.com'
+                    'action': f'Ensure your client credentials are from the {os.environ.get("QBO_ENVIRONMENT", "sandbox").title()} environment'
                 },
                 {
                     'item': 'Browser allows popups',

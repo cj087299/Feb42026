@@ -1,3 +1,4 @@
+import os
 import requests
 import logging
 from datetime import datetime, timedelta
@@ -15,7 +16,17 @@ class QBOClient:
         self.refresh_token = refresh_token
         self.realm_id = realm_id
         self.access_token = None
-        self.base_url = "https://sandbox-quickbooks.api.intuit.com/v3/company"
+        
+        # Set base URL based on QBO_ENVIRONMENT variable
+        # Default to sandbox if not specified
+        qbo_environment = os.environ.get('QBO_ENVIRONMENT', 'sandbox').lower()
+        if qbo_environment == 'production':
+            self.base_url = "https://quickbooks.api.intuit.com/v3/company"
+            logger.info("QBOClient initialized for PRODUCTION environment")
+        else:
+            self.base_url = "https://sandbox-quickbooks.api.intuit.com/v3/company"
+            logger.info("QBOClient initialized for SANDBOX environment")
+        
         self.database = database  # Optional database for persistent token storage
         
         # Check if credentials are valid
