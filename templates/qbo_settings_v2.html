@@ -440,8 +440,8 @@
                 const lastRevised = document.getElementById('lastRevised');
 
                 if (response.status === 404) {
-                    const data404 = await response.json();
-                    const isAdmin = data404.is_admin;
+                    const responseData = await response.json();
+                    const isAdmin = responseData.is_admin;
                     
                     statusBox.innerHTML = `
                         <div class="status-row">
@@ -510,7 +510,8 @@
                     }
                 } else {
                     // Non-admin: Show read-only status message
-                    const envName = data.qbo_environment || 'Production';
+                    // Use uppercase for environment name (matches backend .upper())
+                    const envName = data.qbo_environment || 'PRODUCTION';
                     buttonContainer.innerHTML = `
                         <div style="padding: 20px; background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 10px; text-align: center;">
                             <div style="font-size: 48px; margin-bottom: 10px;">✅</div>

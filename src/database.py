@@ -1013,6 +1013,8 @@ class Database:
             placeholder = '%s' if self.use_cloud_sql else '?'
             
             # Construct the INSERT query once (same for both MySQL and SQLite)
+            # Values: id=1, client_id, client_secret, refresh_token, access_token, realm_id,
+            #         access_token_expires_at, refresh_token_expires_at, created_by_user_id, created_at, updated_at
             cursor.execute(f'''
                 INSERT INTO qbo_tokens
                 (id, client_id, client_secret, refresh_token, access_token, realm_id,

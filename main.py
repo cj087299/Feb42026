@@ -1580,7 +1580,7 @@ def manage_qbo_credentials():
                     'is_valid': is_valid,
                     'status': 'configured' if is_valid else 'invalid_or_dummy',
                     'is_admin': user_role in ['admin', 'master_admin'],  # Tell frontend if user is admin
-                    'qbo_environment': os.environ.get('QBO_ENVIRONMENT', 'production').title()  # Tell frontend the environment
+                    'qbo_environment': os.environ.get('QBO_ENVIRONMENT', 'production').upper()  # Environment name in uppercase
                 }
                 return jsonify(safe_credentials), 200
             else:
@@ -1594,7 +1594,7 @@ def manage_qbo_credentials():
                     'status': 'using_environment_variables' if is_env_valid else 'not_configured',
                     'help': 'Please configure credentials at /qbo-settings or set environment variables',
                     'is_admin': user_role in ['admin', 'master_admin'],
-                    'qbo_environment': os.environ.get('QBO_ENVIRONMENT', 'production').title()
+                    'qbo_environment': os.environ.get('QBO_ENVIRONMENT', 'production').upper()
                 }), 404
         except Exception as e:
             logger.error(f"Error fetching QBO credentials: {e}")
