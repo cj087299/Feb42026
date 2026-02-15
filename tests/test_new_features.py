@@ -44,8 +44,8 @@ class TestNewFeatures(AuthenticatedTestCase):
         metadata = {
             "vzt_rep": "John Doe",
             "sent_to_vzt_rep_date": "2026-02-01",
-            "customer_portal": "Portal A",
-            "customer_portal_submission_date": "2026-02-05"
+            "customer_portal_name": "Portal A",
+            "portal_submission_date": "2026-02-05"
         }
         
         response = self.client.post(
@@ -60,7 +60,7 @@ class TestNewFeatures(AuthenticatedTestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data['vzt_rep'], "John Doe")
-        self.assertEqual(data['customer_portal'], "Portal A")
+        self.assertEqual(data['customer_portal_name'], "Portal A")
     
     def test_custom_cash_flows_api(self):
         """Test custom cash flow endpoints."""
