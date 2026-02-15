@@ -158,27 +158,39 @@ class CashFlowCalendar:
         return projection
     
     def _get_invoice_payment_date(self, invoice: Dict) -> Optional[datetime]:
-        """Get the expected payment date for an invoice."""
-        # First, check if we have customer portal submission date from metadata
-        if self.database:
-            invoice_id = invoice.get('id') or invoice.get('doc_number')
+        """Get the expected payment date for an invoice using priority logic:
+        1. manual_override_pay_date if exists
+        2. portal_submission_date + Net Terms if portal_submission_date exists
+        3. AI Predictor date if available
+        4. QBO Due Date as fallback
+        """
+        invoice_id = invoice.get('id') or invoice.get('doc_number')
+        
+        # Priority 1 & 2: Check metadata for manual override or portal submission
+        if self.database and invoice_id:
             metadata = self.database.get_invoice_metadata(str(invoice_id))
             
-            if metadata and metadata.get('customer_portal_submission_date'):
-                try:
-                    submission_date = datetime.strptime(
-                        metadata['customer_portal_submission_date'], 
-                        '%Y-%m-%d'
-                    )
-                    
-                    # Add payment terms to submission date
-                    terms_days = invoice.get('terms_days', 30)  # Default 30 days
-                    payment_date = submission_date + timedelta(days=terms_days)
-                    return payment_date
-                except ValueError:
-                    pass
+            if metadata:
+                # Priority 1: Manual override
+                manual_override = metadata.get('manual_override_pay_date')
+                if manual_override:
+                    try:
+                        return datetime.strptime(manual_override, '%Y-%m-%d')
+                    except ValueError:
+                        logger.warning(f"Invalid manual_override_pay_date: {manual_override}")
+                
+                # Priority 2: Portal submission date + Net Terms
+                portal_submission = metadata.get('portal_submission_date')
+                if portal_submission:
+                    try:
+                        submission_date = datetime.strptime(portal_submission, '%Y-%m-%d')
+                        terms_days = invoice.get('terms_days', 30)
+                        payment_date = submission_date + timedelta(days=terms_days)
+                        return payment_date
+                    except ValueError:
+                        logger.warning(f"Invalid portal_submission_date: {portal_submission}")
         
-        # Use AI predictor if available
+        # Priority 3: Use AI predictor if available
         if self.predictor and self.predictor.is_trained:
             try:
                 predicted_date_str = self.predictor.predict_expected_date(invoice)
@@ -187,7 +199,7 @@ class CashFlowCalendar:
             except Exception as e:
                 logger.error(f"Prediction failed: {e}")
         
-        # Fall back to due date
+        # Priority 4: Fall back to due date
         due_date_str = invoice.get('due_date')
         if due_date_str:
             try:

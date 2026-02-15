@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from src.qbo_client import QBOClient
 import logging
 
@@ -6,8 +6,10 @@ logger = logging.getLogger(__name__)
 
 
 class InvoiceManager:
-    def __init__(self, qbo_client: QBOClient):
+    def __init__(self, qbo_client: QBOClient, database=None, predictor=None):
         self.client = qbo_client
+        self.database = database
+        self.predictor = predictor
 
     def fetch_invoices(self):
         """
@@ -178,3 +180,61 @@ class InvoiceManager:
             if inv.get('status') != 'Paid' and (d := self._parse_date(inv.get('due_date'))) and d < today
         ]
         return overdue
+
+    def calculate_projected_pay_date(self, invoice):
+        """
+        Calculate the projected pay date for an invoice using priority logic:
+        1. manual_override_pay_date if exists
+        2. portal_submission_date + Net Terms (30/45/60 days) if portal_submission_date exists
+        3. AI Predictor date if available and trained
+        4. QBO Due Date as absolute fallback
+        
+        Args:
+            invoice: Invoice dict with invoice data
+            
+        Returns:
+            datetime or None: The projected payment date
+        """
+        invoice_id = invoice.get('id') or invoice.get('doc_number')
+        
+        # Priority 1: Check for manual override
+        if self.database and invoice_id:
+            metadata = self.database.get_invoice_metadata(str(invoice_id))
+            
+            if metadata:
+                # Priority 1: Manual override
+                manual_override = metadata.get('manual_override_pay_date')
+                if manual_override:
+                    try:
+                        return datetime.strptime(manual_override, '%Y-%m-%d')
+                    except ValueError:
+                        logger.warning(f"Invalid manual_override_pay_date for invoice {invoice_id}: {manual_override}")
+                
+                # Priority 2: Portal submission date + Net Terms
+                portal_submission = metadata.get('portal_submission_date')
+                if portal_submission:
+                    try:
+                        submission_date = datetime.strptime(portal_submission, '%Y-%m-%d')
+                        terms_days = invoice.get('terms_days', 30)
+                        return submission_date + timedelta(days=terms_days)
+                    except ValueError:
+                        logger.warning(f"Invalid portal_submission_date for invoice {invoice_id}: {portal_submission}")
+        
+        # Priority 3: AI Predictor
+        if self.predictor and self.predictor.is_trained:
+            try:
+                predicted_date_str = self.predictor.predict_expected_date(invoice)
+                if predicted_date_str:
+                    return datetime.strptime(predicted_date_str, '%Y-%m-%d')
+            except Exception as e:
+                logger.debug(f"Prediction failed for invoice {invoice_id}: {e}")
+        
+        # Priority 4: QBO Due Date (fallback)
+        due_date_str = invoice.get('due_date')
+        if due_date_str:
+            try:
+                return datetime.strptime(due_date_str, '%Y-%m-%d')
+            except ValueError:
+                logger.warning(f"Invalid due_date for invoice {invoice_id}: {due_date_str}")
+        
+        return None
