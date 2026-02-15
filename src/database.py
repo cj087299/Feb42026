@@ -1055,3 +1055,23 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to update QBO tokens: {e}")
             return False
+    
+    def delete_qbo_credentials(self) -> bool:
+        """Delete all QBO credentials from the database.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute('DELETE FROM qbo_tokens')
+            
+            conn.commit()
+            conn.close()
+            logger.info("Deleted all QBO credentials from database")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to delete QBO credentials: {e}")
+            return False

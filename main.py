@@ -1929,7 +1929,8 @@ def qbo_oauth_authorize_v2():
             f"scope=com.intuit.quickbooks.accounting&"
             f"redirect_uri={encoded_redirect_uri}&"
             f"response_type=code&"
-            f"state={state}"
+            f"state={state}&"
+            f"prompt=select_account"
         )
         
         # Log detailed OAuth initiation information for debugging
@@ -1964,6 +1965,57 @@ def qbo_oauth_authorize_v2():
         return jsonify({'authorization_url': auth_url}), 200
     except Exception as e:
         logger.error(f"Error initiating QBO OAuth v2: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/qbo/disconnect', methods=['POST'])
+@login_required
+def qbo_disconnect():
+    """Disconnect from QuickBooks Online (admin and master_admin only)."""
+    user_role = session.get('user_role')
+    
+    # Only admin and master_admin can disconnect
+    if user_role not in ['admin', 'master_admin']:
+        return jsonify({'error': 'Permission denied'}), 403
+    
+    try:
+        global qbo_client, secret_manager
+        
+        # Use secret_manager to delete credentials from database and Secret Manager
+        success = secret_manager.delete_qbo_secrets()
+        
+        if success:
+            # Log the action
+            database.log_audit(
+                user_id=session.get('user_id'),
+                user_email=session.get('user_email'),
+                action='disconnect_qbo',
+                resource_type='qbo_credentials',
+                resource_id='1',
+                details='Disconnected from QuickBooks - removed all credentials',
+                ip_address=request.remote_addr,
+                user_agent=request.user_agent.string if request.user_agent else None
+            )
+            
+            # Reinitialize QBO client - will have invalid dummy credentials after disconnect
+            # get_qbo_credentials() returns dummy values when no credentials exist in database
+            # The QBOClient will mark credentials_valid=False to prevent API calls
+            qbo_credentials = secret_manager.get_qbo_credentials()
+            qbo_client = QBOClient(
+                client_id=qbo_credentials.get('client_id', 'dummy_id'),
+                client_secret=qbo_credentials.get('client_secret', 'dummy_secret'),
+                refresh_token=qbo_credentials.get('refresh_token', 'dummy_refresh'),
+                realm_id=qbo_credentials.get('realm_id', 'dummy_realm'),
+                database=database
+            )
+            
+            logger.info("Successfully disconnected from QuickBooks Online")
+            return jsonify({'success': True, 'message': 'Disconnected from QuickBooks'}), 200
+        else:
+            logger.error("Failed to disconnect from QuickBooks")
+            return jsonify({'error': 'Failed to disconnect from QuickBooks'}), 500
+    except Exception as e:
+        logger.error(f"Error disconnecting from QuickBooks: {e}")
         return jsonify({"error": str(e)}), 500
 
 

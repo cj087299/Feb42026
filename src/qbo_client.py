@@ -216,3 +216,34 @@ class QBOClient:
         except Exception as e:
             logger.error(f"Failed to fetch bank accounts: {e}")
             return []
+    
+    def disconnect(self):
+        """
+        Disconnect from QuickBooks by removing all stored tokens and credentials.
+        This deletes access tokens, refresh tokens, and realm_id from the database.
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            logger.info("Disconnecting from QuickBooks Online...")
+            
+            # Delete tokens from database if available
+            if self.database:
+                success = self.database.delete_qbo_credentials()
+                if success:
+                    logger.info("Successfully disconnected from QuickBooks - all credentials removed")
+                    # Clear local instance variables
+                    self.access_token = None
+                    self.refresh_token = None
+                    self.realm_id = None
+                    return True
+                else:
+                    logger.error("Failed to disconnect - database operation failed")
+                    return False
+            else:
+                logger.warning("No database available for disconnect operation")
+                return False
+        except Exception as e:
+            logger.error(f"Error during QuickBooks disconnect: {e}")
+            return False

@@ -169,6 +169,40 @@
             transform: none;
         }
 
+        .disconnect-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 40px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+            margin-right: 15px;
+        }
+
+        .disconnect-button:hover {
+            background: #c82333;
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .disconnect-button:active {
+            transform: translateY(0);
+        }
+
+        .disconnect-button:disabled {
+            background: #999;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
         .qbo-logo {
             font-size: 24px;
         }
@@ -296,10 +330,16 @@
                     <p style="text-align: center; color: #999;">Loading connection status...</p>
                 </div>
 
-                <button class="connect-button" id="connectButton" onclick="connectToQuickBooks()">
-                    <span class="qbo-logo">📊</span>
-                    <span id="buttonText">Connect to QuickBooks</span>
-                </button>
+                <div id="buttonContainer" style="margin-top: 30px;">
+                    <button class="disconnect-button" id="disconnectButton" onclick="disconnectFromQuickBooks()" style="display: none;">
+                        <span>🔌</span>
+                        <span>Disconnect</span>
+                    </button>
+                    <button class="connect-button" id="connectButton" onclick="connectToQuickBooks()">
+                        <span class="qbo-logo">📊</span>
+                        <span id="buttonText">Connect to QuickBooks</span>
+                    </button>
+                </div>
 
                 <div style="margin-top: 20px; text-align: center;">
                     <button class="btn-diagnostics" onclick="showDiagnostics()">
@@ -394,6 +434,7 @@
                 const response = await fetch('/api/qbo/credentials');
                 const statusBox = document.getElementById('statusBox');
                 const connectButton = document.getElementById('connectButton');
+                const disconnectButton = document.getElementById('disconnectButton');
                 const buttonText = document.getElementById('buttonText');
                 const lastRevised = document.getElementById('lastRevised');
 
@@ -409,6 +450,9 @@
                             Click the button below to connect to QuickBooks Online
                         </p>
                     `;
+                    // Show only Connect button when not connected
+                    connectButton.style.display = 'inline-flex';
+                    disconnectButton.style.display = 'none';
                     buttonText.textContent = 'Connect to QuickBooks';
                     if (lastRevised) {
                         lastRevised.textContent = 'Never';
@@ -440,9 +484,16 @@
                     </div>
                 `;
 
-                if (status.connected) {
-                    buttonText.textContent = 'Reconnect to QuickBooks';
+                // Show only the appropriate button based on connection status
+                // When connected (has realm_id): Show ONLY Disconnect button
+                // When disconnected (no realm_id): Show ONLY Connect button
+                if (data.realm_id) {
+                    connectButton.style.display = 'none';
+                    disconnectButton.style.display = 'inline-flex';
                 } else {
+                    // Show only Connect button when no realm_id (not connected)
+                    connectButton.style.display = 'inline-flex';
+                    disconnectButton.style.display = 'none';
                     buttonText.textContent = 'Connect to QuickBooks';
                 }
                 
@@ -457,6 +508,9 @@
                 document.getElementById('statusBox').innerHTML = `
                     <p style="color: #dc3545; text-align: center;">Failed to load connection status</p>
                 `;
+                // Show only Connect button on error
+                document.getElementById('connectButton').style.display = 'inline-flex';
+                document.getElementById('disconnectButton').style.display = 'none';
                 if (lastRevised) {
                     lastRevised.textContent = 'Unknown';
                 }
@@ -557,6 +611,47 @@
                 showAlert('An error occurred while connecting to QuickBooks', 'error');
                 connectButton.disabled = false;
                 buttonText.textContent = originalText;
+            }
+        }
+
+        async function disconnectFromQuickBooks() {
+            const disconnectButton = document.getElementById('disconnectButton');
+            const connectButton = document.getElementById('connectButton');
+            
+            if (!confirm('Are you sure you want to disconnect from QuickBooks? This will remove all stored credentials.')) {
+                return;
+            }
+            
+            disconnectButton.disabled = true;
+            connectButton.disabled = true;
+            disconnectButton.innerHTML = '<span class="loading-spinner"></span> Disconnecting...';
+            
+            try {
+                const response = await fetch('/api/qbo/disconnect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Successfully disconnected from QuickBooks', 'success');
+                    // Reload the status to update UI
+                    await loadStatus();
+                } else {
+                    showAlert(data.error || 'Failed to disconnect from QuickBooks', 'error');
+                    disconnectButton.disabled = false;
+                    connectButton.disabled = false;
+                    disconnectButton.innerHTML = '<span>🔌</span><span>Disconnect</span>';
+                }
+            } catch (error) {
+                console.error('Error disconnecting from QuickBooks:', error);
+                showAlert('An error occurred while disconnecting from QuickBooks', 'error');
+                disconnectButton.disabled = false;
+                connectButton.disabled = false;
+                disconnectButton.innerHTML = '<span>🔌</span><span>Disconnect</span>';
             }
         }
 
