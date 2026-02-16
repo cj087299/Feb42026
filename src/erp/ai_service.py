@@ -1,6 +1,7 @@
 import logging
 import json
 import requests
+from datetime import datetime
 from typing import Dict, List, Optional
 from src.common.database import Database
 
@@ -88,5 +89,3 @@ class AIService:
             return {'status': 'success', 'analysis': 'Data analysis complete. Trends detected...'}
         else:
             return {'error': 'Unknown action'}
-
-from datetime import datetime
