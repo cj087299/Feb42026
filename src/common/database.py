@@ -195,6 +195,20 @@ class Database:
                     FOREIGN KEY (created_by_user_id) REFERENCES users(id)
                 )
             ''')
+
+            # Customer Mappings Table (Cloud SQL)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS customer_mappings (
+                    qbo_customer_id VARCHAR(255) PRIMARY KEY,
+                    default_portal_name VARCHAR(255),
+                    default_net_terms INT,
+                    default_vzt_rep_id INT,
+                    created_at VARCHAR(50),
+                    updated_at VARCHAR(50),
+                    FOREIGN KEY (default_vzt_rep_id) REFERENCES users(id)
+                )
+            ''')
+
         else:
             # SQLite syntax
             cursor.execute('''
@@ -322,6 +336,19 @@ class Database:
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
                     FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+                )
+            ''')
+
+            # Customer Mappings Table (SQLite)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS customer_mappings (
+                    qbo_customer_id TEXT PRIMARY KEY,
+                    default_portal_name TEXT,
+                    default_net_terms INTEGER,
+                    default_vzt_rep_id INTEGER,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (default_vzt_rep_id) REFERENCES users(id)
                 )
             ''')
         
@@ -1162,3 +1189,116 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to delete QBO credentials: {e}")
             return False
+
+    # Customer Mappings Methods
+
+    def get_customer_mapping(self, qbo_customer_id: str) -> Optional[Dict]:
+        """Get customer mapping by QBO customer ID."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'''
+                SELECT qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id,
+                       created_at, updated_at
+                FROM customer_mappings
+                WHERE qbo_customer_id = {placeholder}
+            ''', (qbo_customer_id,))
+
+            row = cursor.fetchone()
+            conn.close()
+
+            if row:
+                return {
+                    'qbo_customer_id': row[0],
+                    'default_portal_name': row[1],
+                    'default_net_terms': row[2],
+                    'default_vzt_rep_id': row[3],
+                    'created_at': row[4],
+                    'updated_at': row[5]
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Failed to get customer mapping: {e}")
+            return None
+
+    def set_customer_mapping(self, data: Dict) -> bool:
+        """Create or update customer mapping."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            now = datetime.now().isoformat()
+
+            if self.use_cloud_sql:
+                cursor.execute('''
+                    INSERT INTO customer_mappings
+                    (qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        default_portal_name = VALUES(default_portal_name),
+                        default_net_terms = VALUES(default_net_terms),
+                        default_vzt_rep_id = VALUES(default_vzt_rep_id),
+                        updated_at = VALUES(updated_at)
+                ''', (
+                    data.get('qbo_customer_id'),
+                    data.get('default_portal_name'),
+                    data.get('default_net_terms'),
+                    data.get('default_vzt_rep_id'),
+                    now,
+                    now
+                ))
+            else:
+                cursor.execute('''
+                    INSERT INTO customer_mappings
+                    (qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(qbo_customer_id) DO UPDATE SET
+                        default_portal_name = excluded.default_portal_name,
+                        default_net_terms = excluded.default_net_terms,
+                        default_vzt_rep_id = excluded.default_vzt_rep_id,
+                        updated_at = excluded.updated_at
+                ''', (
+                    data.get('qbo_customer_id'),
+                    data.get('default_portal_name'),
+                    data.get('default_net_terms'),
+                    data.get('default_vzt_rep_id'),
+                    now,
+                    now
+                ))
+
+            conn.commit()
+            conn.close()
+            logger.info(f"Saved customer mapping for {data.get('qbo_customer_id')}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to save customer mapping: {e}")
+            return False
+
+    def get_all_customer_mappings(self) -> List[Dict]:
+        """Get all customer mappings."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                SELECT qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id,
+                       created_at, updated_at
+                FROM customer_mappings
+            ''')
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            return [{
+                'qbo_customer_id': row[0],
+                'default_portal_name': row[1],
+                'default_net_terms': row[2],
+                'default_vzt_rep_id': row[3],
+                'created_at': row[4],
+                'updated_at': row[5]
+            } for row in rows]
+        except Exception as e:
+            logger.error(f"Failed to get all customer mappings: {e}")
+            return []

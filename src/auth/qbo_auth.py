@@ -1,37 +1,22 @@
 import os
 import requests
 import logging
-from datetime import datetime, timedelta
-from typing import Optional
+from src.common.database import Database
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-class QBOClient:
-    def __init__(self, client_id, client_secret, refresh_token, realm_id, database=None):
+class QBOAuth:
+    def __init__(self, client_id, client_secret, refresh_token, realm_id, database: Database = None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.realm_id = realm_id
         self.access_token = None
-        
-        # Set base URL based on QBO_ENVIRONMENT variable
-        # Default to production if not specified
-        qbo_environment = os.environ.get('QBO_ENVIRONMENT', 'production').lower()
-        if qbo_environment == 'production':
-            self.base_url = "https://quickbooks.api.intuit.com/v3/company"
-            logger.info("QBOClient initialized for PRODUCTION environment")
-        else:
-            self.base_url = "https://sandbox-quickbooks.api.intuit.com/v3/company"
-            logger.info("QBOClient initialized for SANDBOX environment")
-        
-        self.database = database  # Optional database for persistent token storage
-        
-        # Check if credentials are valid
+        self.database = database
         self._validate_credentials()
-    
+
     def _validate_credentials(self):
         """Validate that credentials are not dummy values."""
         if (self.client_id == 'dummy_id' or 
@@ -130,105 +115,16 @@ class QBOClient:
             raise
 
     def get_headers(self):
+        if not self.access_token:
+            try:
+                self.refresh_access_token()
+            except Exception:
+                pass # let caller handle missing token
         return {
             "Authorization": f"Bearer {self.access_token}",
             "Accept": "application/json"
         }
 
-    def make_request(self, endpoint, method="GET", params=None, data=None):
-        if not self.access_token:
-            self.refresh_access_token()
-
-        url = f"{self.base_url}/{self.realm_id}/{endpoint}"
-
-        logger.info(f"Making {method} request to {url}")
-
-        try:
-            headers = self.get_headers()
-            response = requests.request(method, url, headers=headers, params=params, json=data)
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP Error: {e}")
-            
-            # Handle 401 (Unauthorized) - token expired
-            if e.response.status_code == 401 and self.access_token:
-                logger.info("Received 401, attempting to refresh token and retry...")
-                try:
-                    self.refresh_access_token()
-                    headers = self.get_headers()
-                    response = requests.request(method, url, headers=headers, params=params, json=data)
-                    response.raise_for_status()
-                    return response.json()
-                except Exception as retry_error:
-                    logger.error(f"Retry after token refresh failed: {retry_error}")
-                    return {}
-            
-            # Handle 403 (Forbidden) - invalid credentials or insufficient permissions
-            elif e.response.status_code == 403:
-                error_msg = (
-                    f"403 Forbidden error when accessing QuickBooks API at {url}. "
-                    f"This typically indicates one of the following issues:\n"
-                    f"1. OAuth credentials are invalid or have been revoked\n"
-                    f"2. The refresh token has expired (refresh tokens expire after 101 days)\n"
-                    f"3. Insufficient permissions/scopes for this operation\n"
-                    f"4. The company (realm_id) is not accessible with these credentials\n\n"
-                    f"To resolve this issue:\n"
-                    f"→ Log in to the application and navigate to /qbo-settings\n"
-                    f"→ Click 'Disconnect from QuickBooks' if connected\n"
-                    f"→ Click 'Connect to QuickBooks' to re-authorize the application\n"
-                    f"→ Make sure to authorize with an account that has access to company ID: {self.realm_id}"
-                )
-                logger.error(error_msg)
-                
-                # Attempt token refresh as a last resort (might help in some edge cases)
-                if self.access_token:
-                    logger.info("Attempting token refresh for 403 error as a troubleshooting step...")
-                    try:
-                        self.refresh_access_token()
-                        headers = self.get_headers()
-                        response = requests.request(method, url, headers=headers, params=params, json=data)
-                        response.raise_for_status()
-                        logger.info("Token refresh resolved the 403 error")
-                        return response.json()
-                    except Exception as retry_error:
-                        logger.error(
-                            f"Token refresh did not resolve the 403 error: {retry_error}. "
-                            f"Please reconnect to QuickBooks via /qbo-settings"
-                        )
-                return {}
-            
-            return {}
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e}")
-            return {}
-        except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}")
-            return {}
-    
-    def fetch_bank_accounts(self):
-        """
-        Fetches bank accounts from QBO to get current balances.
-        
-        Returns:
-            List of bank accounts with their current balances
-        """
-        try:
-            query = "select * from Account where AccountType = 'Bank' and AccountSubType = 'Checking'"
-            response = self.make_request("query", params={"query": query})
-            
-            if response and "QueryResponse" in response:
-                accounts = response["QueryResponse"].get("Account", [])
-                logger.info(f"Fetched {len(accounts)} bank accounts from QBO")
-                return accounts
-            
-            logger.warning("No bank accounts found in QBO response")
-            return []
-        except Exception as e:
-            logger.error(f"Failed to fetch bank accounts: {e}")
-            return []
-    
     def disconnect(self):
         """
         Disconnect from QuickBooks by removing all stored tokens and credentials.

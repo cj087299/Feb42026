@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+
+{% block title %}Customer Settings{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Customer Settings</h2>
+        <p class="text-muted">Configure default settings for QBO Customers.</p>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Mapping Form -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Add/Update Mapping</h5>
+            </div>
+            <div class="card-body">
+                <form id="mappingForm">
+                    <div class="mb-3">
+                        <label for="qboCustomer" class="form-label">QBO Customer</label>
+                        <select class="form-select" id="qboCustomer" required>
+                            <option value="">Search for customer...</option>
+                        </select>
+                        <div class="form-text">Search for a customer from QuickBooks.</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="portalName" class="form-label">Default Portal</label>
+                        <select class="form-select" id="portalName">
+                            <option value="">None</option>
+                            <option value="OpenInvoice">OpenInvoice</option>
+                            <option value="Cortex">Cortex</option>
+                            <option value="Ariba">Ariba</option>
+                            <option value="Coupa">Coupa</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="netTerms" class="form-label">Default Net Terms</label>
+                        <select class="form-select" id="netTerms">
+                            <option value="">None</option>
+                            <option value="0">Due on Receipt (0)</option>
+                            <option value="15">Net 15</option>
+                            <option value="30">Net 30</option>
+                            <option value="45">Net 45</option>
+                            <option value="60">Net 60</option>
+                            <option value="90">Net 90</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="vztRep" class="form-label">Default VZT Rep</label>
+                        <select class="form-select" id="vztRep">
+                            <option value="">Select Rep...</option>
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Save Mapping</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mappings List -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Existing Mappings</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="mappingsTable">
+                        <thead>
+                            <tr>
+                                <th>Customer ID</th>
+                                <th>Portal</th>
+                                <th>Net Terms</th>
+                                <th>Default Rep</th>
+                                <th>Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dependencies -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadMappings();
+    loadUsers();
+    initCustomerSelect();
+
+    document.getElementById('mappingForm').addEventListener('submit', saveMapping);
+});
+
+function initCustomerSelect() {
+    // Initialize Select2 for searching customers with server-side pagination
+    $('#qboCustomer').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Search for a customer',
+        width: '100%',
+        ajax: {
+            url: '/api/qbo/customers',
+            dataType: 'json',
+            delay: 250,
+            data: function (params) {
+                return {
+                    q: params.term, // search term
+                    page: params.page || 1
+                };
+            },
+            processResults: function (data, params) {
+                params.page = params.page || 1;
+                return {
+                    results: data.results.map(c => ({id: c.id, text: c.name})),
+                    pagination: {
+                        more: data.more
+                    }
+                };
+            },
+            cache: true
+        }
+    });
+}
+
+function loadUsers() {
+    fetch('/api/users')
+        .then(res => res.json())
+        .then(data => {
+            const select = document.getElementById('vztRep');
+            data.forEach(u => {
+                const opt = document.createElement('option');
+                opt.value = u.id;
+                opt.textContent = u.full_name || u.email;
+                select.appendChild(opt);
+            });
+        });
+}
+
+function loadMappings() {
+    fetch('/api/customer-mappings')
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.querySelector('#mappingsTable tbody');
+            tbody.innerHTML = '';
+
+            data.forEach(m => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHTML(m.qbo_customer_id)}</td>
+                    <td>${escapeHTML(m.default_portal_name || '-')}</td>
+                    <td>${m.default_net_terms || '-'}</td>
+                    <td>${m.default_vzt_rep_id || '-'}</td>
+                    <td>${formatDate(m.updated_at)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        });
+}
+
+function saveMapping(e) {
+    e.preventDefault();
+
+    // For Select2, getting value is standard jquery val()
+    const customerId = $('#qboCustomer').val();
+
+    const payload = {
+        qbo_customer_id: customerId,
+        default_portal_name: document.getElementById('portalName').value,
+        default_net_terms: document.getElementById('netTerms').value ? parseInt(document.getElementById('netTerms').value) : null,
+        default_vzt_rep_id: document.getElementById('vztRep').value ? parseInt(document.getElementById('vztRep').value) : null
+    };
+
+    fetch('/api/customer-mappings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if(data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert('Mapping saved successfully!');
+            loadMappings();
+            // Optional: clear form
+        }
+    });
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>'"]/g,
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+        }[tag]));
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString() + ' ' + new Date(dateStr).toLocaleTimeString();
+}
+</script>
+{% endblock %}

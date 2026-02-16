@@ -4,7 +4,7 @@ import hashlib
 import secrets
 import logging
 from functools import wraps
-from flask import session, request, jsonify, redirect, url_for
+from flask import session, request, jsonify, redirect, url_for, current_app
 from typing import Optional, Dict, List, Callable
 
 logger = logging.getLogger(__name__)
@@ -156,31 +156,44 @@ def audit_log(action: str, resource_type: Optional[str] = None):
             
             # Log the action
             try:
-                from main import database
-                user = get_current_user()
-                user_id = user['id'] if user else None
-                user_email = user['email'] if user else None
+                # Use current_app.config or a similar mechanism to access database
+                # Assuming 'database' is available in current_app extensions or config
+                # For now, we'll try to get it from current_app.extensions if we register it there
+                # OR we will need to change how this is called.
                 
-                # Get resource_id from kwargs if available
-                resource_id = kwargs.get('invoice_id') or kwargs.get('flow_id') or kwargs.get('user_id')
-                if not resource_id and args:
-                    resource_id = str(args[0]) if args else None
+                # In main.py, we should do: app.extensions['database'] = database
+                database = None
+                if current_app and hasattr(current_app, 'extensions'):
+                    database = current_app.extensions.get('database')
                 
-                # Get details from request if available
-                details = None
-                if request.is_json:
-                    details = str(request.get_json())
-                
-                database.log_audit(
-                    user_id=user_id,
-                    user_email=user_email,
-                    action=action,
-                    resource_type=resource_type,
-                    resource_id=str(resource_id) if resource_id else None,
-                    details=details,
-                    ip_address=request.remote_addr,
-                    user_agent=request.user_agent.string if request.user_agent else None
-                )
+                if database:
+                    user = get_current_user()
+                    user_id = user['id'] if user else None
+                    user_email = user['email'] if user else None
+
+                    # Get resource_id from kwargs if available
+                    resource_id = kwargs.get('invoice_id') or kwargs.get('flow_id') or kwargs.get('user_id')
+                    if not resource_id and args:
+                        resource_id = str(args[0]) if args else None
+
+                    # Get details from request if available
+                    details = None
+                    if request.is_json:
+                        details = str(request.get_json())
+
+                    database.log_audit(
+                        user_id=user_id,
+                        user_email=user_email,
+                        action=action,
+                        resource_type=resource_type,
+                        resource_id=str(resource_id) if resource_id else None,
+                        details=details,
+                        ip_address=request.remote_addr,
+                        user_agent=request.user_agent.string if request.user_agent else None
+                    )
+                else:
+                    logger.warning("Database extension not found in current_app")
+
             except Exception as e:
                 logger.error(f"Failed to log audit entry: {e}")
             

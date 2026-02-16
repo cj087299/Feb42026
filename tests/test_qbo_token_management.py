@@ -17,9 +17,9 @@ from datetime import datetime, timedelta
 # Add parent directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from src.database import Database
-from src.qbo_client import QBOClient
-from src.secret_manager import SecretManager
+from src.common.database import Database
+from src.auth.qbo_auth import QBOAuth
+from src.auth.secret_manager import SecretManager
 
 
 class TestQBOTokenManagement(unittest.TestCase):
@@ -139,7 +139,7 @@ class TestQBOTokenManagement(unittest.TestCase):
         self.assertEqual(creds['realm_id'], new_credentials['realm_id'])
 
 
-class TestQBOClientWithDatabase(unittest.TestCase):
+class TestQBOAuthWithDatabase(unittest.TestCase):
     """Test QBO client with database integration."""
     
     def setUp(self):
@@ -148,7 +148,7 @@ class TestQBOClientWithDatabase(unittest.TestCase):
         if os.path.exists(self.test_db_path):
             os.remove(self.test_db_path)
         self.db = Database(self.test_db_path)
-        self.client = QBOClient(
+        self.client = QBOAuth(
             'test_id',
             'test_secret',
             'test_refresh',
@@ -166,7 +166,7 @@ class TestQBOClientWithDatabase(unittest.TestCase):
         self.assertIsNotNone(self.client.database)
         self.assertIsInstance(self.client.database, Database)
     
-    @patch('src.qbo_client.requests.post')
+    @patch('src.auth.qbo_auth.requests.post')
     def test_token_refresh_updates_database(self, mock_post):
         """Test that token refresh updates the database."""
         # Save initial credentials
@@ -195,7 +195,7 @@ class TestQBOClientWithDatabase(unittest.TestCase):
         self.assertEqual(creds['access_token'], 'new_access_token')
         self.assertEqual(creds['refresh_token'], 'new_refresh_token')
     
-    @patch('src.qbo_client.requests.post')
+    @patch('src.auth.qbo_auth.requests.post')
     def test_token_refresh_without_new_refresh_token(self, mock_post):
         """Test token refresh when QBO doesn't return new refresh token."""
         # Save initial credentials

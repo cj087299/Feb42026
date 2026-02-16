@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock
-from src.webhook_handler import WebhookHandler
+from src.invoices.webhook_handler import WebhookHandler
 
 
 class TestWebhookHandler(unittest.TestCase):
@@ -52,7 +52,7 @@ class TestWebhookHandler(unittest.TestCase):
             }
         }
         
-        result = WebhookHandler.parse_cloudevents(payload)
+        result = self.handler.parse_cloudevents(payload)
         
         self.assertIsNotNone(result)
         self.assertEqual(result['spec_version'], "1.0")
@@ -80,7 +80,7 @@ class TestWebhookHandler(unittest.TestCase):
             }
         }
         
-        result = WebhookHandler.parse_cloudevents(payload)
+        result = self.handler.parse_cloudevents(payload)
         
         self.assertIsNotNone(result)
         self.assertEqual(result['entity_name'], "Customer")
@@ -103,7 +103,7 @@ class TestWebhookHandler(unittest.TestCase):
             }
         }
         
-        result = WebhookHandler.parse_cloudevents(payload)
+        result = self.handler.parse_cloudevents(payload)
         
         self.assertIsNotNone(result)
         self.assertEqual(result['entity_name'], "Payment")
@@ -126,7 +126,7 @@ class TestWebhookHandler(unittest.TestCase):
             }
         }
         
-        result = WebhookHandler.parse_cloudevents(payload)
+        result = self.handler.parse_cloudevents(payload)
         
         self.assertIsNotNone(result)
         self.assertEqual(result['entity_name'], "Account")
@@ -146,19 +146,19 @@ class TestWebhookHandler(unittest.TestCase):
             }
         }
         
-        result = WebhookHandler.parse_cloudevents(payload)
+        result = self.handler.parse_cloudevents(payload)
         
         self.assertIsNone(result)
     
     def test_parse_cloudevents_invalid_type(self):
         """Test parsing invalid payload type (not a dict)."""
-        result = WebhookHandler.parse_cloudevents("not a dict")
+        result = self.handler.parse_cloudevents("not a dict")
         self.assertIsNone(result)
         
-        result = WebhookHandler.parse_cloudevents(None)
+        result = self.handler.parse_cloudevents(None)
         self.assertIsNone(result)
         
-        result = WebhookHandler.parse_cloudevents([])
+        result = self.handler.parse_cloudevents([])
         self.assertIsNone(result)
     
     def test_parse_cloudevents_empty_data(self):
@@ -171,7 +171,7 @@ class TestWebhookHandler(unittest.TestCase):
             "data": {}
         }
         
-        result = WebhookHandler.parse_cloudevents(payload)
+        result = self.handler.parse_cloudevents(payload)
         
         # Should parse but with None values for entity data
         self.assertIsNotNone(result)
@@ -188,7 +188,7 @@ class TestWebhookHandler(unittest.TestCase):
             'last_updated': '2024-02-13T16:30:45Z'
         }
         
-        result = WebhookHandler.process_webhook_event(parsed_data)
+        result = self.handler.process_webhook_event(parsed_data)
         
         self.assertEqual(result['status'], 'processed')
         self.assertEqual(result['entity'], 'Customer')
@@ -204,7 +204,7 @@ class TestWebhookHandler(unittest.TestCase):
             'realm_id': '4620816365314298765'
         }
         
-        result = WebhookHandler.process_webhook_event(parsed_data)
+        result = self.handler.process_webhook_event(parsed_data)
         
         self.assertEqual(result['status'], 'processed')
         self.assertEqual(result['entity'], 'Invoice')
@@ -219,7 +219,7 @@ class TestWebhookHandler(unittest.TestCase):
             'realm_id': '4620816365314298765'
         }
         
-        result = WebhookHandler.process_webhook_event(parsed_data)
+        result = self.handler.process_webhook_event(parsed_data)
         
         self.assertEqual(result['status'], 'processed')
         self.assertEqual(result['entity'], 'Payment')
@@ -233,7 +233,7 @@ class TestWebhookHandler(unittest.TestCase):
             'realm_id': '4620816365314298765'
         }
         
-        result = WebhookHandler.process_webhook_event(parsed_data)
+        result = self.handler.process_webhook_event(parsed_data)
         
         self.assertEqual(result['status'], 'processed')
         self.assertEqual(result['entity'], 'Account')
@@ -248,7 +248,7 @@ class TestWebhookHandler(unittest.TestCase):
             'entity_id': '999'
         }
         
-        result = WebhookHandler.process_webhook_event(parsed_data)
+        result = self.handler.process_webhook_event(parsed_data)
         
         self.assertEqual(result['status'], 'ignored')
         self.assertIn('Unhandled entity type', result['reason'])

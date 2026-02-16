@@ -1,6 +1,8 @@
 import unittest
 import json
-from main import app, database
+from main import app
+from src.common.database import Database
+database = Database()
 from tests.test_helpers import AuthenticatedTestCase
 
 
