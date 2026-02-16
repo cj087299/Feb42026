@@ -4,9 +4,9 @@ Tests for QBO disconnect functionality
 
 import unittest
 from unittest.mock import patch, Mock, MagicMock
-from src.qbo_client import QBOClient
-from src.secret_manager import SecretManager
-from src.database import Database
+from src.auth.qbo_auth import QBOAuth
+from src.auth.secret_manager import SecretManager
+from src.common.database import Database
 
 
 class TestQBODisconnect(unittest.TestCase):
@@ -21,13 +21,13 @@ class TestQBODisconnect(unittest.TestCase):
         self.test_access_token = "test_access_token_xyz"
     
     def test_qbo_client_disconnect_with_database(self):
-        """Test QBOClient disconnect method with database."""
+        """Test QBOAuth disconnect method with database."""
         # Create mock database
         mock_db = Mock(spec=Database)
         mock_db.delete_qbo_credentials.return_value = True
         
         # Create client with mock database
-        client = QBOClient(
+        client = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,
@@ -53,9 +53,9 @@ class TestQBODisconnect(unittest.TestCase):
         self.assertIsNone(client.realm_id)
     
     def test_qbo_client_disconnect_without_database(self):
-        """Test QBOClient disconnect method without database."""
+        """Test QBOAuth disconnect method without database."""
         # Create client without database
-        client = QBOClient(
+        client = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,

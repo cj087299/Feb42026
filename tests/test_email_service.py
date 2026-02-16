@@ -3,7 +3,7 @@
 import unittest
 import os
 from unittest.mock import patch
-from src.email_service import EmailService
+from src.common.email_service import EmailService
 
 
 class TestEmailServiceCredentials(unittest.TestCase):

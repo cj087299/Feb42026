@@ -1,15 +1,20 @@
 from datetime import datetime, timedelta
-from src.qbo_client import QBOClient
+from src.invoices.qbo_connector import QBOConnector
+from src.erp.customer_mapper import CustomerMapper
 import logging
 
 logger = logging.getLogger(__name__)
 
 
 class InvoiceManager:
-    def __init__(self, qbo_client: QBOClient, database=None, predictor=None):
+    def __init__(self, qbo_client: QBOConnector, database=None, predictor=None):
         self.client = qbo_client
         self.database = database
         self.predictor = predictor
+        if self.database:
+            self.customer_mapper = CustomerMapper(self.database)
+        else:
+            self.customer_mapper = None
 
     def fetch_invoices(self, qbo_filters=None):
         """
@@ -52,7 +57,7 @@ class InvoiceManager:
                 # Parse and normalize invoice data
                 normalized_invoices = []
                 for invoice in invoices:
-                    normalized_invoices.append({
+                    normalized_invoice = {
                         'id': invoice.get('Id'),
                         'doc_number': invoice.get('DocNumber'),
                         'customer_id': invoice.get('CustomerRef', {}).get('value') if invoice.get('CustomerRef') else None,
@@ -64,7 +69,13 @@ class InvoiceManager:
                         'status': 'Paid' if invoice.get('Balance', 0) == 0 else 'Unpaid',
                         'CustomField': invoice.get('CustomField', []),
                         'terms_days': self._get_terms_days(invoice)
-                    })
+                    }
+
+                    # Apply Customer Mappings
+                    if self.customer_mapper:
+                        normalized_invoice = self.customer_mapper.apply_defaults(normalized_invoice)
+
+                    normalized_invoices.append(normalized_invoice)
                 
                 return normalized_invoices
             
