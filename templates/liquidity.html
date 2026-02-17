@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VZT Accounting - Liquidity Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/ai-chat.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">VZT Accounting</a>
+            <nav class="nav" id="mainNav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/liquidity" class="active">Liquidity</a>
+                <a href="/health">Status</a>
+                <a href="#" onclick="logout(); return false;">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="hero">
+            <h1>Liquidity Dashboard</h1>
+            <p>High-level financial snapshot and liquidity ratios.</p>
+        </section>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading financial data...</p>
+        </div>
+
+        <div class="error-message" id="errorMessage" style="display: none;"></div>
+
+        <div class="cards-grid" id="dashboardContent" style="display: none;">
+            <div class="card">
+                <div class="card-icon">💰</div>
+                <h2>Total Accounts Receivable</h2>
+                <p>Total amount from unpaid invoices.</p>
+                <h3 id="totalAR" style="font-size: 2rem; color: var(--primary-color);">$0.00</h3>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">🧾</div>
+                <h2>Total Accounts Payable</h2>
+                <p>Total amount from unpaid bills.</p>
+                <h3 id="totalAP" style="font-size: 2rem; color: var(--secondary-color);">$0.00</h3>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">🏦</div>
+                <h2>Total Bank Balance</h2>
+                <p>Total cash in checking accounts.</p>
+                <h3 id="totalBank" style="font-size: 2rem; color: var(--success-color);">$0.00</h3>
+            </div>
+
+            <div class="card">
+                <div class="card-icon">⚖️</div>
+                <h2>Quick Ratio</h2>
+                <p>(Cash + AR) / AP</p>
+                <h3 id="quickRatio" style="font-size: 2rem; color: var(--accent-color);">0.00</h3>
+                <p id="ratioStatus" style="font-size: 0.9rem; font-weight: bold;"></p>
+            </div>
+        </div>
+    </main>
+
+    <script src="/static/js/common.js"></script>
+    <script src="/static/js/ai-chat.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            await fetchLiquidityData();
+        });
+
+        async function fetchLiquidityData() {
+            const loading = document.getElementById('loading');
+            const content = document.getElementById('dashboardContent');
+            const errorMsg = document.getElementById('errorMessage');
+
+            try {
+                const response = await fetch('/api/liquidity');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // Format currency
+                const formatter = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                });
+
+                document.getElementById('totalAR').textContent = formatter.format(data.total_ar);
+                document.getElementById('totalAP').textContent = formatter.format(data.total_ap);
+                document.getElementById('totalBank').textContent = formatter.format(data.total_bank_balance);
+
+                let quickRatioDisplay = "N/A";
+                let statusText = "Unknown";
+                let statusColor = "var(--text-secondary)";
+
+                if (data.quick_ratio === null) {
+                    if (data.total_bank_balance + data.total_ar > 0) {
+                        quickRatioDisplay = "∞";
+                        statusText = "Excellent Liquidity";
+                        statusColor = "var(--success-color)";
+                    } else {
+                        quickRatioDisplay = "0.00";
+                        statusText = "No Activity";
+                        statusColor = "var(--text-secondary)";
+                    }
+                } else {
+                    quickRatioDisplay = data.quick_ratio.toFixed(2);
+                    if (data.quick_ratio >= 1.0) {
+                        statusText = "Healthy Liquidity";
+                        statusColor = "var(--success-color)";
+                    } else {
+                        statusText = "Liquidity Concern";
+                        statusColor = "var(--error-color)";
+                    }
+                }
+
+                document.getElementById('quickRatio').textContent = quickRatioDisplay;
+                document.getElementById('ratioStatus').textContent = statusText;
+                document.getElementById('ratioStatus').style.color = statusColor;
+
+                loading.style.display = 'none';
+                content.style.display = 'grid';
+
+            } catch (error) {
+                console.error('Error fetching liquidity data:', error);
+                loading.style.display = 'none';
+                errorMsg.textContent = 'Failed to load liquidity data. Please try again later.';
+                errorMsg.style.display = 'block';
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
+</body>
+</html>

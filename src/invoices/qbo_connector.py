@@ -103,3 +103,25 @@ class QBOConnector:
         except Exception as e:
             logger.error(f"Failed to fetch bank accounts: {e}")
             return []
+
+    def fetch_bills(self):
+        """
+        Fetches unpaid bills from QBO (Accounts Payable).
+
+        Returns:
+            List of bill objects
+        """
+        try:
+            query = "select * from Bill where Balance > '0'"
+            response = self.make_request("query", params={"query": query})
+
+            if response and "QueryResponse" in response:
+                bills = response["QueryResponse"].get("Bill", [])
+                logger.info(f"Fetched {len(bills)} unpaid bills from QBO")
+                return bills
+
+            logger.warning("No bills found in QBO response")
+            return []
+        except Exception as e:
+            logger.error(f"Failed to fetch bills: {e}")
+            return []

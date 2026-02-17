@@ -375,6 +375,51 @@ def get_cashflow_calendar():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/liquidity', methods=['GET'])
+@login_required
+@permission_required('view_cashflow')
+def liquidity_page():
+    return render_template('liquidity.html')
+
+@app.route('/api/liquidity', methods=['GET'])
+@login_required
+@permission_required('view_cashflow')
+def get_liquidity_metrics():
+    try:
+        fresh_connector, credentials_valid = get_fresh_qbo_connector()
+
+        metrics = {
+            "total_ar": 0.0,
+            "total_ap": 0.0,
+            "total_bank_balance": 0.0,
+            "quick_ratio": None
+        }
+
+        if credentials_valid:
+            # Total AR (Accounts Receivable)
+            invoice_mgr = InvoiceManager(fresh_connector, database=database, predictor=predictor)
+            invoices = invoice_mgr.fetch_invoices(qbo_filters={'status': 'pending'})
+            metrics['total_ar'] = sum(float(inv.get('balance', 0)) for inv in invoices)
+
+            # Total AP (Accounts Payable)
+            bills = fresh_connector.fetch_bills()
+            metrics['total_ap'] = sum(float(bill.get('Balance', 0)) for bill in bills)
+
+            # Total Bank Balance
+            bank_accounts = fresh_connector.fetch_bank_accounts()
+            metrics['total_bank_balance'] = sum(float(acc.get('CurrentBalance', 0)) for acc in bank_accounts)
+
+            # Quick Ratio
+            if metrics['total_ap'] > 0:
+                metrics['quick_ratio'] = (metrics['total_bank_balance'] + metrics['total_ar']) / metrics['total_ap']
+            else:
+                metrics['quick_ratio'] = None # Indicates infinite liquidity or no AP
+
+        return jsonify(metrics), 200
+    except Exception as e:
+        logger.error(f"Error fetching liquidity metrics: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/bank-accounts', methods=['GET'])
 @login_required
 def get_bank_accounts():
