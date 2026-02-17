@@ -43,14 +43,14 @@ class TestPaymentPredictor(unittest.TestCase):
         # Since we only mocked simple features, prediction might not be exactly 5 days
         # but let's test that it returns a valid date string
         invoice_c1 = {'customer_id': 'C1', 'amount': 150, 'due_date': '2023-10-01', 'txn_date': '2023-10-01'}
-        predicted_date_str = predictor.predict_expected_date(invoice_c1)
+        predicted_date_str, _ = predictor.predict_expected_date(invoice_c1)
         self.assertIsNotNone(predicted_date_str)
 
     def test_predict_untrained(self):
         predictor = PaymentPredictor()
         invoice = {'customer_id': 'C1', 'amount': 100, 'due_date': '2023-10-01'}
         # Should return due date + 5 days (heuristic) if untrained
-        predicted = predictor.predict_expected_date(invoice)
+        predicted, _ = predictor.predict_expected_date(invoice)
         due_date = datetime.strptime('2023-10-01', '%Y-%m-%d')
         expected = (due_date + timedelta(days=5)).strftime('%Y-%m-%d')
         self.assertEqual(predicted, expected)
@@ -74,7 +74,7 @@ class TestPaymentPredictor(unittest.TestCase):
         # Missing customer_id
         invoice = {'amount': 100, 'due_date': '2023-10-01'}
         # Should gracefully return due_date + 5 days (heuristic) if model fails or fallback used
-        predicted = predictor.predict_expected_date(invoice)
+        predicted, _ = predictor.predict_expected_date(invoice)
         due_date = datetime.strptime('2023-10-01', '%Y-%m-%d')
         expected = (due_date + timedelta(days=5)).strftime('%Y-%m-%d')
         self.assertEqual(predicted, expected)
