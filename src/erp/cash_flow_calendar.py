@@ -41,6 +41,11 @@ class CashFlowCalendar:
             all_meta = self.database.get_all_invoice_metadata()
             self.invoice_metadata = {m['invoice_id']: m for m in all_meta}
 
+        # Pre-calculate predictions to avoid N+1 model inference
+        self.predictions = {}
+        if self.predictor:
+            self.predictions = self.predictor.predict_multiple(self.invoices)
+
     def _get_invoice_date(self, invoice: Dict) -> datetime.date:
         """
         Determine the projected payment date for an invoice.
@@ -69,9 +74,9 @@ class CashFlowCalendar:
             except (ValueError, TypeError):
                 pass
 
-        # 3. AI Prediction
-        if self.predictor:
-            predicted = self.predictor.predict_expected_date(invoice)
+        # 3. AI Prediction (Cached)
+        if self.predictor and inv_id:
+            predicted = self.predictions.get(str(inv_id))
             if predicted:
                 try:
                     return datetime.strptime(predicted, '%Y-%m-%d').date()
