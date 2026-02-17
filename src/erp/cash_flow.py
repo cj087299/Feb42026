@@ -8,6 +8,15 @@ class CashFlowProjector:
         self.expenses = expenses
         self.predictor = predictor or PaymentPredictor()
 
+        # Pre-calculate predictions
+        self.invoice_predictions = {}
+        self.expense_predictions = {}
+        if self.predictor:
+            # Predict for invoices
+            self.invoice_predictions = self.predictor.predict_multiple(self.invoices)
+            # Predict for expenses
+            self.expense_predictions = self.predictor.predict_multiple(self.expenses)
+
     def calculate_projection(self, days: int = 30) -> List[Dict]:
         """
         Calculates projected cash flow for the next 'days' days.
@@ -21,7 +30,7 @@ class CashFlowProjector:
         # Process Invoices (Inflow)
         for invoice in self.invoices:
             # Determine expected payment date
-            pay_date = self._determine_payment_date(invoice)
+            pay_date = self._determine_payment_date(invoice, self.invoice_predictions)
 
             if pay_date and today <= pay_date <= end_date:
                 amount = float(invoice.get('amount', 0))
@@ -30,7 +39,7 @@ class CashFlowProjector:
         # Process Expenses (Outflow)
         for expense in self.expenses:
             # Determine expected payment date
-            pay_date = self._determine_payment_date(expense)
+            pay_date = self._determine_payment_date(expense, self.expense_predictions)
 
             if pay_date and today <= pay_date <= end_date:
                 amount = float(expense.get('amount', 0))
@@ -53,7 +62,7 @@ class CashFlowProjector:
 
         return projection
 
-    def _determine_payment_date(self, item: Dict) -> Optional[datetime.date]:
+    def _determine_payment_date(self, item: Dict, predictions: Dict[str, str] = None) -> Optional[datetime.date]:
         """Determines the likely payment date for an item."""
         # Check for specific override date first
         if item.get('metadata', {}).get('manual_override_pay_date'):
@@ -62,9 +71,10 @@ class CashFlowProjector:
             except ValueError:
                 pass
 
-        # Try AI prediction if available
-        if self.predictor:
-            predicted_date = self.predictor.predict_expected_date(item)
+        # Try AI prediction if available (Cached)
+        item_id = item.get('id') or item.get('doc_number')
+        if predictions and item_id:
+            predicted_date = predictions.get(str(item_id))
             if predicted_date:
                 try:
                     return datetime.strptime(predicted_date, '%Y-%m-%d').date()
