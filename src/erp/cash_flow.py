@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from src.erp.payment_predictor import PaymentPredictor
 
 class CashFlowProjector:
@@ -62,7 +62,7 @@ class CashFlowProjector:
 
         return projection
 
-    def _determine_payment_date(self, item: Dict, predictions: Dict[str, str] = None) -> Optional[datetime.date]:
+    def _determine_payment_date(self, item: Dict, predictions: Dict[str, Any] = None) -> Optional[datetime.date]:
         """Determines the likely payment date for an item."""
         # Check for specific override date first
         if item.get('metadata', {}).get('manual_override_pay_date'):
@@ -76,11 +76,19 @@ class CashFlowProjector:
         predicted_date = None
 
         if predictions and item_id:
-            predicted_date = predictions.get(str(item_id))
+            prediction_entry = predictions.get(str(item_id))
+            if isinstance(prediction_entry, dict):
+                predicted_date = prediction_entry.get('date')
+            elif isinstance(prediction_entry, str):
+                predicted_date = prediction_entry
 
         # Fallback to individual prediction if not in cache or no ID
         if not predicted_date and self.predictor:
-            predicted_date = self.predictor.predict_expected_date(item)
+            prediction_result = self.predictor.predict_expected_date(item)
+            if isinstance(prediction_result, tuple):
+                predicted_date, _ = prediction_result
+            else:
+                predicted_date = prediction_result
 
         if predicted_date:
             try:

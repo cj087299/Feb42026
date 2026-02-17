@@ -2,6 +2,7 @@ import logging
 import json
 import requests
 from datetime import datetime
+import numpy as np
 from typing import Dict, List, Optional
 from src.common.database import Database
 
@@ -89,3 +90,95 @@ class AIService:
             return {'status': 'success', 'analysis': 'Data analysis complete. Trends detected...'}
         else:
             return {'error': 'Unknown action'}
+
+    def analyze_customer_payment_behavior(self, customer_id: str, qbo_client) -> Dict:
+        """
+        Analyzes the last 20 paid invoices for a customer to determine average delay and confidence.
+
+        Args:
+            customer_id: QBO Customer ID
+            qbo_client: Authenticated QBOConnector instance
+
+        Returns:
+            Dict containing 'average_delay' (float days) and 'confidence_score' (0.0 - 1.0)
+        """
+        try:
+            # 1. Fetch last 20 payments for this customer
+            query_payments = f"SELECT * FROM Payment WHERE CustomerRef = '{customer_id}' ORDERBY TxnDate DESC MAXRESULTS 20"
+            response_payments = qbo_client.make_request("query", params={"query": query_payments})
+
+            payments = response_payments.get('QueryResponse', {}).get('Payment', [])
+
+            if not payments:
+                return {'average_delay': 0.0, 'confidence_score': 0.0}
+
+            # 2. Extract Invoice IDs and map to Payment Date
+            invoice_payment_map = {} # invoice_id -> payment_date (datetime)
+            invoice_ids = set()
+
+            for payment in payments:
+                payment_date_str = payment.get('TxnDate')
+                if not payment_date_str: continue
+
+                try:
+                    payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d')
+                except ValueError:
+                    continue
+
+                for line in payment.get('Line', []):
+                    for linked_txn in line.get('LinkedTxn', []):
+                        if linked_txn.get('TxnType') == 'Invoice':
+                            inv_id = linked_txn.get('TxnId')
+                            if inv_id:
+                                # Map invoice to this payment date
+                                invoice_payment_map[inv_id] = payment_date
+                                invoice_ids.add(inv_id)
+
+            if not invoice_ids:
+                return {'average_delay': 0.0, 'confidence_score': 0.0}
+
+            # 3. Fetch Invoices to get Due Dates
+            ids_formatted = ", ".join([f"'{id}'" for id in invoice_ids])
+            query_invoices = f"SELECT Id, DueDate FROM Invoice WHERE Id IN ({ids_formatted})"
+            response_invoices = qbo_client.make_request("query", params={"query": query_invoices})
+
+            invoices = response_invoices.get('QueryResponse', {}).get('Invoice', [])
+
+            delays = []
+            for invoice in invoices:
+                inv_id = invoice.get('Id')
+                due_date_str = invoice.get('DueDate')
+
+                if inv_id and due_date_str and inv_id in invoice_payment_map:
+                    try:
+                        due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
+                        payment_date = invoice_payment_map[inv_id]
+
+                        # Calculate delay
+                        delay = (payment_date - due_date).days
+                        delays.append(delay)
+                    except ValueError:
+                        continue
+
+            if not delays:
+                return {'average_delay': 0.0, 'confidence_score': 0.0}
+
+            # 4. Calculate Stats
+            average_delay = float(np.mean(delays))
+            std_dev = float(np.std(delays))
+
+            # 5. Calculate Confidence
+            # Heuristic: 1.0 / (1.0 + (std_dev / 5.0))
+            # If std_dev is 0 (always same delay), confidence is 1.0
+            # If std_dev is 5 days, confidence is 0.5
+            confidence_score = 1.0 / (1.0 + (std_dev / 5.0))
+
+            return {
+                'average_delay': average_delay,
+                'confidence_score': confidence_score,
+                'sample_size': len(delays)
+            }
+
+        except Exception as e:
+            logger.error(f"Error analyzing customer payment behavior: {e}")
+            return {'average_delay': 0.0, 'confidence_score': 0.0}

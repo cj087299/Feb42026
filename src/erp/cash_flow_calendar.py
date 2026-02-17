@@ -76,7 +76,13 @@ class CashFlowCalendar:
 
         # 3. AI Prediction (Cached)
         if self.predictor and inv_id:
-            predicted = self.predictions.get(str(inv_id))
+            prediction_entry = self.predictions.get(str(inv_id))
+            predicted = None
+            if isinstance(prediction_entry, dict):
+                predicted = prediction_entry.get('date')
+            elif isinstance(prediction_entry, str):
+                predicted = prediction_entry
+
             if predicted:
                 try:
                     return datetime.strptime(predicted, '%Y-%m-%d').date()
@@ -124,6 +130,10 @@ class CashFlowCalendar:
                 'opening_balance': 0.0,
                 'inflows': [],
                 'outflows': [],
+                'projected_inflows': [],
+                'projected_outflows': [],
+                'custom_inflows': [],
+                'custom_outflows': [],
                 'net_change': 0.0,
                 'closing_balance': 0.0
             }
@@ -139,13 +149,25 @@ class CashFlowCalendar:
                 pay_date = self._get_invoice_date(inv)
                 if start_date.date() <= pay_date <= end_date_date:
                     amount = float(inv.get('balance', 0))
-                    days_map[pay_date]['inflows'].append({
+
+                    # Get confidence
+                    inv_id = inv.get('id') or inv.get('doc_number')
+                    confidence = 0.0
+                    if self.predictions and inv_id:
+                        prediction_entry = self.predictions.get(str(inv_id))
+                        if isinstance(prediction_entry, dict):
+                            confidence = prediction_entry.get('confidence', 0.0)
+
+                    flow_item = {
                         'type': 'invoice',
                         'id': inv.get('id'),
                         'description': f"Invoice #{inv.get('doc_number')} - {inv.get('customer')}",
                         'amount': amount,
-                        'is_projected': True
-                    })
+                        'is_projected': True,
+                        'confidence_score': confidence
+                    }
+                    days_map[pay_date]['inflows'].append(flow_item)
+                    days_map[pay_date]['projected_inflows'].append(flow_item)
 
         # Process Custom Flows
         for flow in self.custom_flows:
@@ -160,21 +182,25 @@ class CashFlowCalendar:
                     flow_type = flow['flow_type'] # 'inflow' or 'outflow'
 
                     if flow_type == 'inflow' and show_custom_inflows:
-                        days_map[flow_date]['inflows'].append({
+                        flow_item = {
                             'type': 'custom_inflow',
                             'id': flow.get('id'),
                             'description': flow.get('description', 'Custom Inflow'),
                             'amount': amount,
                             'is_projected': False # Manual entries are considered "certain"
-                        })
+                        }
+                        days_map[flow_date]['inflows'].append(flow_item)
+                        days_map[flow_date]['custom_inflows'].append(flow_item)
                     elif flow_type == 'outflow' and show_custom_outflows:
-                        days_map[flow_date]['outflows'].append({
+                        flow_item = {
                             'type': 'custom_outflow',
                             'id': flow.get('id'),
                             'description': flow.get('description', 'Custom Outflow'),
                             'amount': amount,
                             'is_projected': False
-                        })
+                        }
+                        days_map[flow_date]['outflows'].append(flow_item)
+                        days_map[flow_date]['custom_outflows'].append(flow_item)
             except ValueError:
                 continue
 

@@ -338,7 +338,14 @@
                 `;
                 
                 if (day.total_inflow > 0) {
-                    html += `<div class="flow-indicator flow-inflow">↑ ${formatCurrency(day.total_inflow)}</div>`;
+                    // Check for low confidence predictions in this day
+                    let lowConfidence = false;
+                    if (day.projected_inflows) {
+                        lowConfidence = day.projected_inflows.some(f => f.confidence_score !== undefined && f.confidence_score < 0.5);
+                    }
+
+                    const warning = lowConfidence ? ' ⚠️' : '';
+                    html += `<div class="flow-indicator flow-inflow" title="${lowConfidence ? 'Contains low confidence predictions' : ''}">↑ ${formatCurrency(day.total_inflow)}${warning}</div>`;
                 }
                 if (day.total_outflow > 0) {
                     html += `<div class="flow-indicator flow-outflow">↓ ${formatCurrency(day.total_outflow)}</div>`;
@@ -410,9 +417,13 @@
                         <tbody>
                 `;
                 for (const flow of day.projected_inflows) {
+                    const isLowConfidence = flow.confidence_score !== undefined && flow.confidence_score < 0.5;
+                    const rowStyle = isLowConfidence ? 'opacity: 0.7;' : '';
+                    const warningIcon = isLowConfidence ? ' <span title="Low Confidence Prediction (Erratic Payment History)">⚠️</span>' : '';
+
                     html += `
-                        <tr>
-                            <td>${flow.description}</td>
+                        <tr style="${rowStyle}">
+                            <td>${flow.description}${warningIcon}</td>
                             <td>${flow.customer || 'N/A'}</td>
                             <td style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
                         </tr>

@@ -292,7 +292,9 @@ def get_invoices():
         if not credentials_valid:
             return jsonify({"error": "QuickBooks credentials not configured", "invoices": []}), 200
         
-        invoice_mgr = InvoiceManager(fresh_connector, database=database, predictor=predictor)
+        # Use fresh predictor with AI capabilities
+        local_predictor = PaymentPredictor(ai_service=ai_service, qbo_client=fresh_connector)
+        invoice_mgr = InvoiceManager(fresh_connector, database=database, predictor=local_predictor)
 
         # ... logic ...
         filters = {k: v for k, v in request.args.items() if v is not None}
@@ -359,11 +361,14 @@ def get_cashflow_calendar():
             for account in bank_accounts:
                 initial_balance += float(account.get('CurrentBalance', 0))
         
-        invoice_mgr = InvoiceManager(fresh_connector, database=database, predictor=predictor)
+        # Use fresh predictor with AI capabilities
+        local_predictor = PaymentPredictor(ai_service=ai_service, qbo_client=fresh_connector if credentials_valid else None)
+
+        invoice_mgr = InvoiceManager(fresh_connector, database=database, predictor=local_predictor)
         invoices = invoice_mgr.fetch_invoices() if credentials_valid else []
         custom_flows = database.get_custom_cash_flows()
         
-        calendar = CashFlowCalendar(invoices, [], custom_flows, predictor=predictor, database=database)
+        calendar = CashFlowCalendar(invoices, [], custom_flows, predictor=local_predictor, database=database)
         projection = calendar.calculate_daily_projection(start_date, end_date, initial_balance)
         
         return jsonify({
