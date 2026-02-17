@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}VZT Accounting{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/ai-chat.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">VZT Accounting</a>
+            <nav class="main-nav" id="mainNav">
+                <a href="/">Home</a>
+                <a href="/invoices">Invoices</a>
+                <a href="/cashflow">Cash Flow</a>
+                <a href="/health">Status</a>
+                <a href="#" onclick="logout(); return false;">Logout</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Common Scripts -->
+    <script src="/static/js/common.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.19.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="/static/js/export_utils.js"></script>
+    <script src="/static/js/ai-chat.js"></script>
+
+    <script>
+        // Common navigation logic
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                // Only fetch user info if not already available (or just always fetch to be safe)
+                const user = await fetchAPI('/api/me');
+                if (user) {
+                    const nav = document.getElementById('mainNav');
+
+                    // Add admin links if not already present (simple check to avoid dupes if logic runs twice)
+                    if ((user.role === 'admin' || user.role === 'master_admin') && !document.getElementById('nav-audit')) {
+                        const auditLink = document.createElement('a');
+                        auditLink.id = 'nav-audit';
+                        auditLink.href = '/audit';
+                        auditLink.textContent = 'Audit Log';
+                        nav.insertBefore(auditLink, nav.lastElementChild);
+
+                        const qboLink = document.createElement('a');
+                        qboLink.id = 'nav-qbo';
+                        qboLink.href = '/qbo-settings-v2';
+                        qboLink.textContent = 'QBO Settings';
+                        nav.insertBefore(qboLink, nav.lastElementChild);
+
+                        // Add Customer Settings link for admins
+                        const custSettingsLink = document.createElement('a');
+                        custSettingsLink.id = 'nav-cust-settings';
+                        custSettingsLink.href = '/customer-settings';
+                        custSettingsLink.textContent = 'Customer Settings';
+                        nav.insertBefore(custSettingsLink, nav.lastElementChild);
+                    }
+
+                    if (user.role === 'master_admin' && !document.getElementById('nav-users')) {
+                        const usersLink = document.createElement('a');
+                        usersLink.id = 'nav-users';
+                        usersLink.href = '/users';
+                        usersLink.textContent = 'Users';
+                        nav.insertBefore(usersLink, nav.lastElementChild);
+
+                        const logsLink = document.createElement('a');
+                        logsLink.id = 'nav-logs';
+                        logsLink.href = '/logs';
+                        logsLink.textContent = 'System Logs';
+                        nav.insertBefore(logsLink, nav.lastElementChild);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load user info for nav:', error);
+            }
+        });
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Logout failed:', error);
+                window.location.href = '/login';
+            }
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

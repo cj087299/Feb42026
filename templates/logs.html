@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Logs - VZT Accounting</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/ai-chat.css">
+{% extends "base.html" %}
+
+{% block title %}System Logs - VZT Accounting{% endblock %}
+
+{% block extra_css %}
     <style>
         .log-container {
             background: white;
@@ -86,25 +83,9 @@
             opacity: 0.9;
         }
     </style>
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/users">Users</a>
-                <a href="/audit">Audit Log</a>
-                <a href="/logs" class="active">System Logs</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% endblock %}
 
-    <main class="container">
+{% block content %}
         <h1>🔍 System Logs</h1>
         <p style="color: var(--text-secondary); margin-bottom: 2rem;">
             View system errors and AI operation logs. This page is only accessible to Master Admins.
@@ -128,6 +109,11 @@
                         <option value="100" selected>Last 100 entries</option>
                         <option value="200">Last 200 entries</option>
                     </select>
+                    <div style="border-left: 1px solid var(--border-color); padding-left: 1rem; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-action" onclick="exportLogs('errors', 'csv')" style="padding: 0.5rem 1rem; font-size: 0.9rem;">📄 CSV</button>
+                        <button class="btn btn-action" onclick="exportLogs('errors', 'excel')" style="padding: 0.5rem 1rem; font-size: 0.9rem;">📊 Excel</button>
+                        <button class="btn btn-action" onclick="exportLogs('errors', 'pdf')" style="padding: 0.5rem 1rem; font-size: 0.9rem;">📑 PDF</button>
+                    </div>
                 </div>
                 <div id="errorLogs">
                     <div class="empty-state">Loading error logs...</div>
@@ -142,16 +128,20 @@
                         <option value="100" selected>Last 100 entries</option>
                         <option value="200">Last 200 entries</option>
                     </select>
+                    <div style="border-left: 1px solid var(--border-color); padding-left: 1rem; display: flex; gap: 0.5rem;">
+                        <button class="btn btn-action" onclick="exportLogs('ai', 'csv')" style="padding: 0.5rem 1rem; font-size: 0.9rem;">📄 CSV</button>
+                        <button class="btn btn-action" onclick="exportLogs('ai', 'excel')" style="padding: 0.5rem 1rem; font-size: 0.9rem;">📊 Excel</button>
+                        <button class="btn btn-action" onclick="exportLogs('ai', 'pdf')" style="padding: 0.5rem 1rem; font-size: 0.9rem;">📑 PDF</button>
+                    </div>
                 </div>
                 <div id="aiLogs">
                     <div class="empty-state">Loading AI operation logs...</div>
                 </div>
             </div>
         </div>
-    </main>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
-    <script src="/static/js/ai-chat.js"></script>
+{% block extra_js %}
     <script>
         let currentTab = 'errors';
 
@@ -237,13 +227,39 @@
             }
         }
 
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
+        function exportLogs(type, format) {
+            let containerId;
+            let filename;
+
+            if (type === 'errors') {
+                containerId = 'errorLogs';
+                filename = 'Error_Logs';
+            } else {
+                containerId = 'aiLogs';
+                filename = 'AI_Operation_Logs';
+            }
+
+            const container = document.getElementById(containerId);
+            const entries = container.querySelectorAll('.log-entry');
+
+            if (entries.length === 0) {
+                alert('No logs to export.');
+                return;
+            }
+
+            const data = [];
+            entries.forEach(entry => {
+                data.push({'Log Entry': entry.textContent});
+            });
+
+            const headers = ['Log Entry'];
+
+            if (format === 'csv') {
+                exportDataToCSV(data, headers, filename);
+            } else if (format === 'excel') {
+                exportDataToExcel(data, headers, filename);
+            } else if (format === 'pdf') {
+                exportDataToPDF(data, headers, filename);
             }
         }
 
@@ -252,5 +268,4 @@
             loadErrors();
         });
     </script>
-</body>
-</html>
+{% endblock %}

@@ -1,31 +1,16 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VZT Accounting - Liquidity Dashboard</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/ai-chat.css">
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav" id="mainNav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/liquidity" class="active">Liquidity</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container">
+{% block title %}VZT Accounting - Liquidity Dashboard{% endblock %}
+
+{% block content %}
         <section class="hero">
             <h1>Liquidity Dashboard</h1>
             <p>High-level financial snapshot and liquidity ratios.</p>
+            <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 0.5rem;">
+                <button type="button" class="btn btn-action" onclick="exportDashboard('csv')">📄 CSV</button>
+                <button type="button" class="btn btn-action" onclick="exportDashboard('excel')">📊 Excel</button>
+                <button type="button" class="btn btn-action" onclick="exportDashboard('pdf')">📑 PDF</button>
+            </div>
         </section>
 
         <div class="loading" id="loading">
@@ -65,10 +50,9 @@
                 <p id="ratioStatus" style="font-size: 0.9rem; font-weight: bold;"></p>
             </div>
         </div>
-    </main>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
-    <script src="/static/js/ai-chat.js"></script>
+{% block extra_js %}
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             await fetchLiquidityData();
@@ -140,15 +124,24 @@
             }
         }
 
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
+        function exportDashboard(format) {
+            const data = [{
+                'Total AR': document.getElementById('totalAR').textContent,
+                'Total AP': document.getElementById('totalAP').textContent,
+                'Total Bank Balance': document.getElementById('totalBank').textContent,
+                'Quick Ratio': document.getElementById('quickRatio').textContent,
+                'Status': document.getElementById('ratioStatus').textContent
+            }];
+            const headers = ['Total AR', 'Total AP', 'Total Bank Balance', 'Quick Ratio', 'Status'];
+            const filename = 'Liquidity_Dashboard';
+
+            if (format === 'csv') {
+                exportDataToCSV(data, headers, filename);
+            } else if (format === 'excel') {
+                exportDataToExcel(data, headers, filename);
+            } else if (format === 'pdf') {
+                exportDataToPDF(data, headers, filename);
             }
         }
     </script>
-</body>
-</html>
+{% endblock %}

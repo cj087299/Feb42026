@@ -1,28 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audit Log - VZT Accounting</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/users">Users</a>
-                <a href="/audit">Audit Log</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container">
+{% block title %}Audit Log - VZT Accounting{% endblock %}
+
+{% block content %}
         <h1 style="margin-bottom: 1rem;">Audit Log</h1>
         <p style="color: var(--text-secondary); margin-bottom: 2rem;">Track all system activities and changes</p>
 
@@ -73,9 +53,9 @@
         <div id="auditResults" style="margin-top: 2rem;">
             <!-- Results will be loaded here -->
         </div>
-    </main>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
+{% block extra_js %}
     <script>
         window.addEventListener('DOMContentLoaded', () => {
             loadAuditLogs();
@@ -119,7 +99,14 @@
 
                 let tableHTML = `
                     <div class="table-container">
-                        <h2 style="margin-bottom: 1rem;">Audit Log Entries (${logs.length})</h2>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                            <h2 style="margin: 0;">Audit Log Entries (${logs.length})</h2>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-action" onclick="exportTableToCSV('#auditResults table', 'AuditLog')">📄 CSV</button>
+                                <button class="btn btn-action" onclick="exportTableToExcel('#auditResults table', 'AuditLog')">📊 Excel</button>
+                                <button class="btn btn-action" onclick="exportTableToPDF('#auditResults table', 'AuditLog')">📑 PDF</button>
+                            </div>
+                        </div>
                         <table>
                             <thead>
                                 <tr>
@@ -176,16 +163,5 @@
             if (str.length <= maxLen) return str;
             return str.substring(0, maxLen) + '...';
         }
-
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
-            }
-        }
     </script>
-</body>
-</html>
+{% endblock %}

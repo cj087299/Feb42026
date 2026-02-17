@@ -1,27 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice Management - VZT Accounting</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/ai-chat.css">
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container">
+{% block title %}Invoice Management - VZT Accounting{% endblock %}
+
+{% block content %}
         <h1 style="margin-bottom: 1rem;">Invoice Management</h1>
         <p style="color: var(--text-secondary); margin-bottom: 2rem;">View and manage your QuickBooks Online invoices</p>
 
@@ -151,9 +132,9 @@
                 <p id="bulkActionsStatus" style="margin-top: 1rem; color: var(--primary-color);"></p>
             </div>
         </div>
-    </main>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
+{% block extra_js %}
     <script>
         // Load invoices on page load
         window.addEventListener('DOMContentLoaded', () => {
@@ -240,6 +221,7 @@
                 const endpoint = queryString ? `/api/invoices?${queryString}` : '/api/invoices';
                 
                 const invoices = await fetchAPI(endpoint);
+                window.allInvoices = invoices; // Store for export
 
                 if (!invoices || invoices.length === 0) {
                     resultsDiv.innerHTML = `
@@ -257,9 +239,14 @@
                     <div class="table-container">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <h2 style="margin: 0;">Invoices (${invoices.length})</h2>
-                            <div style="display: flex; gap: 0.5rem;">
-                                <button class="btn btn-action" onclick="exportToExcel()">📊 Export to Excel</button>
-                                <button class="btn" onclick="openBulkActionsModal()" id="bulkActionsBtn" disabled>Bulk Assign (<span id="selectedCount">0</span>)</button>
+                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                <button class="btn btn-action" onclick="exportTableToCSV('#invoicesTable', 'Invoices')">📄 CSV</button>
+                                <button class="btn btn-action" onclick="exportTableToExcel('#invoicesTable', 'Invoices')">📊 Excel</button>
+                                <button class="btn btn-action" onclick="exportTableToPDF('#invoicesTable', 'Invoices')">📑 PDF</button>
+                                <div style="border-left: 1px solid #ddd; padding-left: 0.5rem; margin-left: 0.5rem;">
+                                    <button class="btn btn-secondary" onclick="exportAllInvoices('excel')" title="Export full dataset">📥 Export All</button>
+                                </div>
+                                <button class="btn" onclick="openBulkActionsModal()" id="bulkActionsBtn" disabled style="margin-left: 0.5rem;">Bulk Assign (<span id="selectedCount">0</span>)</button>
                             </div>
                         </div>
                         <table id="invoicesTable">
@@ -332,6 +319,34 @@
 
             } catch (error) {
                 showError('invoiceResults', `Failed to load invoices: ${error.message}`);
+            }
+        }
+
+        function exportAllInvoices(format) {
+            if (!window.allInvoices || window.allInvoices.length === 0) {
+                alert('No invoices to export.');
+                return;
+            }
+
+            // Flatten/Format data
+            const data = window.allInvoices.map(inv => ({
+                'Invoice ID': inv.id || inv.doc_number || 'N/A',
+                'Customer': inv.customer || inv.customer_id || 'N/A',
+                'Amount': inv.amount || 0,
+                'Invoice Date': inv.txn_date,
+                'Due Date': inv.due_date,
+                'Status': inv.status,
+                'VZT Rep': inv.metadata?.vzt_rep || '',
+                'Customer Portal': inv.metadata?.customer_portal_name || '',
+                'Portal Submission': inv.metadata?.portal_submission_date || '',
+                'Manual Pay Date': inv.metadata?.manual_override_pay_date || ''
+            }));
+
+            const headers = ['Invoice ID', 'Customer', 'Amount', 'Invoice Date', 'Due Date', 'Status', 'VZT Rep', 'Customer Portal', 'Portal Submission', 'Manual Pay Date'];
+            const filename = 'All_Invoices';
+
+            if (format === 'excel') {
+                exportDataToExcel(data, headers, filename);
             }
         }
 
@@ -420,16 +435,6 @@
                     alert('Failed to save metadata: ' + error.message);
                 }
             });
-        }
-        
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
-            }
         }
         
         // Toast notification helper
@@ -559,42 +564,5 @@
             }
         });
         
-        // Export to Excel function
-        async function exportToExcel() {
-            try {
-                // Build query parameters from form
-                const form = document.getElementById('filterForm');
-                const formData = new FormData(form);
-                const params = new URLSearchParams();
-                
-                for (const [key, value] of formData.entries()) {
-                    if (value) {
-                        params.append(key, value);
-                    }
-                }
-                
-                // Add search query
-                const searchQuery = document.getElementById('search_query').value;
-                if (searchQuery) {
-                    params.append('search_query', searchQuery);
-                }
-                
-                // Add missing portal submission checkbox
-                const missingPortal = document.getElementById('missing_portal_submission').checked;
-                if (missingPortal) {
-                    params.append('missing_portal_submission', 'true');
-                }
-                
-                const queryString = params.toString();
-                const endpoint = queryString ? `/api/invoices/export-excel?${queryString}` : '/api/invoices/export-excel';
-                
-                // Download the file
-                window.location.href = endpoint;
-            } catch (error) {
-                alert('Failed to export: ' + error.message);
-            }
-        }
     </script>
-    <script src="/static/js/ai-chat.js"></script>
-</body>
-</html>
+{% endblock %}

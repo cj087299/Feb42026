@@ -1,27 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VZT Accounting - QuickBooks Cash Flow</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/ai-chat.css">
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav" id="mainNav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container">
+{% block title %}VZT Accounting - QuickBooks Cash Flow{% endblock %}
+
+{% block content %}
         <section class="hero">
             <h1>Welcome to VZT Accounting</h1>
             <p>Professional Invoice Management & Cash Flow Projections for Energy Services</p>
@@ -90,10 +71,9 @@
                 <li>🎯 <strong>User-Friendly Interface</strong> - Clean, modern design for easy navigation</li>
             </ul>
         </section>
-    </main>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
-    <script src="/static/js/ai-chat.js"></script>
+{% block extra_js %}
     <script>
         // Load user info and show/hide cards based on role
         window.addEventListener('DOMContentLoaded', async () => {
@@ -102,35 +82,15 @@
                 if (user) {
                     document.getElementById('userInfo').textContent = `Logged in as ${user.full_name || user.email} (${getRoleName(user.role)})`;
                     
-                    const nav = document.getElementById('mainNav');
-                    
                     // Show audit log link for admins
                     if (user.role === 'admin' || user.role === 'master_admin') {
                         document.getElementById('auditCard').style.display = 'block';
                         document.getElementById('qboSettingsCard').style.display = 'block';
-                        const auditLink = document.createElement('a');
-                        auditLink.href = '/audit';
-                        auditLink.textContent = 'Audit Log';
-                        nav.insertBefore(auditLink, nav.lastElementChild);
-                        
-                        const qboLink = document.createElement('a');
-                        qboLink.href = '/qbo-settings-v2';
-                        qboLink.textContent = 'QBO Settings';
-                        nav.insertBefore(qboLink, nav.lastElementChild);
                     }
                     
                     // Show users and logs links for master admin
                     if (user.role === 'master_admin') {
                         document.getElementById('usersCard').style.display = 'block';
-                        const usersLink = document.createElement('a');
-                        usersLink.href = '/users';
-                        usersLink.textContent = 'Users';
-                        nav.insertBefore(usersLink, nav.lastElementChild);
-                        
-                        const logsLink = document.createElement('a');
-                        logsLink.href = '/logs';
-                        logsLink.textContent = 'System Logs';
-                        nav.insertBefore(logsLink, nav.lastElementChild);
                     }
                 }
             } catch (error) {
@@ -148,16 +108,5 @@
             };
             return roleNames[role] || role;
         }
-        
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
-            }
-        }
     </script>
-</body>
-</html>
+{% endblock %}

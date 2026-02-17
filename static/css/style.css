@@ -73,19 +73,19 @@ body {
     text-decoration: none;
 }
 
-.nav {
+.main-nav {
     display: flex;
     gap: 1.5rem;
 }
 
-.nav a {
+.main-nav a {
     color: var(--text-secondary);
     text-decoration: none;
     font-weight: 500;
     transition: color 0.2s;
 }
 
-.nav a:hover {
+.main-nav a:hover {
     color: var(--primary-color);
 }
 
