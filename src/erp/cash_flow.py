@@ -73,13 +73,20 @@ class CashFlowProjector:
 
         # Try AI prediction if available (Cached)
         item_id = item.get('id') or item.get('doc_number')
+        predicted_date = None
+
         if predictions and item_id:
             predicted_date = predictions.get(str(item_id))
-            if predicted_date:
-                try:
-                    return datetime.strptime(predicted_date, '%Y-%m-%d').date()
-                except ValueError:
-                    pass
+
+        # Fallback to individual prediction if not in cache or no ID
+        if not predicted_date and self.predictor:
+            predicted_date = self.predictor.predict_expected_date(item)
+
+        if predicted_date:
+            try:
+                return datetime.strptime(predicted_date, '%Y-%m-%d').date()
+            except ValueError:
+                pass
 
         # Fallback to due date
         if item.get('due_date'):

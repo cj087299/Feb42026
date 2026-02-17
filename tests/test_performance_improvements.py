@@ -224,5 +224,47 @@ class TestPerformanceImprovements(unittest.TestCase):
         # Ensure they are distinct
         self.assertNotEqual(projector.invoice_predictions['1'], projector.expense_predictions['1'])
 
+    def test_cash_flow_projector_fallback_for_missing_id(self):
+        """Test that CashFlowProjector falls back to individual prediction for items without ID."""
+        # Create a mock predictor
+        class MockPredictor(PaymentPredictor):
+            def __init__(self):
+                super().__init__()
+                self.predict_multiple_called = False
+                self.predict_expected_date_called = False
+
+            def predict_multiple(self, invoices):
+                self.predict_multiple_called = True
+                return {}  # Return empty to force fallback if logic is correct for missing ID items
+
+            def predict_expected_date(self, invoice):
+                self.predict_expected_date_called = True
+                return '2023-01-20'
+
+        mock_predictor = MockPredictor()
+
+        # Invoice without ID
+        no_id_invoice = {
+            'amount': 500,
+            'terms_days': 30,
+            'txn_date': '2023-01-01',
+            'due_date': '2023-01-31'
+        }
+
+        projector = CashFlowProjector(
+            invoices=[no_id_invoice],
+            expenses=[],
+            predictor=mock_predictor
+        )
+
+        # Run projection
+        projector.calculate_projection(days=30)
+
+        # Verify predict_multiple was called (it is called in __init__)
+        self.assertTrue(mock_predictor.predict_multiple_called)
+
+        # Verify predict_expected_date was called (fallback)
+        self.assertTrue(mock_predictor.predict_expected_date_called)
+
 if __name__ == '__main__':
     unittest.main()
