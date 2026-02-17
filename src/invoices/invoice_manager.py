@@ -343,9 +343,15 @@ class InvoiceManager:
                         logger.warning(f"Invalid portal_submission_date for invoice {invoice_id}: {portal_submission}")
         
         # Priority 3: AI Predictor
-        if self.predictor and self.predictor.is_trained:
+        if self.predictor:
             try:
-                predicted_date_str = self.predictor.predict_expected_date(invoice)
+                prediction_result = self.predictor.predict_expected_date(invoice)
+
+                if isinstance(prediction_result, tuple):
+                    predicted_date_str, _ = prediction_result
+                else:
+                    predicted_date_str = prediction_result
+
                 if predicted_date_str:
                     return datetime.strptime(predicted_date_str, '%Y-%m-%d')
             except Exception as e:

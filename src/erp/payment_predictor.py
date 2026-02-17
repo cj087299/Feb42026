@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from typing import List, Dict, Optional, Tuple, Union
+from typing import List, Dict, Optional, Tuple, Union, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,8 +17,10 @@ class PaymentPredictor:
     Uses historical payment data to forecast when an invoice will be paid.
     """
 
-    def __init__(self):
+    def __init__(self, ai_service=None, qbo_client=None):
         """Initialize the payment predictor."""
+        self.ai_service = ai_service
+        self.qbo_client = qbo_client
         self.model = None
         self.is_trained = False
         self.last_trained_at = None
@@ -130,7 +132,7 @@ class PaymentPredictor:
             logger.error(f"Training failed: {e}")
             return {'success': False, 'message': str(e)}
 
-    def predict_expected_date(self, invoice: Dict) -> Optional[str]:
+    def predict_expected_date(self, invoice: Dict) -> Tuple[Optional[str], float]:
         """
         Predict the expected payment date for a single invoice.
 
@@ -138,8 +140,32 @@ class PaymentPredictor:
             invoice: Invoice dictionary
 
         Returns:
-            Predicted payment date string (YYYY-MM-DD) or None
+            Tuple: (Predicted payment date string (YYYY-MM-DD) or None, confidence_score)
         """
+        # Try Customer-Aware Learning Model first
+        if self.ai_service and self.qbo_client:
+            customer_id = invoice.get('customer_id') or invoice.get('CustomerRef', {}).get('value')
+            if customer_id:
+                analysis = self.ai_service.analyze_customer_payment_behavior(customer_id, self.qbo_client)
+                avg_delay = analysis.get('average_delay', 0)
+                confidence = analysis.get('confidence_score', 0.0)
+
+                # Formula: due_date + avg_delay
+                due_date_str = invoice.get('due_date')
+                if due_date_str:
+                    try:
+                        due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
+                        predicted_date = due_date + timedelta(days=avg_delay)
+                        return predicted_date.strftime('%Y-%m-%d'), confidence
+                    except ValueError:
+                        pass
+
+        # Fallback to legacy logic
+        legacy_date = self._legacy_predict_expected_date(invoice)
+        return legacy_date, 0.0
+
+    def _legacy_predict_expected_date(self, invoice: Dict) -> Optional[str]:
+        """Legacy prediction logic using linear regression or heuristic."""
         if not self.is_trained or not self.model:
             # Fallback to simple logic if model not trained
             return self._heuristic_prediction(invoice)
@@ -169,7 +195,7 @@ class PaymentPredictor:
             logger.error(f"Prediction failed: {e}")
             return self._heuristic_prediction(invoice)
 
-    def predict_multiple(self, invoices: List[Dict]) -> Dict[str, str]:
+    def predict_multiple(self, invoices: List[Dict]) -> Dict[str, Dict[str, Any]]:
         """
         Predict expected payment dates for a list of invoices.
 
@@ -177,8 +203,65 @@ class PaymentPredictor:
             invoices: List of invoice dictionaries
 
         Returns:
-            Dictionary mapping invoice ID (or doc_number) to predicted date string
+            Dictionary mapping invoice ID (or doc_number) to {'date': 'YYYY-MM-DD', 'confidence': 0.0-1.0}
         """
+        results = {}
+
+        if self.ai_service and self.qbo_client:
+            # Group by customer
+            customer_invoices = {}
+            for inv in invoices:
+                c_id = inv.get('customer_id') or inv.get('CustomerRef', {}).get('value')
+                if c_id:
+                    if c_id not in customer_invoices: customer_invoices[c_id] = []
+                    customer_invoices[c_id].append(inv)
+                else:
+                    # No customer ID, fallback
+                    inv_id = inv.get('id') or inv.get('doc_number')
+                    if inv_id:
+                        d = self._legacy_predict_expected_date(inv)
+                        if d: results[str(inv_id)] = {'date': d, 'confidence': 0.0}
+
+            # Process each customer
+            for c_id, invs in customer_invoices.items():
+                analysis = self.ai_service.analyze_customer_payment_behavior(c_id, self.qbo_client)
+                avg_delay = analysis.get('average_delay', 0)
+                confidence = analysis.get('confidence_score', 0.0)
+
+                for inv in invs:
+                    inv_id = inv.get('id') or inv.get('doc_number')
+                    if not inv_id: continue
+
+                    due_date_str = inv.get('due_date')
+                    processed = False
+                    if due_date_str:
+                        try:
+                            due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
+                            predicted_date = due_date + timedelta(days=avg_delay)
+                            results[str(inv_id)] = {
+                                'date': predicted_date.strftime('%Y-%m-%d'),
+                                'confidence': confidence
+                            }
+                            processed = True
+                        except ValueError:
+                            pass
+
+                    if not processed:
+                         d = self._legacy_predict_expected_date(inv)
+                         if d: results[str(inv_id)] = {'date': d, 'confidence': 0.0}
+
+            return results
+
+        # Fallback to legacy logic
+        legacy_results = self._legacy_predict_multiple(invoices)
+        # Convert to new format
+        for k, v in legacy_results.items():
+            results[k] = {'date': v, 'confidence': 0.0}
+
+        return results
+
+    def _legacy_predict_multiple(self, invoices: List[Dict]) -> Dict[str, str]:
+        """Legacy batch prediction."""
         results = {}
 
         # If not trained, use heuristics for all
@@ -206,33 +289,10 @@ class PaymentPredictor:
             # Predict for the batch
             predicted_days_batch = self.model.predict(df[self.feature_columns])
 
-            # Process results
-            # We need to map back to invoices. Since prepare_features preserves order
-            # (except for filtered out rows, but training=False shouldn't filter much unless essential fields missing),
-            # we need to be careful. prepare_features filters if training=True, but for training=False:
-            # it appends row if essential fields are present.
-            # Let's look at prepare_features: it iterates through invoices and appends to data.
-            # So the order in df corresponds to order in invoices *that have valid fields*.
-
             # To be safe, let's re-iterate invoices and match with prediction index
             pred_idx = 0
             for inv in invoices:
                 inv_id = inv.get('id') or inv.get('doc_number')
-
-                # Check if this invoice would have been included in DataFrame
-                # Logic from prepare_features:
-                # amount = float(inv.get('amount', 0)) # always succeeds
-                # terms = int(inv.get('terms_days', 30)) # always succeeds
-                # txn_date logic...
-
-                # prepare_features simply appends for every invoice if training=False
-                # Wait, looking at prepare_features code:
-                # for inv in invoices:
-                #   ... logic ...
-                #   elif not training:
-                #       data.append(row)
-
-                # So it appends for EVERY invoice provided. Good.
 
                 if pred_idx < len(predicted_days_batch):
                     predicted_days = max(1, round(predicted_days_batch[pred_idx]))
@@ -245,15 +305,12 @@ class PaymentPredictor:
                             if inv_id:
                                 results[str(inv_id)] = predicted_date.strftime('%Y-%m-%d')
                         except ValueError:
-                            # Fallback
                             pred = self._heuristic_prediction(inv)
                             if inv_id and pred: results[str(inv_id)] = pred
                     else:
-                         # Fallback
                         pred = self._heuristic_prediction(inv)
                         if inv_id and pred: results[str(inv_id)] = pred
                 else:
-                    # Should not happen if logic holds, but fallback
                     pred = self._heuristic_prediction(inv)
                     if inv_id and pred: results[str(inv_id)] = pred
 
