@@ -74,10 +74,10 @@ class TestPerformanceImprovements(unittest.TestCase):
 
         # Verify heuristic calculation: due_date + 5 days
         # Invoice 1: 2023-01-31 + 5 = 2023-02-05
-        self.assertEqual(results['1'], '2023-02-05')
+        self.assertEqual(results['1']['date'], '2023-02-05')
 
         # Invoice 4 (ID 1004): 2023-03-03 + 5 = 2023-03-08
-        self.assertEqual(results['1004'], '2023-03-08')
+        self.assertEqual(results['1004']['date'], '2023-03-08')
 
     def test_predict_multiple_trained_with_missing_id(self):
         """Test prediction alignment when an invoice is missing ID."""
@@ -126,14 +126,14 @@ class TestPerformanceImprovements(unittest.TestCase):
         # Verify Invoice 1
         # 2023-01-01 + 10 days = 2023-01-11
         self.assertIn('1', results)
-        self.assertEqual(results['1'], '2023-01-11')
+        self.assertEqual(results['1']['date'], '2023-01-11')
 
         # Verify Invoice 3
         # 2023-01-15 + 5 days = 2023-01-20
         # If alignment was broken (Invoice 2 skipped without consuming prediction),
         # Invoice 3 would get 20 days -> 2023-01-15 + 20 = 2023-02-04
         self.assertIn('3', results)
-        self.assertEqual(results['3'], '2023-01-20')
+        self.assertEqual(results['3']['date'], '2023-01-20')
 
     def test_cash_flow_calendar_uses_batch_predictions(self):
         """Test that CashFlowCalendar uses pre-calculated predictions."""
@@ -218,11 +218,11 @@ class TestPerformanceImprovements(unittest.TestCase):
         self.assertIn('1', projector.invoice_predictions)
         self.assertIn('1', projector.expense_predictions)
 
-        self.assertEqual(projector.invoice_predictions['1'], '2023-02-05')
-        self.assertEqual(projector.expense_predictions['1'], '2023-01-10')
+        self.assertEqual(projector.invoice_predictions['1']['date'], '2023-02-05')
+        self.assertEqual(projector.expense_predictions['1']['date'], '2023-01-10')
 
         # Ensure they are distinct
-        self.assertNotEqual(projector.invoice_predictions['1'], projector.expense_predictions['1'])
+        self.assertNotEqual(projector.invoice_predictions['1']['date'], projector.expense_predictions['1']['date'])
 
     def test_cash_flow_projector_fallback_for_missing_id(self):
         """Test that CashFlowProjector falls back to individual prediction for items without ID."""
