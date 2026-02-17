@@ -81,6 +81,15 @@ class CashFlowProjector:
                 except ValueError:
                     pass
 
+        # Try direct AI prediction (Fallback for items missing from cache or without ID)
+        if self.predictor:
+            predicted_date = self.predictor.predict_expected_date(item)
+            if predicted_date:
+                try:
+                    return datetime.strptime(predicted_date, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+
         # Fallback to due date
         if item.get('due_date'):
             try:

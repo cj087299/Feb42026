@@ -83,6 +83,15 @@ class CashFlowCalendar:
                 except ValueError:
                     pass
 
+        # Fallback to direct prediction (for items missing from cache or without ID)
+        if self.predictor:
+            predicted = self.predictor.predict_expected_date(invoice)
+            if predicted:
+                try:
+                    return datetime.strptime(predicted, '%Y-%m-%d').date()
+                except ValueError:
+                    pass
+
         # 4. Due Date (Fallback)
         if invoice.get('due_date'):
             try:
