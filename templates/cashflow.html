@@ -1,11 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cash Flow Projection - VZT Accounting</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/ai-chat.css">
+{% extends "base.html" %}
+
+{% block title %}Cash Flow Projection - VZT Accounting{% endblock %}
+
+{% block extra_css %}
     <style>
         .calendar-container {
             overflow-x: auto;
@@ -96,22 +93,9 @@
             overflow-y: auto;
         }
     </style>
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% endblock %}
 
-    <main class="container">
+{% block content %}
         <h1 style="margin-bottom: 1rem;">Cash Flow Calendar</h1>
         <p style="color: var(--text-secondary); margin-bottom: 2rem;">Interactive calendar view of your cash flow with detailed daily breakdown</p>
 
@@ -154,9 +138,14 @@
                     </div>
                 </div>
                 
-                <div style="display: flex; gap: 1rem;">
+                <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                     <button type="button" class="btn" onclick="loadCalendar()">Update Calendar</button>
                     <button type="button" class="btn btn-secondary" onclick="showCustomFlowModal()">Add Custom Flow</button>
+                    <div style="border-left: 1px solid var(--border-color); padding-left: 1rem; display: flex; gap: 0.5rem;">
+                        <button type="button" class="btn btn-action" onclick="exportProjection('csv')">📄 CSV</button>
+                        <button type="button" class="btn btn-action" onclick="exportProjection('excel')">📊 Excel</button>
+                        <button type="button" class="btn btn-action" onclick="exportProjection('pdf')">📑 PDF</button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -164,7 +153,6 @@
         <div id="calendarResults" style="margin-top: 2rem;">
             <!-- Calendar will be loaded here -->
         </div>
-    </main>
 
     <!-- Modal for day details -->
     <div id="dayModal" class="modal">
@@ -233,8 +221,9 @@
             </form>
         </div>
     </div>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
+{% block extra_js %}
     <script>
         // Initialize dates on page load
         function initializeDates() {
@@ -576,16 +565,35 @@
             }
         });
         
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
+        function exportProjection(format) {
+            if (!window.calendarData) {
+                alert('No data to export. Please load the calendar first.');
+                return;
+            }
+
+            const data = [];
+            const dates = Object.keys(window.calendarData).sort();
+            const headers = ['Date', 'Balance', 'Net Change', 'Total Inflow', 'Total Outflow'];
+
+            for (const dateStr of dates) {
+                const day = window.calendarData[dateStr];
+                data.push({
+                    'Date': dateStr,
+                    'Balance': day.balance,
+                    'Net Change': day.net_change,
+                    'Total Inflow': day.total_inflow,
+                    'Total Outflow': day.total_outflow
+                });
+            }
+
+            const filename = 'CashFlow_Projection';
+            if (format === 'csv') {
+                exportDataToCSV(data, headers, filename);
+            } else if (format === 'excel') {
+                exportDataToExcel(data, headers, filename);
+            } else if (format === 'pdf') {
+                exportDataToPDF(data, headers, filename);
             }
         }
     </script>
-    <script src="/static/js/ai-chat.js"></script>
-</body>
-</html>
+{% endblock %}

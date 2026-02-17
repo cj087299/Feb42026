@@ -1,42 +1,26 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management - VZT Accounting</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">VZT Accounting</a>
-            <nav class="nav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/users">Users</a>
-                <a href="/audit">Audit Log</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container">
+{% block title %}User Management - VZT Accounting{% endblock %}
+
+{% block content %}
         <h1 style="margin-bottom: 1rem;">User Management</h1>
         <p style="color: var(--text-secondary); margin-bottom: 2rem;">Manage system users and permissions</p>
 
         <div class="table-container">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                 <h2>Users</h2>
-                <button class="btn" onclick="showAddUserModal()">Add User</button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-action" onclick="exportTableToCSV('#usersTable table', 'Users')">📄 CSV</button>
+                    <button class="btn btn-action" onclick="exportTableToExcel('#usersTable table', 'Users')">📊 Excel</button>
+                    <button class="btn btn-action" onclick="exportTableToPDF('#usersTable table', 'Users')">📑 PDF</button>
+                    <button class="btn" onclick="showAddUserModal()">Add User</button>
+                </div>
             </div>
             
             <div id="usersTable">
                 <!-- Users table will be loaded here -->
             </div>
         </div>
-    </main>
 
     <!-- Add/Edit User Modal -->
     <div id="userModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
@@ -120,8 +104,9 @@
             </form>
         </div>
     </div>
+{% endblock %}
 
-    <script src="/static/js/common.js"></script>
+{% block extra_js %}
     <script>
         let isEditMode = false;
 
@@ -398,16 +383,5 @@
                 alert(`Failed to reset password: ${error.message}`);
             }
         });
-
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
-            }
-        }
     </script>
-</body>
-</html>
+{% endblock %}
