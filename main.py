@@ -192,10 +192,9 @@ def qbo_webhook():
 @app.route('/', methods=['GET'])
 def index():
     if 'user_id' not in session: return redirect(url_for('login_page'))
-    # Always return HTML for now to fix Playwright issues, or improve Accept header detection
-    # if request.accept_mimetypes.best == 'text/html': return render_template('index.html')
-    return render_template('index.html')
-    # return jsonify({"service": "VZT Accounting API", "version": "1.0", "endpoints": {"health": "/health", "invoices": "/api/invoices", "cashflow": "/api/cashflow"}}), 200
+    # Return HTML for browsers/Playwright, JSON for API clients
+    if request.accept_mimetypes.best == 'text/html': return render_template('index.html')
+    return jsonify({"service": "VZT Accounting API", "version": "1.0", "endpoints": {"health": "/health", "invoices": "/api/invoices", "cashflow": "/api/cashflow"}}), 200
 
 @app.route('/login', methods=['GET'])
 def login_page():
