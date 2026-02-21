@@ -46,6 +46,15 @@
     <div class="reports-sidebar">
         <h2>Reports</h2>
         <div class="form-group">
+            <label for="savedReports">Saved Views</label>
+            <select id="savedReports" class="form-control">
+                <option value="">-- Select Saved View --</option>
+            </select>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
+
+        <div class="form-group">
             <label for="reportType">Report Type</label>
             <select id="reportType" class="form-control">
                 <option value="BalanceSheet">Balance Sheet</option>
@@ -96,6 +105,7 @@
         </div>
 
         <button id="runReportBtn" class="btn">Run Report</button>
+        <button id="saveViewBtn" class="btn btn-secondary" style="margin-top: 10px; background-color: #6c757d;">Save as Custom View</button>
 
         <div class="export-buttons" style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">
             <button id="exportExcelBtn" class="btn" style="background-color: #28a745; margin-bottom: 10px;">Export to Excel</button>
@@ -119,6 +129,19 @@
         <div id="modalContent">
             <!-- Transaction list table -->
         </div>
+    </div>
+</div>
+
+<!-- Save View Modal -->
+<div id="saveViewModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+        <span class="close" onclick="closeSaveModal()">&times;</span>
+        <h3>Save Custom View</h3>
+        <div class="form-group">
+            <label for="saveViewName">View Name</label>
+            <input type="text" id="saveViewName" class="form-control" placeholder="e.g. Monthly P&L Comparison">
+        </div>
+        <button id="confirmSaveViewBtn" class="btn btn-success">Save</button>
     </div>
 </div>
 {% endblock %}

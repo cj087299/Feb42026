@@ -192,8 +192,10 @@ def qbo_webhook():
 @app.route('/', methods=['GET'])
 def index():
     if 'user_id' not in session: return redirect(url_for('login_page'))
-    if request.accept_mimetypes.best == 'text/html': return render_template('index.html')
-    return jsonify({"service": "VZT Accounting API", "version": "1.0", "endpoints": {"health": "/health", "invoices": "/api/invoices", "cashflow": "/api/cashflow"}}), 200
+    # Always return HTML for now to fix Playwright issues, or improve Accept header detection
+    # if request.accept_mimetypes.best == 'text/html': return render_template('index.html')
+    return render_template('index.html')
+    # return jsonify({"service": "VZT Accounting API", "version": "1.0", "endpoints": {"health": "/health", "invoices": "/api/invoices", "cashflow": "/api/cashflow"}}), 200
 
 @app.route('/login', methods=['GET'])
 def login_page():
@@ -336,6 +338,36 @@ def get_report_drilldown():
     except Exception as e:
         logger.error(f"Error fetching drilldown: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/api/reports/saved', methods=['GET', 'POST'])
+@login_required
+def saved_reports():
+    user_id = session.get('user_id')
+    if request.method == 'GET':
+        reports = database.get_saved_reports(user_id)
+        return jsonify(reports), 200
+
+    if request.method == 'POST':
+        data = request.get_json()
+        name = data.get('name')
+        report_type = data.get('report_type')
+        params = data.get('params', {})
+
+        if not name or not report_type:
+            return jsonify({'error': 'Name and Report Type are required'}), 400
+
+        report_id = database.save_report_view(user_id, name, report_type, params)
+        if report_id:
+            return jsonify({'id': report_id, 'message': 'Report view saved'}), 201
+        return jsonify({'error': 'Failed to save report'}), 500
+
+@app.route('/api/reports/saved/<int:report_id>', methods=['DELETE'])
+@login_required
+def delete_saved_report(report_id):
+    user_id = session.get('user_id')
+    if database.delete_saved_report(report_id, user_id):
+        return jsonify({'message': 'Deleted'}), 200
+    return jsonify({'error': 'Failed to delete or not found'}), 404
 
 @app.route('/api/invoices', methods=['GET'])
 @login_required

@@ -209,6 +209,20 @@ class Database:
                 )
             ''')
 
+            # Saved Reports Table (Cloud SQL)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS saved_reports (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT,
+                    name VARCHAR(255) NOT NULL,
+                    report_type VARCHAR(100) NOT NULL,
+                    params TEXT,
+                    created_at VARCHAR(50),
+                    updated_at VARCHAR(50),
+                    FOREIGN KEY (user_id) REFERENCES users(id)
+                )
+            ''')
+
         else:
             # SQLite syntax
             cursor.execute('''
@@ -349,6 +363,20 @@ class Database:
                     created_at TEXT,
                     updated_at TEXT,
                     FOREIGN KEY (default_vzt_rep_id) REFERENCES users(id)
+                )
+            ''')
+
+            # Saved Reports Table (SQLite)
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS saved_reports (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    name TEXT NOT NULL,
+                    report_type TEXT NOT NULL,
+                    params TEXT,
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (user_id) REFERENCES users(id)
                 )
             ''')
         
@@ -1302,3 +1330,84 @@ class Database:
         except Exception as e:
             logger.error(f"Failed to get all customer mappings: {e}")
             return []
+
+    # Saved Reports Methods
+
+    def save_report_view(self, user_id: int, name: str, report_type: str, params: Dict) -> Optional[int]:
+        """Save a report view for a user."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            now = datetime.now().isoformat()
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            placeholders = ', '.join([placeholder] * 6)
+
+            cursor.execute(f'''
+                INSERT INTO saved_reports (user_id, name, report_type, params, created_at, updated_at)
+                VALUES ({placeholders})
+            ''', (user_id, name, report_type, json.dumps(params), now, now))
+
+            report_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            logger.info(f"Saved report view '{name}' for user {user_id}")
+            return report_id
+        except Exception as e:
+            logger.error(f"Failed to save report view: {e}")
+            return None
+
+    def get_saved_reports(self, user_id: int) -> List[Dict]:
+        """Get all saved reports for a user."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            placeholder = '%s' if self.use_cloud_sql else '?'
+            cursor.execute(f'''
+                SELECT id, name, report_type, params, created_at, updated_at
+                FROM saved_reports
+                WHERE user_id = {placeholder}
+                ORDER BY created_at DESC
+            ''', (user_id,))
+
+            rows = cursor.fetchall()
+            conn.close()
+
+            return [{
+                'id': row[0],
+                'name': row[1],
+                'report_type': row[2],
+                'params': json.loads(row[3]) if row[3] else {},
+                'created_at': row[4],
+                'updated_at': row[5]
+            } for row in rows]
+        except Exception as e:
+            logger.error(f"Failed to get saved reports: {e}")
+            return []
+
+    def delete_saved_report(self, report_id: int, user_id: int) -> bool:
+        """Delete a saved report (ensuring it belongs to the user)."""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+
+            placeholder = '%s' if self.use_cloud_sql else '?'
+
+            # Check ownership first or just delete with AND user_id
+            cursor.execute(f'''
+                DELETE FROM saved_reports
+                WHERE id = {placeholder} AND user_id = {placeholder}
+            ''', (report_id, user_id))
+
+            affected = cursor.rowcount
+            conn.commit()
+            conn.close()
+
+            if affected > 0:
+                logger.info(f"Deleted saved report {report_id}")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Failed to delete saved report: {e}")
+            return False

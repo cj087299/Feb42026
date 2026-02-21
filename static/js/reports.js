@@ -45,6 +45,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (exportPDFBtn) {
         exportPDFBtn.addEventListener('click', () => exportReport('pdf'));
     }
+
+    // Save View Logic
+    const saveViewBtn = document.getElementById('saveViewBtn');
+    if (saveViewBtn) {
+        saveViewBtn.addEventListener('click', openSaveModal);
+    }
+    const confirmSaveBtn = document.getElementById('confirmSaveViewBtn');
+    if (confirmSaveBtn) {
+        confirmSaveBtn.addEventListener('click', saveCurrentView);
+    }
+    const savedReportsSelect = document.getElementById('savedReports');
+    if (savedReportsSelect) {
+        savedReportsSelect.addEventListener('change', loadSavedReport);
+    }
+
+    // Load Saved Reports
+    fetchSavedReports();
+
+    // Auto-run if type param is present
+    const urlParams = new URLSearchParams(window.location.search);
+    const type = urlParams.get('type');
+    if (type) {
+        const reportTypeSelect = document.getElementById('reportType');
+        if (reportTypeSelect) {
+            // Find option matching value (case-insensitive if needed, but exact match for now)
+            reportTypeSelect.value = type;
+            // Trigger fetch
+            fetchReport();
+        }
+    }
 });
 
 let currentReportData = null; // Store fetched data for export
@@ -467,4 +497,133 @@ function flattenReportData(reportData) {
     }
 
     return rows;
+}
+
+// ---------------------------------------------------------
+// Saved Reports Logic
+// ---------------------------------------------------------
+
+let savedReports = [];
+
+async function fetchSavedReports() {
+    try {
+        const response = await fetch('/api/reports/saved');
+        savedReports = await response.json();
+
+        const select = document.getElementById('savedReports');
+        if (!select) return;
+
+        // Clear except first option
+        while (select.options.length > 1) {
+            select.remove(1);
+        }
+
+        savedReports.forEach(report => {
+            const option = document.createElement('option');
+            option.value = report.id;
+            option.textContent = report.name;
+            select.appendChild(option);
+        });
+    } catch (e) {
+        console.error('Failed to fetch saved reports', e);
+    }
+}
+
+function loadSavedReport() {
+    const select = document.getElementById('savedReports');
+    const reportId = parseInt(select.value);
+    if (!reportId) return;
+
+    const report = savedReports.find(r => r.id === reportId);
+    if (!report) return;
+
+    // Apply Params
+    const params = report.params;
+
+    document.getElementById('reportType').value = report.report_type;
+
+    if (params.start_date_a) document.getElementById('startDateA').value = params.start_date_a;
+    if (params.end_date_a) document.getElementById('endDateA').value = params.end_date_a;
+
+    // Handle Compare
+    const compareToggle = document.getElementById('compareToggle');
+    const compare = params.compare === 'true' || params.compare === true;
+
+    if (compareToggle.checked !== compare) {
+        compareToggle.checked = compare;
+        // Trigger change event manually to show/hide controls
+        compareToggle.dispatchEvent(new Event('change'));
+    }
+
+    if (compare) {
+        if (params.start_date_b) document.getElementById('startDateB').value = params.start_date_b;
+        if (params.end_date_b) document.getElementById('endDateB').value = params.end_date_b;
+    }
+
+    if (params.customer) document.getElementById('filterCustomer').value = params.customer;
+    else document.getElementById('filterCustomer').value = '';
+
+    if (params.vendor) document.getElementById('filterVendor').value = params.vendor;
+    else document.getElementById('filterVendor').value = '';
+
+    // Run Report
+    fetchReport();
+}
+
+function openSaveModal() {
+    document.getElementById('saveViewModal').style.display = 'block';
+    document.getElementById('saveViewName').value = '';
+    document.getElementById('saveViewName').focus();
+}
+
+function closeSaveModal() {
+    document.getElementById('saveViewModal').style.display = 'none';
+}
+
+async function saveCurrentView() {
+    const name = document.getElementById('saveViewName').value;
+    if (!name) {
+        alert('Please enter a name for this view.');
+        return;
+    }
+
+    const reportType = document.getElementById('reportType').value;
+    const compare = document.getElementById('compareToggle').checked;
+
+    const params = {
+        start_date_a: document.getElementById('startDateA').value,
+        end_date_a: document.getElementById('endDateA').value,
+        compare: compare,
+        customer: document.getElementById('filterCustomer').value,
+        vendor: document.getElementById('filterVendor').value
+    };
+
+    if (compare) {
+        params.start_date_b = document.getElementById('startDateB').value;
+        params.end_date_b = document.getElementById('endDateB').value;
+    }
+
+    try {
+        const response = await fetch('/api/reports/saved', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                report_type: reportType,
+                params: params
+            })
+        });
+
+        if (response.ok) {
+            closeSaveModal();
+            fetchSavedReports(); // Refresh list
+            alert('View saved successfully!');
+        } else {
+            const err = await response.json();
+            alert('Error saving view: ' + (err.error || 'Unknown error'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Failed to save view.');
+    }
 }
