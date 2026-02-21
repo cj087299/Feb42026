@@ -18,50 +18,79 @@ INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a
  * Running on http://127.0.0.1:8080
  * Running on http://192.168.0.2:8080
 INFO:werkzeug:[33mPress CTRL+C to quit[0m
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /login HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /static/css/style.css HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "POST /api/login HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET / HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /static/js/common.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /static/js/export_utils.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:18] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /login HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /static/css/style.css HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "POST /api/login HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET / HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /static/js/export_utils.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /static/js/common.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /reports HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /static/js/reports.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /api/reports/saved HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:37] "GET /api/me HTTP/1.1" 200 -
-INFO:src.common.database:Saved report view 'Test View 123' for user 2
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:38] "[35m[1mPOST /api/reports/saved HTTP/1.1[0m" 201 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:38] "GET /api/reports/saved HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "GET /reports HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:40] "[36mGET /static/js/reports.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:41] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:41] "GET /api/reports/saved HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 18:34:41] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:03] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:04] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:04] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:04] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:04] "GET /invoices HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:04] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "GET /api/me HTTP/1.1" 200 -
+WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
+WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
+ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
+WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
+INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "GET /api/invoices HTTP/1.1" 200 -
+WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
+WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
+ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
+WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
+INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:01:05] "GET /api/invoices?sort_by=due_date HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:30] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "GET /invoices HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "GET /api/me HTTP/1.1" 200 -
+WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
+WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
+ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
+WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
+INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "GET /api/invoices?sort_by=due_date HTTP/1.1" 200 -
+WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
+WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
+ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
+WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
+INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:02:31] "GET /api/invoices HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:15] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:16] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:16] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [21/Feb/2026 20:03:16] "GET /api/me HTTP/1.1" 200 -
