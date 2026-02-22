@@ -220,10 +220,17 @@
                 const queryString = params.toString();
                 const endpoint = queryString ? `/api/invoices?${queryString}` : '/api/invoices';
                 
-                const invoices = await fetchAPI(endpoint);
+                let invoices = await fetchAPI(endpoint);
+
+                // Handle case where API returns object with error/invoices instead of array
+                if (invoices && !Array.isArray(invoices) && invoices.invoices) {
+                    if (invoices.error) console.warn(invoices.error);
+                    invoices = invoices.invoices;
+                }
+
                 window.allInvoices = invoices; // Store for export
 
-                if (!invoices || invoices.length === 0) {
+                if (!invoices || !Array.isArray(invoices) || invoices.length === 0) {
                     resultsDiv.innerHTML = `
                         <div class="table-container">
                             <p style="text-align: center; padding: 2rem; color: var(--text-secondary);">
@@ -287,19 +294,19 @@
                     
                     tableHTML += `
                         <tr data-invoice-id="${invoiceId}" class="${rowClass}">
-                            <td><input type="checkbox" class="invoice-checkbox" value="${invoiceId}"></td>
-                            <td>${invoiceId}</td>
-                            <td>${invoice.customer || invoice.customer_id || 'N/A'}</td>
-                            <td>${formatCurrency(invoice.amount || 0)}</td>
-                            <td>${invoice.txn_date ? formatDate(invoice.txn_date) : 'N/A'}</td>
-                            <td>${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
-                            <td><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
-                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'vzt_rep', '${metadata.vzt_rep || ''}', event)">${metadata.vzt_rep || '-'}</td>
-                            <td>${metadata.sent_to_vzt_rep_date ? formatDate(metadata.sent_to_vzt_rep_date) : '-'}</td>
-                            <td>${metadata.customer_portal_name || '-'}</td>
-                            <td class="editable-cell" onclick="editInlineField('${invoiceId}', 'portal_submission_date', '${metadata.portal_submission_date || ''}', event)">${metadata.portal_submission_date ? formatDate(metadata.portal_submission_date) : '-'}</td>
-                            <td>${metadata.manual_override_pay_date ? formatDate(metadata.manual_override_pay_date) : '-'}</td>
-                            <td><button class="btn btn-secondary" onclick="editInvoiceMetadata('${invoiceId}')">Edit</button></td>
+                            <td data-label="Select"><input type="checkbox" class="invoice-checkbox" value="${invoiceId}"></td>
+                            <td data-label="Invoice ID">${invoiceId}</td>
+                            <td data-label="Customer">${invoice.customer || invoice.customer_id || 'N/A'}</td>
+                            <td data-label="Amount">${formatCurrency(invoice.amount || 0)}</td>
+                            <td data-label="Invoice Date">${invoice.txn_date ? formatDate(invoice.txn_date) : 'N/A'}</td>
+                            <td data-label="Due Date">${invoice.due_date ? formatDate(invoice.due_date) : 'N/A'}</td>
+                            <td data-label="Status"><span class="status-badge ${getStatusClass(invoice.status)}">${invoice.status || 'N/A'}</span></td>
+                            <td data-label="VZT Rep" class="editable-cell" onclick="editInlineField('${invoiceId}', 'vzt_rep', '${metadata.vzt_rep || ''}', event)">${metadata.vzt_rep || '-'}</td>
+                            <td data-label="Sent to Rep">${metadata.sent_to_vzt_rep_date ? formatDate(metadata.sent_to_vzt_rep_date) : '-'}</td>
+                            <td data-label="Customer Portal">${metadata.customer_portal_name || '-'}</td>
+                            <td data-label="Portal Submission" class="editable-cell" onclick="editInlineField('${invoiceId}', 'portal_submission_date', '${metadata.portal_submission_date || ''}', event)">${metadata.portal_submission_date ? formatDate(metadata.portal_submission_date) : '-'}</td>
+                            <td data-label="Manual Pay Date">${metadata.manual_override_pay_date ? formatDate(metadata.manual_override_pay_date) : '-'}</td>
+                            <td data-label="Actions"><button class="btn btn-secondary" onclick="editInvoiceMetadata('${invoiceId}')">Edit</button></td>
                         </tr>
                     `;
                 });

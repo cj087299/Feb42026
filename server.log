@@ -18,75 +18,43 @@ INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a
  * Running on http://127.0.0.1:8080
  * Running on http://192.168.0.2:8080
 INFO:werkzeug:[33mPress CTRL+C to quit[0m
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:48] "GET /login HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:48] "GET /static/css/style.css HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "POST /api/login HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET / HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /invoices HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /static/js/common.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /static/js/export_utils.js HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /invoices HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /static/css/mobile.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /api/me HTTP/1.1" 200 -
 WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
 WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
 ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
 WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
 INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /api/invoices?sort_by=due_date HTTP/1.1" 200 -
 WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
 WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
 ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
 WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
 INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /api/invoices?sort_by=due_date HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /api/invoices HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:49] "GET /cashflow HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/me HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:43] "GET /api/invoices HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "GET /cashflow HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "[36mGET /static/css/mobile.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "GET /api/me HTTP/1.1" 200 -
 WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
 WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
 ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
 WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
 INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/cashflow/calendar?start_date=2026-02-22&end_date=2026-05-23&show_projected_inflows=true&show_projected_outflows=true&show_custom_inflows=true&show_custom_outflows=true HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /invoices HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/me HTTP/1.1" 200 -
-WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
-WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
-ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
-WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
-INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/invoices?sort_by=due_date HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/me HTTP/1.1" 200 -
-WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
-WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
-ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
-WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
-INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/invoices HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /cashflow HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/export_utils.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/css/ai-chat.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/ai-chat.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/js/common.js HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/me HTTP/1.1" 200 -
-WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
-WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
-ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
-WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
-INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/cashflow/calendar?start_date=2026-02-22&end_date=2026-05-23&show_projected_inflows=true&show_projected_outflows=true&show_custom_inflows=true&show_custom_outflows=true HTTP/1.1" 200 -
-INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:14:50] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 01:33:47] "GET /api/cashflow/calendar?start_date=2026-02-22&end_date=2026-05-23&show_projected_inflows=true&show_projected_outflows=true&show_custom_inflows=true&show_custom_outflows=true HTTP/1.1" 200 -

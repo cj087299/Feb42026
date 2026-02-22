@@ -1,0 +1,171 @@
+/* Mobile Refactoring - Desktop First Graceful Degradation */
+
+@media screen and (max-width: 768px) {
+    /* -----------------------------------------------------------
+       Navigation
+       ----------------------------------------------------------- */
+    .main-nav {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+        gap: 0.75rem;
+    }
+
+    /* -----------------------------------------------------------
+       Generic Table to Card View Transformation
+       ----------------------------------------------------------- */
+    /* Only apply Card View if the table is inside a container or specifically marked */
+    .table-container table,
+    table.mobile-card-view {
+        border: 0;
+        width: 100%;
+    }
+
+    /* Hide standard table headers */
+    .table-container thead,
+    table.mobile-card-view thead {
+        border: none;
+        clip: rect(0 0 0 0);
+        height: 1px;
+        margin: -1px;
+        overflow: hidden;
+        padding: 0;
+        position: absolute;
+        width: 1px;
+    }
+
+    /* Make rows look like cards */
+    .table-container tr,
+    table.mobile-card-view tr {
+        background: var(--card-background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        display: block;
+        margin-bottom: 1rem;
+        padding: 1rem;
+    }
+
+    /* Make cells look like key-value pairs */
+    .table-container td,
+    table.mobile-card-view td {
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        text-align: right;
+        padding: 0.75rem 0;
+        position: relative;
+    }
+
+    /* Add labels via data-label attribute */
+    .table-container td::before,
+    table.mobile-card-view td::before {
+        content: attr(data-label);
+        float: left;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-right: 1rem;
+        text-align: left;
+    }
+
+    .table-container td:last-child,
+    table.mobile-card-view td:last-child {
+        border-bottom: 0;
+        justify-content: center;
+        padding-top: 1rem;
+        gap: 0.5rem;
+    }
+
+    /* Hide label for actions column if desired, or keep it */
+    .table-container td:last-child::before,
+    table.mobile-card-view td:last-child::before {
+        display: none;
+    }
+
+    /* Special handling for checkbox column if it's the first one */
+    .table-container td:first-child input[type="checkbox"],
+    table.mobile-card-view td:first-child input[type="checkbox"] {
+        transform: scale(1.5);
+    }
+
+    .table-container td:first-child,
+    table.mobile-card-view td:first-child {
+        justify-content: flex-start;
+        font-weight: bold;
+        background-color: #f8f9fa;
+        margin: -1rem -1rem 1rem -1rem; /* Pull out to edges */
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-color);
+        border-radius: 8px 8px 0 0;
+    }
+
+    /* -----------------------------------------------------------
+       Calendar Specific Overrides
+       ----------------------------------------------------------- */
+    /* Stack calendar days vertically on mobile for readability */
+    .calendar-grid {
+        display: flex;
+        flex-direction: column;
+        border: none;
+        gap: 1rem;
+    }
+
+    /* Hide day of week headers (Sun, Mon, etc) */
+    .calendar-grid > div:not(.calendar-day) {
+        display: none;
+    }
+
+    .calendar-day {
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        min-height: auto; /* Allow auto height based on content */
+    }
+
+    /* Hide empty filler cells */
+    .calendar-day[style*="background: var(--background)"] {
+        display: none;
+    }
+
+    .calendar-day-header {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    /* -----------------------------------------------------------
+       Form & Layout Adjustments
+       ----------------------------------------------------------- */
+    .form-row {
+        grid-template-columns: 1fr; /* Stack form inputs */
+    }
+
+    .toggle-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    /* Modal adjustments */
+    .modal-content {
+        padding: 1rem;
+        max-height: 90vh;
+        width: 95%;
+    }
+
+    /* Ensure buttons wrap nicely */
+    .btn, button {
+        width: 100%;
+        margin-bottom: 0.5rem;
+        text-align: center;
+    }
+
+    /* Except inside specific toolbars where we might want auto width */
+    .table-container .btn,
+    .table-container button {
+        width: auto;
+        flex: 1;
+    }
+}
