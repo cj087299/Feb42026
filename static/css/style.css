@@ -81,8 +81,10 @@ body {
     transition: color 0.2s;
 }
 
-.main-nav a:hover {
-    color: var(--primary-color);
+@media (hover: hover) {
+    .main-nav a:hover {
+        color: var(--primary-color);
+    }
 }
 
 /* Hero Section */
@@ -122,9 +124,11 @@ body {
     display: block;
 }
 
-.card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+@media (hover: hover) {
+    .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    }
 }
 
 .card-icon {
@@ -166,25 +170,31 @@ body {
     box-shadow: 0 2px 4px rgba(0, 61, 122, 0.2);
 }
 
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 61, 122, 0.3);
+@media (hover: hover) {
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 61, 122, 0.3);
+    }
 }
 
 .btn-secondary {
     background: linear-gradient(135deg, var(--text-secondary) 0%, #5a6c7d 100%);
 }
 
-.btn-secondary:hover {
-    background: linear-gradient(135deg, #5a6c7d 0%, var(--text-secondary) 100%);
+@media (hover: hover) {
+    .btn-secondary:hover {
+        background: linear-gradient(135deg, #5a6c7d 0%, var(--text-secondary) 100%);
+    }
 }
 
 .btn-action {
     background: linear-gradient(135deg, var(--secondary-color) 0%, #ff8555 100%);
 }
 
-.btn-action:hover {
-    background: linear-gradient(135deg, #ff8555 0%, var(--secondary-color) 100%);
+@media (hover: hover) {
+    .btn-action:hover {
+        background: linear-gradient(135deg, #ff8555 0%, var(--secondary-color) 100%);
+    }
 }
 
 /* Forms */
@@ -255,16 +265,20 @@ td {
     border-bottom: 1px solid var(--border-color);
 }
 
-tr:hover {
-    background-color: #f8fbfd;
+@media (hover: hover) {
+    tr:hover {
+        background-color: #f8fbfd;
+    }
 }
 
 tbody tr {
     transition: all 0.2s ease;
 }
 
-tbody tr:hover {
-    transform: scale(1.005);
+@media (hover: hover) {
+    tbody tr:hover {
+        transform: scale(1.005);
+    }
 }
 
 /* Status badges */
@@ -362,8 +376,10 @@ tbody tr:hover {
     padding: 0.5rem;
 }
 
-.editable-cell:hover {
-    background-color: #f3f4f6;
+@media (hover: hover) {
+    .editable-cell:hover {
+        background-color: #f3f4f6;
+    }
 }
 
 /* Success Toast Notification */
@@ -425,5 +441,27 @@ tbody tr:hover {
     .form-row {
         grid-template-columns: 1fr;
         gap: 1rem;
+    }
+
+    /* Increase touch targets for better accessibility */
+    button,
+    input,
+    select,
+    textarea,
+    .btn,
+    a.btn,
+    .main-nav a {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Ensure inputs have enough padding to be easily tappable */
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    input[type="number"],
+    input[type="date"],
+    select {
+        padding: 12px;
     }
 }
