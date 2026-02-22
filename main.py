@@ -611,7 +611,8 @@ def get_qbo_customers():
         start_position = (page - 1) * page_size + 1
         
         base_query = "SELECT Id, DisplayName FROM Customer"
-        where_clause = f" WHERE DisplayName LIKE '%{search_term.replace("'", "\\'")}%'" if search_term else ""
+        escaped_search_term = search_term.replace('\\', '\\\\').replace("'", "\\'") if search_term else ""
+        where_clause = f" WHERE DisplayName LIKE '%{escaped_search_term}%'" if search_term else ""
         query = f"{base_query}{where_clause} STARTPOSITION {start_position} MAXRESULTS {page_size}"
         
         response = fresh_connector.make_request("query", params={"query": query})
