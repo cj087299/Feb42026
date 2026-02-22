@@ -193,7 +193,8 @@ def qbo_webhook():
 def index():
     if 'user_id' not in session: return redirect(url_for('login_page'))
     # Return HTML for browsers/Playwright, JSON for API clients
-    if request.accept_mimetypes.best == 'text/html': return render_template('index.html')
+    best = request.accept_mimetypes.best_match(['text/html', 'application/json'])
+    if best == 'text/html': return render_template('index.html')
     return jsonify({"service": "VZT Accounting API", "version": "1.0", "endpoints": {"health": "/health", "invoices": "/api/invoices", "cashflow": "/api/cashflow"}}), 200
 
 @app.route('/login', methods=['GET'])

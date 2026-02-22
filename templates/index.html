@@ -4,6 +4,16 @@
 
 {% block content %}
         <section class="hero">
+            <img src="/static/img/hero-desktop.png"
+                 srcset="/static/img/hero-mobile.png 400w,
+                         /static/img/hero-tablet.png 800w,
+                         /static/img/hero-desktop.png 1200w"
+                 sizes="(max-width: 400px) 100vw,
+                        (max-width: 800px) 100vw,
+                        1200px"
+                 alt="VZT Accounting Hero"
+                 class="hero-image"
+                 fetchpriority="high">
             <h1>Welcome to VZT Accounting</h1>
             <p>Professional Invoice Management & Cash Flow Projections for Energy Services</p>
             <p id="userInfo" style="font-size: 0.9rem; color: var(--text-secondary);"></p>
@@ -68,15 +78,39 @@
         </div>
 
         <section style="margin-top: 3rem; padding: 2rem; background: white; border-radius: 12px;">
-            <h2 style="margin-bottom: 1rem;">Key Features</h2>
-            <ul style="list-style-position: inside; color: var(--text-secondary); line-height: 2;">
-                <li>🔗 <strong>QuickBooks Online Integration</strong> - Seamlessly connect to your QBO account</li>
-                <li>🤖 <strong>AI-Powered Predictions</strong> - Machine learning models predict payment dates</li>
-                <li>📈 <strong>Advanced Filtering</strong> - Filter invoices by date, customer, status, amount, and region</li>
-                <li>💡 <strong>Smart Sorting</strong> - Sort by due date, amount, or customer</li>
-                <li>📊 <strong>Cash Flow Forecasting</strong> - Project your cash flow for the next 30, 60, or 90 days</li>
-                <li>🎯 <strong>User-Friendly Interface</strong> - Clean, modern design for easy navigation</li>
-            </ul>
+            <h2 style="margin-bottom: 2rem; text-align: center;">Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <img src="/static/img/feature-qbo.png" alt="QuickBooks Integration" class="feature-image" loading="lazy">
+                    <h3>QBO Integration</h3>
+                    <p>Seamlessly connect to your QBO account for real-time data sync and management.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-ai.png" alt="AI Predictions" class="feature-image" loading="lazy">
+                    <h3>AI-Powered Predictions</h3>
+                    <p>Machine learning models predict payment dates to help you plan your cash flow effectively.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-cashflow.png" alt="Cash Flow" class="feature-image" loading="lazy">
+                    <h3>Cash Flow Forecasting</h3>
+                    <p>Project your cash flow for the next 30, 60, or 90 days with high accuracy.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-qbo.png" alt="Advanced Filtering" class="feature-image" loading="lazy">
+                    <h3>Advanced Filtering</h3>
+                    <p>Filter invoices by date, customer, status, amount, and region easily.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-ai.png" alt="Smart Sorting" class="feature-image" loading="lazy">
+                    <h3>Smart Sorting</h3>
+                    <p>Sort by due date, amount, or customer to prioritize your work.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-cashflow.png" alt="User-Friendly" class="feature-image" loading="lazy">
+                    <h3>User-Friendly</h3>
+                    <p>Clean, modern design built for efficiency and ease of use.</p>
+                </div>
+            </div>
         </section>
 {% endblock %}
 
