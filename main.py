@@ -630,7 +630,15 @@ def get_qbo_customers():
 def manage_qbo_credentials():
     if request.method == 'GET':
         creds = database.get_qbo_credentials()
-        return jsonify(creds if creds else {'status': 'not_configured'}), 200 if creds else 404
+        user = get_current_user()
+        logger.info(f"QBO Credentials User Check: {user}")
+        is_admin = user and user.get('role') in ['admin', 'master_admin']
+        logger.info(f"QBO Credentials is_admin: {is_admin}")
+
+        response_data = creds if creds else {'status': 'not_configured'}
+        response_data['is_admin'] = is_admin
+
+        return jsonify(response_data), 200 if creds else 404
     if request.method == 'POST':
         database.save_qbo_credentials(request.get_json(), session.get('user_id'))
         return jsonify({"message": "Saved"}), 200

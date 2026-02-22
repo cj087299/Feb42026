@@ -305,13 +305,72 @@
             max-height: 400px;
             overflow-y: auto;
         }
+
+        .mobile-menu-toggle {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-wrap: wrap;
+                padding: 15px;
+            }
+
+            .header h1 {
+                font-size: 18px;
+                flex: 1;
+            }
+
+            .mobile-menu-toggle {
+                display: block;
+                background: none;
+                border: none;
+                font-size: 24px;
+                cursor: pointer;
+                color: #333;
+                padding: 5px;
+            }
+
+            .nav-links {
+                display: none;
+                width: 100%;
+                flex-direction: column;
+                margin-top: 15px;
+                border-top: 1px solid #eee;
+                padding-top: 15px;
+            }
+
+            .nav-links.active {
+                display: flex;
+            }
+
+            .nav-links a, .logout-btn {
+                width: 100%;
+                text-align: center;
+                margin-bottom: 5px;
+            }
+
+            .main-content {
+                padding: 20px;
+            }
+
+            .connect-button, .disconnect-button {
+                width: 100%;
+                padding: 12px;
+                justify-content: center;
+                font-size: 16px;
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>⚙️ QuickBooks Settings <span class="version-badge">v2</span></h1>
-            <div class="nav-links">
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation">☰</button>
+            <div class="nav-links" id="navLinks">
                 <a href="/">Home</a>
                 <a href="/invoices">Invoices</a>
                 <a href="/cashflow">Cash Flow</a>
@@ -771,6 +830,18 @@
                 window.location.href = '/login';
             }
         }
+
+        // Mobile menu toggle
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggle = document.getElementById('mobileMenuToggle');
+            const nav = document.getElementById('navLinks');
+
+            if (toggle && nav) {
+                toggle.addEventListener('click', () => {
+                    nav.classList.toggle('active');
+                });
+            }
+        });
 
         // Load status on page load
         loadStatus();

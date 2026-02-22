@@ -13,6 +13,7 @@
     <header class="header">
         <div class="container">
             <a href="/" class="logo">VZT Accounting</a>
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" aria-label="Toggle navigation">☰</button>
             <nav class="main-nav" id="mainNav">
                 <a href="/">Home</a>
                 <a href="/invoices">Invoices</a>
@@ -39,6 +40,15 @@
     <script>
         // Common navigation logic
         document.addEventListener('DOMContentLoaded', async () => {
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            const mainNav = document.getElementById('mainNav');
+
+            if (mobileMenuToggle) {
+                mobileMenuToggle.addEventListener('click', () => {
+                    mainNav.classList.toggle('active');
+                });
+            }
+
             try {
                 // Only fetch user info if not already available (or just always fetch to be safe)
                 const user = await fetchAPI('/api/me');
