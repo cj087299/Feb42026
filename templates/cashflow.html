@@ -321,6 +321,11 @@
                 const day = dailyProjection[dateStr];
                 const date = new Date(dateStr);
                 const dayOfMonth = date.getDate();
+
+                // Ensure data fields exist (compatibility with backend)
+                if (day.balance === undefined) day.balance = day.closing_balance;
+                if (day.total_inflow === undefined) day.total_inflow = (day.inflows || []).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+                if (day.total_outflow === undefined) day.total_outflow = (day.outflows || []).reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
                 
                 const balanceColor = day.balance >= 0 ? 'var(--success-color)' : 'var(--error-color)';
                 const netColor = day.net_change >= 0 ? 'var(--success-color)' : 'var(--error-color)';
@@ -423,9 +428,9 @@
 
                     html += `
                         <tr style="${rowStyle}">
-                            <td>${flow.description}${warningIcon}</td>
-                            <td>${flow.customer || 'N/A'}</td>
-                            <td style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                            <td data-label="Description">${flow.description}${warningIcon}</td>
+                            <td data-label="Customer">${flow.customer || 'N/A'}</td>
+                            <td data-label="Amount" style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
                         </tr>
                     `;
                 }
@@ -449,9 +454,9 @@
                 for (const flow of day.projected_outflows) {
                     html += `
                         <tr>
-                            <td>${flow.description}</td>
-                            <td>${flow.vendor || 'N/A'}</td>
-                            <td style="color: var(--error-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                            <td data-label="Description">${flow.description}</td>
+                            <td data-label="Vendor">${flow.vendor || 'N/A'}</td>
+                            <td data-label="Amount" style="color: var(--error-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
                         </tr>
                     `;
                 }
@@ -474,8 +479,8 @@
                 for (const flow of day.custom_inflows) {
                     html += `
                         <tr>
-                            <td>${flow.description}</td>
-                            <td style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                            <td data-label="Description">${flow.description}</td>
+                            <td data-label="Amount" style="color: var(--success-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
                         </tr>
                     `;
                 }
@@ -498,8 +503,8 @@
                 for (const flow of day.custom_outflows) {
                     html += `
                         <tr>
-                            <td>${flow.description}</td>
-                            <td style="color: var(--error-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
+                            <td data-label="Description">${flow.description}</td>
+                            <td data-label="Amount" style="color: var(--error-color); font-weight: bold;">${formatCurrency(flow.amount)}</td>
                         </tr>
                     `;
                 }
