@@ -112,13 +112,29 @@ class QBOConnector:
             List of bill objects
         """
         try:
-            query = "select * from Bill where Balance > '0'"
-            response = self.make_request("query", params={"query": query})
+            base_query = "select * from Bill where Balance > '0'"
+            all_bills = []
+            start_position = 1
+            max_results = 1000
 
-            if response and "QueryResponse" in response:
-                bills = response["QueryResponse"].get("Bill", [])
-                logger.info(f"Fetched {len(bills)} unpaid bills from QBO")
-                return bills
+            while True:
+                query = f"{base_query} STARTPOSITION {start_position} MAXRESULTS {max_results}"
+                response = self.make_request("query", params={"query": query})
+
+                if response and "QueryResponse" in response:
+                    bills_batch = response["QueryResponse"].get("Bill", [])
+                    all_bills.extend(bills_batch)
+
+                    if len(bills_batch) < max_results:
+                        break
+
+                    start_position += max_results
+                else:
+                    break
+
+            if all_bills:
+                logger.info(f"Fetched {len(all_bills)} total unpaid bills from QBO")
+                return all_bills
 
             logger.warning("No bills found in QBO response")
             return []

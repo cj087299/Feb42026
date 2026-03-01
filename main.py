@@ -387,6 +387,15 @@ def get_invoices():
         filters = {k: v for k, v in request.args.items() if v is not None}
         qbo_filters = {'status': filters.get('status')} if 'status' in filters else {}
         
+        if 'invoice_start_date' in filters:
+            qbo_filters['invoice_start_date'] = filters['invoice_start_date']
+        if 'invoice_end_date' in filters:
+            qbo_filters['invoice_end_date'] = filters['invoice_end_date']
+        if 'start_date' in filters:
+            qbo_filters['start_date'] = filters['start_date']
+        if 'end_date' in filters:
+            qbo_filters['end_date'] = filters['end_date']
+
         invoices = invoice_mgr.fetch_invoices(qbo_filters=qbo_filters)
         
         all_metadata = database.get_all_invoice_metadata()

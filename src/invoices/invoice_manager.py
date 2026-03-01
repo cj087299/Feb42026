@@ -40,23 +40,56 @@ class InvoiceManager:
                 elif status == 'overdue':
                     # For overdue, we need to filter paid out and check due date client-side
                     where_clauses.append("Balance > '0'")
+
+                # Add date filters
+                invoice_start_date = qbo_filters.get('invoice_start_date')
+                if invoice_start_date:
+                    where_clauses.append(f"TxnDate >= '{invoice_start_date}'")
+
+                invoice_end_date = qbo_filters.get('invoice_end_date')
+                if invoice_end_date:
+                    where_clauses.append(f"TxnDate <= '{invoice_end_date}'")
+
+                start_date = qbo_filters.get('start_date')
+                if start_date:
+                    where_clauses.append(f"DueDate >= '{start_date}'")
+
+                end_date = qbo_filters.get('end_date')
+                if end_date:
+                    where_clauses.append(f"DueDate <= '{end_date}'")
             
-            # Build final query
+            # Build base query
             if where_clauses:
-                query = f"select * from Invoice WHERE {' AND '.join(where_clauses)}"
+                base_query = f"select * from Invoice WHERE {' AND '.join(where_clauses)}"
             else:
-                query = "select * from Invoice"
+                base_query = "select * from Invoice"
             
-            logger.info(f"Fetching invoices from QBO with query: {query}")
-            response = self.client.make_request("query", params={"query": query})
+            all_invoices = []
+            start_position = 1
+            max_results = 1000
             
-            if response and "QueryResponse" in response:
-                invoices = response["QueryResponse"].get("Invoice", [])
-                logger.info(f"Fetched {len(invoices)} invoices from QBO")
+            while True:
+                query = f"{base_query} STARTPOSITION {start_position} MAXRESULTS {max_results}"
+                logger.info(f"Fetching invoices from QBO with query: {query}")
+                response = self.client.make_request("query", params={"query": query})
+
+                if response and "QueryResponse" in response:
+                    invoices_batch = response["QueryResponse"].get("Invoice", [])
+                    all_invoices.extend(invoices_batch)
+
+                    if len(invoices_batch) < max_results:
+                        break
+
+                    start_position += max_results
+                else:
+                    break
+
+            if all_invoices:
+                logger.info(f"Fetched {len(all_invoices)} total invoices from QBO")
                 
                 # Parse and normalize invoice data
                 normalized_invoices = []
-                for invoice in invoices:
+                for invoice in all_invoices:
                     normalized_invoice = {
                         'id': invoice.get('Id'),
                         'doc_number': invoice.get('DocNumber'),
