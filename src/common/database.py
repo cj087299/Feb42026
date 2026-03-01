@@ -1,9 +1,10 @@
+import os
 import sqlite3
 import json
 import logging
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,62 @@ class Database:
         
         self.init_database()
     
+    # ------------------------------------------------------------------
+    # Token encryption helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _get_fernet():
+        """Return a Fernet instance if DB_ENCRYPTION_KEY is set, else None."""
+        key = os.environ.get('DB_ENCRYPTION_KEY')
+        if not key:
+            return None
+        try:
+            from cryptography.fernet import Fernet
+            return Fernet(key.encode() if isinstance(key, str) else key)
+        except Exception as e:
+            logger.warning(f"Failed to initialise Fernet encryption: {e}")
+            return None
+
+    def _encrypt_token(self, value: Optional[str]) -> Optional[str]:
+        """Encrypt a sensitive string value for database storage."""
+        if not value:
+            return value
+        fernet = self._get_fernet()
+        if fernet is None:
+            return value
+        return fernet.encrypt(value.encode()).decode()
+
+    def _decrypt_token(self, value: Optional[str]) -> Optional[str]:
+        """Decrypt a sensitive string value retrieved from the database."""
+        if not value:
+            return value
+        fernet = self._get_fernet()
+        if fernet is None:
+            return value
+        try:
+            return fernet.decrypt(value.encode()).decode()
+        except Exception:
+            # Value is stored unencrypted (pre-migration row) — return as-is.
+            return value
+
+    # ------------------------------------------------------------------
+    # Connection management
+    # ------------------------------------------------------------------
+
+    @contextmanager
+    def _get_conn(self):
+        """Context manager that yields a connection and handles commit/rollback/close."""
+        conn = self.get_connection()
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def get_connection(self):
         """Get a database connection (SQLite or Cloud SQL)."""
         if self.use_cloud_sql:
@@ -66,6 +123,9 @@ class Database:
         """Initialize database schema."""
         conn = self.get_connection()
         cursor = conn.cursor()
+        # Note: init_database is called once at startup, uses raw conn so it
+        # can handle the multi-statement DDL sequence; _get_conn is used by
+        # all DML methods below.
         
         if self.use_cloud_sql:
             # MySQL/Cloud SQL syntax
@@ -392,62 +452,57 @@ class Database:
     def save_invoice_metadata(self, invoice_id: str, metadata: Dict) -> bool:
         """Save or update invoice metadata."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            
-            if self.use_cloud_sql:
-                # MySQL syntax with ON DUPLICATE KEY UPDATE
-                cursor.execute('''
-                    INSERT INTO invoice_metadata 
-                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name, 
-                     portal_submission_date, manual_override_pay_date, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        vzt_rep = VALUES(vzt_rep),
-                        sent_to_vzt_rep_date = VALUES(sent_to_vzt_rep_date),
-                        customer_portal_name = VALUES(customer_portal_name),
-                        portal_submission_date = VALUES(portal_submission_date),
-                        manual_override_pay_date = VALUES(manual_override_pay_date),
-                        updated_at = VALUES(updated_at)
-                ''', (
-                    invoice_id,
-                    metadata.get('vzt_rep'),
-                    metadata.get('sent_to_vzt_rep_date'),
-                    metadata.get('customer_portal_name'),
-                    metadata.get('portal_submission_date'),
-                    metadata.get('manual_override_pay_date'),
-                    now,
-                    now
-                ))
-            else:
-                # SQLite syntax
-                cursor.execute('''
-                    INSERT INTO invoice_metadata 
-                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name, 
-                     portal_submission_date, manual_override_pay_date, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(invoice_id) DO UPDATE SET
-                        vzt_rep = excluded.vzt_rep,
-                        sent_to_vzt_rep_date = excluded.sent_to_vzt_rep_date,
-                        customer_portal_name = excluded.customer_portal_name,
-                        portal_submission_date = excluded.portal_submission_date,
-                        manual_override_pay_date = excluded.manual_override_pay_date,
-                        updated_at = excluded.updated_at
-                ''', (
-                    invoice_id,
-                    metadata.get('vzt_rep'),
-                    metadata.get('sent_to_vzt_rep_date'),
-                    metadata.get('customer_portal_name'),
-                    metadata.get('portal_submission_date'),
-                    metadata.get('manual_override_pay_date'),
-                    now,
-                    now
-                ))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                if self.use_cloud_sql:
+                    # MySQL syntax with ON DUPLICATE KEY UPDATE
+                    cursor.execute('''
+                        INSERT INTO invoice_metadata
+                        (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                         portal_submission_date, manual_override_pay_date, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            vzt_rep = VALUES(vzt_rep),
+                            sent_to_vzt_rep_date = VALUES(sent_to_vzt_rep_date),
+                            customer_portal_name = VALUES(customer_portal_name),
+                            portal_submission_date = VALUES(portal_submission_date),
+                            manual_override_pay_date = VALUES(manual_override_pay_date),
+                            updated_at = VALUES(updated_at)
+                    ''', (
+                        invoice_id,
+                        metadata.get('vzt_rep'),
+                        metadata.get('sent_to_vzt_rep_date'),
+                        metadata.get('customer_portal_name'),
+                        metadata.get('portal_submission_date'),
+                        metadata.get('manual_override_pay_date'),
+                        now,
+                        now
+                    ))
+                else:
+                    # SQLite syntax
+                    cursor.execute('''
+                        INSERT INTO invoice_metadata
+                        (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                         portal_submission_date, manual_override_pay_date, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(invoice_id) DO UPDATE SET
+                            vzt_rep = excluded.vzt_rep,
+                            sent_to_vzt_rep_date = excluded.sent_to_vzt_rep_date,
+                            customer_portal_name = excluded.customer_portal_name,
+                            portal_submission_date = excluded.portal_submission_date,
+                            manual_override_pay_date = excluded.manual_override_pay_date,
+                            updated_at = excluded.updated_at
+                    ''', (
+                        invoice_id,
+                        metadata.get('vzt_rep'),
+                        metadata.get('sent_to_vzt_rep_date'),
+                        metadata.get('customer_portal_name'),
+                        metadata.get('portal_submission_date'),
+                        metadata.get('manual_override_pay_date'),
+                        now,
+                        now
+                    ))
             logger.info(f"Saved metadata for invoice {invoice_id}")
             return True
         except Exception as e:
@@ -457,20 +512,16 @@ class Database:
     def get_invoice_metadata(self, invoice_id: str) -> Optional[Dict]:
         """Get metadata for a specific invoice."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
-                       portal_submission_date, manual_override_pay_date, created_at, updated_at
-                FROM invoice_metadata
-                WHERE invoice_id = {placeholder}
-            ''', (invoice_id,))
-            
-            row = cursor.fetchone()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                           portal_submission_date, manual_override_pay_date, created_at, updated_at
+                    FROM invoice_metadata
+                    WHERE invoice_id = {placeholder}
+                ''', (invoice_id,))
+                row = cursor.fetchone()
             if row:
                 return {
                     'invoice_id': row[0],
@@ -490,18 +541,14 @@ class Database:
     def get_all_invoice_metadata(self) -> List[Dict]:
         """Get all invoice metadata."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
-                       portal_submission_date, manual_override_pay_date, created_at, updated_at
-                FROM invoice_metadata
-            ''')
-            
-            rows = cursor.fetchall()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                           portal_submission_date, manual_override_pay_date, created_at, updated_at
+                    FROM invoice_metadata
+                ''')
+                rows = cursor.fetchall()
             return [{
                 'invoice_id': row[0],
                 'vzt_rep': row[1],
@@ -521,37 +568,31 @@ class Database:
     def add_custom_cash_flow(self, flow_data: Dict) -> Optional[int]:
         """Add a custom cash flow (inflow or outflow)."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 11)
-            
-            cursor.execute(f'''
-                INSERT INTO custom_cash_flows
-                (flow_type, amount, date, description, is_recurring, recurrence_type,
-                 recurrence_interval, recurrence_start_date, recurrence_end_date,
-                 created_at, updated_at)
-                VALUES ({placeholders})
-            ''', (
-                flow_data.get('flow_type'),
-                flow_data.get('amount'),
-                flow_data.get('date'),
-                flow_data.get('description'),
-                1 if flow_data.get('is_recurring') else 0,
-                flow_data.get('recurrence_type'),
-                flow_data.get('recurrence_interval'),
-                flow_data.get('recurrence_start_date'),
-                flow_data.get('recurrence_end_date'),
-                now,
-                now
-            ))
-            
-            flow_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                placeholders = ', '.join([placeholder] * 11)
+                cursor.execute(f'''
+                    INSERT INTO custom_cash_flows
+                    (flow_type, amount, date, description, is_recurring, recurrence_type,
+                     recurrence_interval, recurrence_start_date, recurrence_end_date,
+                     created_at, updated_at)
+                    VALUES ({placeholders})
+                ''', (
+                    flow_data.get('flow_type'),
+                    flow_data.get('amount'),
+                    flow_data.get('date'),
+                    flow_data.get('description'),
+                    1 if flow_data.get('is_recurring') else 0,
+                    flow_data.get('recurrence_type'),
+                    flow_data.get('recurrence_interval'),
+                    flow_data.get('recurrence_start_date'),
+                    flow_data.get('recurrence_end_date'),
+                    now,
+                    now
+                ))
+                flow_id = cursor.lastrowid
             logger.info(f"Added custom cash flow with ID {flow_id}")
             return flow_id
         except Exception as e:
@@ -561,32 +602,31 @@ class Database:
     def get_custom_cash_flows(self, flow_type: Optional[str] = None) -> List[Dict]:
         """Get all custom cash flows, optionally filtered by type."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            
-            if flow_type:
-                cursor.execute(f'''
-                    SELECT id, flow_type, amount, date, description, is_recurring,
-                           recurrence_type, recurrence_interval, recurrence_start_date,
-                           recurrence_end_date, created_at, updated_at
-                    FROM custom_cash_flows
-                    WHERE flow_type = {placeholder}
-                    ORDER BY date
-                ''', (flow_type,))
-            else:
-                cursor.execute('''
-                    SELECT id, flow_type, amount, date, description, is_recurring,
-                           recurrence_type, recurrence_interval, recurrence_start_date,
-                           recurrence_end_date, created_at, updated_at
-                    FROM custom_cash_flows
-                    ORDER BY date
-                ''')
-            
-            rows = cursor.fetchall()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                placeholder = '%s' if self.use_cloud_sql else '?'
+
+                if flow_type:
+                    cursor.execute(f'''
+                        SELECT id, flow_type, amount, date, description, is_recurring,
+                               recurrence_type, recurrence_interval, recurrence_start_date,
+                               recurrence_end_date, created_at, updated_at
+                        FROM custom_cash_flows
+                        WHERE flow_type = {placeholder}
+                        ORDER BY date
+                    ''', (flow_type,))
+                else:
+                    cursor.execute('''
+                        SELECT id, flow_type, amount, date, description, is_recurring,
+                               recurrence_type, recurrence_interval, recurrence_start_date,
+                               recurrence_end_date, created_at, updated_at
+                        FROM custom_cash_flows
+                        ORDER BY date
+                    ''')
+
+                rows = cursor.fetchall()
+
             return [{
                 'id': row[0],
                 'flow_type': row[1],
@@ -608,38 +648,34 @@ class Database:
     def update_custom_cash_flow(self, flow_id: int, flow_data: Dict) -> bool:
         """Update an existing custom cash flow."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 10)
-            
-            cursor.execute(f'''
-                UPDATE custom_cash_flows
-                SET flow_type = {placeholder}, amount = {placeholder}, date = {placeholder}, 
-                    description = {placeholder}, is_recurring = {placeholder}, 
-                    recurrence_type = {placeholder}, recurrence_interval = {placeholder},
-                    recurrence_start_date = {placeholder}, recurrence_end_date = {placeholder}, 
-                    updated_at = {placeholder}
-                WHERE id = {placeholder}
-            ''', (
-                flow_data.get('flow_type'),
-                flow_data.get('amount'),
-                flow_data.get('date'),
-                flow_data.get('description'),
-                1 if flow_data.get('is_recurring') else 0,
-                flow_data.get('recurrence_type'),
-                flow_data.get('recurrence_interval'),
-                flow_data.get('recurrence_start_date'),
-                flow_data.get('recurrence_end_date'),
-                now,
-                flow_id
-            ))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                now = datetime.now().isoformat()
+
+                placeholder = '%s' if self.use_cloud_sql else '?'
+
+                cursor.execute(f'''
+                    UPDATE custom_cash_flows
+                    SET flow_type = {placeholder}, amount = {placeholder}, date = {placeholder},
+                        description = {placeholder}, is_recurring = {placeholder},
+                        recurrence_type = {placeholder}, recurrence_interval = {placeholder},
+                        recurrence_start_date = {placeholder}, recurrence_end_date = {placeholder},
+                        updated_at = {placeholder}
+                    WHERE id = {placeholder}
+                ''', (
+                    flow_data.get('flow_type'),
+                    flow_data.get('amount'),
+                    flow_data.get('date'),
+                    flow_data.get('description'),
+                    1 if flow_data.get('is_recurring') else 0,
+                    flow_data.get('recurrence_type'),
+                    flow_data.get('recurrence_interval'),
+                    flow_data.get('recurrence_start_date'),
+                    flow_data.get('recurrence_end_date'),
+                    now,
+                    flow_id
+                ))
             logger.info(f"Updated custom cash flow {flow_id}")
             return True
         except Exception as e:
@@ -649,14 +685,10 @@ class Database:
     def delete_custom_cash_flow(self, flow_id: int) -> bool:
         """Delete a custom cash flow."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'DELETE FROM custom_cash_flows WHERE id = {placeholder}', (flow_id,))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'DELETE FROM custom_cash_flows WHERE id = {placeholder}', (flow_id,))
             logger.info(f"Deleted custom cash flow {flow_id}")
             return True
         except Exception as e:
@@ -668,21 +700,19 @@ class Database:
     def create_user(self, email: str, password_hash: str, full_name: str, role: str) -> Optional[int]:
         """Create a new user."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 6)
-            
-            cursor.execute(f'''
-                INSERT INTO users (email, password_hash, full_name, role, created_at, updated_at)
-                VALUES ({placeholders})
-            ''', (email, password_hash, full_name, role, now, now))
-            
-            user_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                placeholders = ', '.join([placeholder] * 6)
+
+                cursor.execute(f'''
+                    INSERT INTO users (email, password_hash, full_name, role, created_at, updated_at)
+                    VALUES ({placeholders})
+                ''', (email, password_hash, full_name, role, now, now))
+
+                user_id = cursor.lastrowid
             logger.info(f"Created user {email} with ID {user_id}")
             return user_id
         except Exception as e:
@@ -692,19 +722,16 @@ class Database:
     def get_user_by_email(self, email: str) -> Optional[Dict]:
         """Get user by email."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at, last_login
-                FROM users
-                WHERE email = {placeholder}
-            ''', (email,))
-            
-            row = cursor.fetchone()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at, last_login
+                    FROM users
+                    WHERE email = {placeholder}
+                ''', (email,))
+                row = cursor.fetchone()
+
             if row:
                 return {
                     'id': row[0],
@@ -725,19 +752,16 @@ class Database:
     def get_user_by_id(self, user_id: int) -> Optional[Dict]:
         """Get user by ID."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at, last_login
-                FROM users
-                WHERE id = {placeholder}
-            ''', (user_id,))
-            
-            row = cursor.fetchone()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    SELECT id, email, password_hash, full_name, role, is_active, created_at, updated_at, last_login
+                    FROM users
+                    WHERE id = {placeholder}
+                ''', (user_id,))
+                row = cursor.fetchone()
+
             if row:
                 return {
                     'id': row[0],
@@ -758,18 +782,15 @@ class Database:
     def get_all_users(self) -> List[Dict]:
         """Get all users."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT id, email, full_name, role, is_active, created_at, updated_at, last_login
-                FROM users
-                ORDER BY created_at DESC
-            ''')
-            
-            rows = cursor.fetchall()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, email, full_name, role, is_active, created_at, updated_at, last_login
+                    FROM users
+                    ORDER BY created_at DESC
+                ''')
+                rows = cursor.fetchall()
+
             return [{
                 'id': row[0],
                 'email': row[1],
@@ -787,43 +808,40 @@ class Database:
     def update_user(self, user_id: int, data: Dict) -> bool:
         """Update user information."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            
-            fields = []
-            values = []
-            
-            if 'email' in data:
-                fields.append(f'email = {placeholder}')
-                values.append(data['email'])
-            if 'full_name' in data:
-                fields.append(f'full_name = {placeholder}')
-                values.append(data['full_name'])
-            if 'role' in data:
-                fields.append(f'role = {placeholder}')
-                values.append(data['role'])
-            if 'is_active' in data:
-                fields.append(f'is_active = {placeholder}')
-                values.append(1 if data['is_active'] else 0)
-            if 'password_hash' in data:
-                fields.append(f'password_hash = {placeholder}')
-                values.append(data['password_hash'])
-            
-            fields.append(f'updated_at = {placeholder}')
-            values.append(now)
-            values.append(user_id)
-            
-            cursor.execute(f'''
-                UPDATE users
-                SET {', '.join(fields)}
-                WHERE id = {placeholder}
-            ''', tuple(values))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+
+                fields = []
+                values = []
+
+                if 'email' in data:
+                    fields.append(f'email = {placeholder}')
+                    values.append(data['email'])
+                if 'full_name' in data:
+                    fields.append(f'full_name = {placeholder}')
+                    values.append(data['full_name'])
+                if 'role' in data:
+                    fields.append(f'role = {placeholder}')
+                    values.append(data['role'])
+                if 'is_active' in data:
+                    fields.append(f'is_active = {placeholder}')
+                    values.append(1 if data['is_active'] else 0)
+                if 'password_hash' in data:
+                    fields.append(f'password_hash = {placeholder}')
+                    values.append(data['password_hash'])
+
+                fields.append(f'updated_at = {placeholder}')
+                values.append(now)
+                values.append(user_id)
+
+                cursor.execute(f'''
+                    UPDATE users
+                    SET {', '.join(fields)}
+                    WHERE id = {placeholder}
+                ''', tuple(values))
             logger.info(f"Updated user {user_id}")
             return True
         except Exception as e:
@@ -833,20 +851,15 @@ class Database:
     def update_last_login(self, user_id: int) -> bool:
         """Update user's last login time."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            
-            cursor.execute(f'''
-                UPDATE users
-                SET last_login = {placeholder}
-                WHERE id = {placeholder}
-            ''', (now, user_id))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    UPDATE users
+                    SET last_login = {placeholder}
+                    WHERE id = {placeholder}
+                ''', (now, user_id))
             return True
         except Exception as e:
             logger.error(f"Failed to update last login: {e}")
@@ -855,14 +868,10 @@ class Database:
     def delete_user(self, user_id: int) -> bool:
         """Delete a user."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'DELETE FROM users WHERE id = {placeholder}', (user_id,))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'DELETE FROM users WHERE id = {placeholder}', (user_id,))
             logger.info(f"Deleted user {user_id}")
             return True
         except Exception as e:
@@ -871,28 +880,23 @@ class Database:
     
     # Audit log methods
     
-    def log_audit(self, user_id: Optional[int], user_email: Optional[str], action: str, 
+    def log_audit(self, user_id: Optional[int], user_email: Optional[str], action: str,
                    resource_type: Optional[str] = None, resource_id: Optional[str] = None,
                    details: Optional[str] = None, ip_address: Optional[str] = None,
                    user_agent: Optional[str] = None) -> Optional[int]:
         """Log an audit entry."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 8)
-            
-            cursor.execute(f'''
-                INSERT INTO audit_log
-                (user_id, user_email, action, resource_type, resource_id, details, ip_address, user_agent, timestamp)
-                VALUES ({placeholders}, {placeholder})
-            ''', (user_id, user_email, action, resource_type, resource_id, details, ip_address, user_agent, now))
-            
-            log_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                placeholders = ', '.join([placeholder] * 8)
+                cursor.execute(f'''
+                    INSERT INTO audit_log
+                    (user_id, user_email, action, resource_type, resource_id, details, ip_address, user_agent, timestamp)
+                    VALUES ({placeholders}, {placeholder})
+                ''', (user_id, user_email, action, resource_type, resource_id, details, ip_address, user_agent, now))
+                log_id = cursor.lastrowid
             return log_id
         except Exception as e:
             logger.error(f"Failed to log audit entry: {e}")
@@ -902,39 +906,38 @@ class Database:
                        resource_type: Optional[str] = None, limit: int = 100) -> List[Dict]:
         """Get audit logs with optional filters."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            query = '''
-                SELECT id, user_id, user_email, action, resource_type, resource_id, 
-                       details, ip_address, user_agent, timestamp
-                FROM audit_log
-            '''
-            
-            conditions = []
-            values = []
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            
-            if user_id:
-                conditions.append(f'user_id = {placeholder}')
-                values.append(user_id)
-            if action:
-                conditions.append(f'action = {placeholder}')
-                values.append(action)
-            if resource_type:
-                conditions.append(f'resource_type = {placeholder}')
-                values.append(resource_type)
-            
-            if conditions:
-                query += ' WHERE ' + ' AND '.join(conditions)
-            
-            query += f' ORDER BY timestamp DESC LIMIT {placeholder}'
-            values.append(limit)
-            
-            cursor.execute(query, tuple(values))
-            rows = cursor.fetchall()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                query = '''
+                    SELECT id, user_id, user_email, action, resource_type, resource_id,
+                           details, ip_address, user_agent, timestamp
+                    FROM audit_log
+                '''
+
+                conditions = []
+                values = []
+                placeholder = '%s' if self.use_cloud_sql else '?'
+
+                if user_id:
+                    conditions.append(f'user_id = {placeholder}')
+                    values.append(user_id)
+                if action:
+                    conditions.append(f'action = {placeholder}')
+                    values.append(action)
+                if resource_type:
+                    conditions.append(f'resource_type = {placeholder}')
+                    values.append(resource_type)
+
+                if conditions:
+                    query += ' WHERE ' + ' AND '.join(conditions)
+
+                query += f' ORDER BY timestamp DESC LIMIT {placeholder}'
+                values.append(limit)
+
+                cursor.execute(query, tuple(values))
+                rows = cursor.fetchall()
+
             return [{
                 'id': row[0],
                 'user_id': row[1],
@@ -956,22 +959,17 @@ class Database:
     def create_password_reset_token(self, user_id: int, token: str, expires_at: str) -> Optional[int]:
         """Create a password reset token."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 4)
-            
-            cursor.execute(f'''
-                INSERT INTO password_reset_tokens
-                (user_id, token, expires_at, created_at)
-                VALUES ({placeholders})
-            ''', (user_id, token, expires_at, now))
-            
-            token_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                placeholders = ', '.join([placeholder] * 4)
+                cursor.execute(f'''
+                    INSERT INTO password_reset_tokens
+                    (user_id, token, expires_at, created_at)
+                    VALUES ({placeholders})
+                ''', (user_id, token, expires_at, now))
+                token_id = cursor.lastrowid
             return token_id
         except Exception as e:
             logger.error(f"Failed to create password reset token: {e}")
@@ -980,19 +978,16 @@ class Database:
     def get_password_reset_token(self, token: str) -> Optional[Dict]:
         """Get password reset token details."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                SELECT id, user_id, token, expires_at, used, created_at
-                FROM password_reset_tokens
-                WHERE token = {placeholder}
-            ''', (token,))
-            
-            row = cursor.fetchone()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    SELECT id, user_id, token, expires_at, used, created_at
+                    FROM password_reset_tokens
+                    WHERE token = {placeholder}
+                ''', (token,))
+                row = cursor.fetchone()
+
             if row:
                 return {
                     'id': row[0],
@@ -1010,18 +1005,14 @@ class Database:
     def mark_token_as_used(self, token: str) -> bool:
         """Mark a password reset token as used."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                UPDATE password_reset_tokens
-                SET used = 1
-                WHERE token = {placeholder}
-            ''', (token,))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    UPDATE password_reset_tokens
+                    SET used = 1
+                    WHERE token = {placeholder}
+                ''', (token,))
             return True
         except Exception as e:
             logger.error(f"Failed to mark token as used: {e}")
@@ -1047,51 +1038,48 @@ class Database:
             True if successful, False otherwise
         """
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            
-            # Calculate token expiration times from QBO response
-            # Access token typically expires in 1 hour (3600 seconds)
-            expires_in = credentials.get('expires_in', 3600)
-            access_token_expires = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
-            
-            # Refresh token expires in 101 days (8726400 seconds)
-            refresh_expires_in = credentials.get('x_refresh_token_expires_in', 8726400)
-            refresh_token_expires = (datetime.now() + timedelta(seconds=refresh_expires_in)).isoformat()
-            
-            # GLOBAL SINGLETON: Delete any existing credentials (we only keep one set for the entire app)
-            cursor.execute('DELETE FROM qbo_tokens')
-            
-            # Insert new credentials with explicit ID=1 to enforce singleton pattern
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            
-            # Construct the INSERT query once (same for both MySQL and SQLite)
-            # Values: id=1, client_id, client_secret, refresh_token, access_token, realm_id,
-            #         access_token_expires_at, refresh_token_expires_at, created_by_user_id, created_at, updated_at
-            cursor.execute(f'''
-                INSERT INTO qbo_tokens
-                (id, client_id, client_secret, refresh_token, access_token, realm_id,
-                 access_token_expires_at, refresh_token_expires_at, created_by_user_id,
-                 created_at, updated_at)
-                VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
-                        {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
-            ''', (
-                credentials.get('client_id'),
-                credentials.get('client_secret'),
-                credentials.get('refresh_token'),
-                credentials.get('access_token'),
-                credentials.get('realm_id'),
-                access_token_expires,
-                refresh_token_expires,
-                created_by_user_id,
-                now,
-                now
-            ))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                now = datetime.now().isoformat()
+
+                # Calculate token expiration times from QBO response
+                # Access token typically expires in 1 hour (3600 seconds)
+                expires_in = credentials.get('expires_in', 3600)
+                access_token_expires = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+
+                # Refresh token expires in 101 days (8726400 seconds)
+                refresh_expires_in = credentials.get('x_refresh_token_expires_in', 8726400)
+                refresh_token_expires = (datetime.now() + timedelta(seconds=refresh_expires_in)).isoformat()
+
+                # GLOBAL SINGLETON: Delete any existing credentials (we only keep one set for the entire app)
+                cursor.execute('DELETE FROM qbo_tokens')
+
+                # Insert new credentials with explicit ID=1 to enforce singleton pattern
+                placeholder = '%s' if self.use_cloud_sql else '?'
+
+                # Construct the INSERT query once (same for both MySQL and SQLite)
+                # Values: id=1, client_id, client_secret, refresh_token, access_token, realm_id,
+                #         access_token_expires_at, refresh_token_expires_at, created_by_user_id, created_at, updated_at
+                cursor.execute(f'''
+                    INSERT INTO qbo_tokens
+                    (id, client_id, client_secret, refresh_token, access_token, realm_id,
+                     access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                     created_at, updated_at)
+                    VALUES (1, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder},
+                            {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+                ''', (
+                    credentials.get('client_id'),
+                    self._encrypt_token(credentials.get('client_secret')),
+                    self._encrypt_token(credentials.get('refresh_token')),
+                    self._encrypt_token(credentials.get('access_token')),
+                    credentials.get('realm_id'),
+                    access_token_expires,
+                    refresh_token_expires,
+                    created_by_user_id,
+                    now,
+                    now
+                ))
             logger.info(f"Saved QBO credentials to database")
             return True
         except Exception as e:
@@ -1108,28 +1096,25 @@ class Database:
             Dictionary with QBO credentials or None if not found
         """
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('''
-                SELECT id, client_id, client_secret, refresh_token, access_token, realm_id,
-                       access_token_expires_at, refresh_token_expires_at, created_by_user_id,
-                       created_at, updated_at
-                FROM qbo_tokens
-                ORDER BY created_at DESC
-                LIMIT 1
-            ''')
-            
-            row = cursor.fetchone()
-            conn.close()
-            
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT id, client_id, client_secret, refresh_token, access_token, realm_id,
+                           access_token_expires_at, refresh_token_expires_at, created_by_user_id,
+                           created_at, updated_at
+                    FROM qbo_tokens
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                ''')
+                row = cursor.fetchone()
+
             if row:
                 return {
                     'id': row[0],
                     'client_id': row[1],
-                    'client_secret': row[2],
-                    'refresh_token': row[3],
-                    'access_token': row[4],
+                    'client_secret': self._decrypt_token(row[2]),
+                    'refresh_token': self._decrypt_token(row[3]),
+                    'access_token': self._decrypt_token(row[4]),
                     'realm_id': row[5],
                     'access_token_expires_at': row[6],
                     'refresh_token_expires_at': row[7],
@@ -1160,38 +1145,35 @@ class Database:
             True if successful, False otherwise
         """
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            now = datetime.now().isoformat()
-            access_token_expires = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
-            
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            
-            if refresh_token:
-                # Update both tokens on the global row (ID=1)
-                refresh_token_expires = (datetime.now() + timedelta(seconds=x_refresh_token_expires_in)).isoformat()
-                cursor.execute(f'''
-                    UPDATE qbo_tokens
-                    SET access_token = {placeholder},
-                        refresh_token = {placeholder},
-                        access_token_expires_at = {placeholder},
-                        refresh_token_expires_at = {placeholder},
-                        updated_at = {placeholder}
-                    WHERE id = 1
-                ''', (access_token, refresh_token, access_token_expires, refresh_token_expires, now))
-            else:
-                # Update only access token on the global row (ID=1)
-                cursor.execute(f'''
-                    UPDATE qbo_tokens
-                    SET access_token = {placeholder},
-                        access_token_expires_at = {placeholder},
-                        updated_at = {placeholder}
-                    WHERE id = 1
-                ''', (access_token, access_token_expires, now))
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+
+                now = datetime.now().isoformat()
+                access_token_expires = (datetime.now() + timedelta(seconds=expires_in)).isoformat()
+
+                placeholder = '%s' if self.use_cloud_sql else '?'
+
+                if refresh_token:
+                    # Update both tokens on the global row (ID=1)
+                    refresh_token_expires = (datetime.now() + timedelta(seconds=x_refresh_token_expires_in)).isoformat()
+                    cursor.execute(f'''
+                        UPDATE qbo_tokens
+                        SET access_token = {placeholder},
+                            refresh_token = {placeholder},
+                            access_token_expires_at = {placeholder},
+                            refresh_token_expires_at = {placeholder},
+                            updated_at = {placeholder}
+                        WHERE id = 1
+                    ''', (self._encrypt_token(access_token), self._encrypt_token(refresh_token), access_token_expires, refresh_token_expires, now))
+                else:
+                    # Update only access token on the global row (ID=1)
+                    cursor.execute(f'''
+                        UPDATE qbo_tokens
+                        SET access_token = {placeholder},
+                            access_token_expires_at = {placeholder},
+                            updated_at = {placeholder}
+                        WHERE id = 1
+                    ''', (self._encrypt_token(access_token), access_token_expires, now))
             logger.info("Updated global QBO tokens in database (ID=1)")
             return True
         except Exception as e:
@@ -1200,18 +1182,14 @@ class Database:
     
     def delete_qbo_credentials(self) -> bool:
         """Delete all QBO credentials from the database.
-        
+
         Returns:
             True if successful, False otherwise
         """
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute('DELETE FROM qbo_tokens')
-            
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM qbo_tokens')
             logger.info("Deleted all QBO credentials from database")
             return True
         except Exception as e:
@@ -1223,19 +1201,16 @@ class Database:
     def get_customer_mapping(self, qbo_customer_id: str) -> Optional[Dict]:
         """Get customer mapping by QBO customer ID."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                SELECT qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id,
-                       created_at, updated_at
-                FROM customer_mappings
-                WHERE qbo_customer_id = {placeholder}
-            ''', (qbo_customer_id,))
-
-            row = cursor.fetchone()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    SELECT qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id,
+                           created_at, updated_at
+                    FROM customer_mappings
+                    WHERE qbo_customer_id = {placeholder}
+                ''', (qbo_customer_id,))
+                row = cursor.fetchone()
 
             if row:
                 return {
@@ -1254,50 +1229,46 @@ class Database:
     def set_customer_mapping(self, data: Dict) -> bool:
         """Create or update customer mapping."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
 
-            now = datetime.now().isoformat()
-
-            if self.use_cloud_sql:
-                cursor.execute('''
-                    INSERT INTO customer_mappings
-                    (qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id, created_at, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s)
-                    ON DUPLICATE KEY UPDATE
-                        default_portal_name = VALUES(default_portal_name),
-                        default_net_terms = VALUES(default_net_terms),
-                        default_vzt_rep_id = VALUES(default_vzt_rep_id),
-                        updated_at = VALUES(updated_at)
-                ''', (
-                    data.get('qbo_customer_id'),
-                    data.get('default_portal_name'),
-                    data.get('default_net_terms'),
-                    data.get('default_vzt_rep_id'),
-                    now,
-                    now
-                ))
-            else:
-                cursor.execute('''
-                    INSERT INTO customer_mappings
-                    (qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(qbo_customer_id) DO UPDATE SET
-                        default_portal_name = excluded.default_portal_name,
-                        default_net_terms = excluded.default_net_terms,
-                        default_vzt_rep_id = excluded.default_vzt_rep_id,
-                        updated_at = excluded.updated_at
-                ''', (
-                    data.get('qbo_customer_id'),
-                    data.get('default_portal_name'),
-                    data.get('default_net_terms'),
-                    data.get('default_vzt_rep_id'),
-                    now,
-                    now
-                ))
-
-            conn.commit()
-            conn.close()
+                if self.use_cloud_sql:
+                    cursor.execute('''
+                        INSERT INTO customer_mappings
+                        (qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id, created_at, updated_at)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            default_portal_name = VALUES(default_portal_name),
+                            default_net_terms = VALUES(default_net_terms),
+                            default_vzt_rep_id = VALUES(default_vzt_rep_id),
+                            updated_at = VALUES(updated_at)
+                    ''', (
+                        data.get('qbo_customer_id'),
+                        data.get('default_portal_name'),
+                        data.get('default_net_terms'),
+                        data.get('default_vzt_rep_id'),
+                        now,
+                        now
+                    ))
+                else:
+                    cursor.execute('''
+                        INSERT INTO customer_mappings
+                        (qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                        ON CONFLICT(qbo_customer_id) DO UPDATE SET
+                            default_portal_name = excluded.default_portal_name,
+                            default_net_terms = excluded.default_net_terms,
+                            default_vzt_rep_id = excluded.default_vzt_rep_id,
+                            updated_at = excluded.updated_at
+                    ''', (
+                        data.get('qbo_customer_id'),
+                        data.get('default_portal_name'),
+                        data.get('default_net_terms'),
+                        data.get('default_vzt_rep_id'),
+                        now,
+                        now
+                    ))
             logger.info(f"Saved customer mapping for {data.get('qbo_customer_id')}")
             return True
         except Exception as e:
@@ -1307,17 +1278,14 @@ class Database:
     def get_all_customer_mappings(self) -> List[Dict]:
         """Get all customer mappings."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute('''
-                SELECT qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id,
-                       created_at, updated_at
-                FROM customer_mappings
-            ''')
-
-            rows = cursor.fetchall()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    SELECT qbo_customer_id, default_portal_name, default_net_terms, default_vzt_rep_id,
+                           created_at, updated_at
+                    FROM customer_mappings
+                ''')
+                rows = cursor.fetchall()
 
             return [{
                 'qbo_customer_id': row[0],
@@ -1336,21 +1304,16 @@ class Database:
     def save_report_view(self, user_id: int, name: str, report_type: str, params: Dict) -> Optional[int]:
         """Save a report view for a user."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-
-            now = datetime.now().isoformat()
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            placeholders = ', '.join([placeholder] * 6)
-
-            cursor.execute(f'''
-                INSERT INTO saved_reports (user_id, name, report_type, params, created_at, updated_at)
-                VALUES ({placeholders})
-            ''', (user_id, name, report_type, json.dumps(params), now, now))
-
-            report_id = cursor.lastrowid
-            conn.commit()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                now = datetime.now().isoformat()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                placeholders = ', '.join([placeholder] * 6)
+                cursor.execute(f'''
+                    INSERT INTO saved_reports (user_id, name, report_type, params, created_at, updated_at)
+                    VALUES ({placeholders})
+                ''', (user_id, name, report_type, json.dumps(params), now, now))
+                report_id = cursor.lastrowid
             logger.info(f"Saved report view '{name}' for user {user_id}")
             return report_id
         except Exception as e:
@@ -1360,19 +1323,16 @@ class Database:
     def get_saved_reports(self, user_id: int) -> List[Dict]:
         """Get all saved reports for a user."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-
-            placeholder = '%s' if self.use_cloud_sql else '?'
-            cursor.execute(f'''
-                SELECT id, name, report_type, params, created_at, updated_at
-                FROM saved_reports
-                WHERE user_id = {placeholder}
-                ORDER BY created_at DESC
-            ''', (user_id,))
-
-            rows = cursor.fetchall()
-            conn.close()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
+                cursor.execute(f'''
+                    SELECT id, name, report_type, params, created_at, updated_at
+                    FROM saved_reports
+                    WHERE user_id = {placeholder}
+                    ORDER BY created_at DESC
+                ''', (user_id,))
+                rows = cursor.fetchall()
 
             return [{
                 'id': row[0],
@@ -1389,20 +1349,17 @@ class Database:
     def delete_saved_report(self, report_id: int, user_id: int) -> bool:
         """Delete a saved report (ensuring it belongs to the user)."""
         try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
+            with self._get_conn() as conn:
+                cursor = conn.cursor()
+                placeholder = '%s' if self.use_cloud_sql else '?'
 
-            placeholder = '%s' if self.use_cloud_sql else '?'
+                # Check ownership first or just delete with AND user_id
+                cursor.execute(f'''
+                    DELETE FROM saved_reports
+                    WHERE id = {placeholder} AND user_id = {placeholder}
+                ''', (report_id, user_id))
 
-            # Check ownership first or just delete with AND user_id
-            cursor.execute(f'''
-                DELETE FROM saved_reports
-                WHERE id = {placeholder} AND user_id = {placeholder}
-            ''', (report_id, user_id))
-
-            affected = cursor.rowcount
-            conn.commit()
-            conn.close()
+                affected = cursor.rowcount
 
             if affected > 0:
                 logger.info(f"Deleted saved report {report_id}")

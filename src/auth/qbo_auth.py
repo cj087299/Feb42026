@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import logging
 from src.common.database import Database
@@ -8,12 +9,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class QBOAuth:
+    # Refresh the access token when it has less than this many seconds remaining.
+    _REFRESH_BUFFER_SECONDS = 300
+
     def __init__(self, client_id, client_secret, refresh_token, realm_id, database: Database = None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.refresh_token = refresh_token
         self.realm_id = realm_id
         self.access_token = None
+        self._access_token_expires_at: float = 0.0  # Unix timestamp
         self.database = database
         self._validate_credentials()
 
@@ -74,7 +79,9 @@ class QBOAuth:
             token_data = response.json()
             # Handle both camelCase (accessToken) and snake_case (access_token) from QBO
             self.access_token = token_data.get("access_token") or token_data.get("accessToken")
-            
+            expires_in = token_data.get("expires_in", 3600)
+            self._access_token_expires_at = time.time() + expires_in
+
             # Update refresh token if provided (QBO returns a new refresh token)
             new_refresh_token = token_data.get("refresh_token") or token_data.get("refreshToken")
             if new_refresh_token:
@@ -84,8 +91,6 @@ class QBOAuth:
             # IMPORTANT: This updates the global singleton row (ID=1) so all users get the new tokens
             if self.database:
                 try:
-                    # Get expiration times from QBO response
-                    expires_in = token_data.get("expires_in", 3600)
                     x_refresh_token_expires_in = token_data.get("x_refresh_token_expires_in", 8726400)
                     
                     self.database.update_qbo_tokens(
@@ -114,12 +119,21 @@ class QBOAuth:
             logger.error(f"Failed to refresh access token: {e}")
             raise
 
-    def get_headers(self):
+    def _token_needs_refresh(self) -> bool:
+        """Return True if the access token is absent or expiring soon."""
         if not self.access_token:
-            try:
-                self.refresh_access_token()
-            except Exception:
-                pass # let caller handle missing token
+            return True
+        return time.time() >= (self._access_token_expires_at - self._REFRESH_BUFFER_SECONDS)
+
+    def get_headers(self) -> dict:
+        """Return auth headers, proactively refreshing the token if needed.
+
+        Raises the underlying exception so callers can distinguish between a
+        temporary network blip and a permanent auth failure rather than
+        silently receiving a Bearer header with a None/expired token.
+        """
+        if self._token_needs_refresh():
+            self.refresh_access_token()  # intentionally propagates on failure
         return {
             "Authorization": f"Bearer {self.access_token}",
             "Accept": "application/json"

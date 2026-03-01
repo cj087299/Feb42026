@@ -1,3 +1,4 @@
+import os
 import logging
 import json
 from datetime import datetime
@@ -13,9 +14,20 @@ class WebhookHandler:
     """
     Handles QBO webhooks with CloudEvents format support.
     """
-    
-    # QBO verifier token for webhook validation
-    VERIFIER_TOKEN = "eb566143-7dcf-46a0-a51b-dc42962e461d"
+
+    # QBO verifier token — must be set via QBO_WEBHOOK_VERIFIER_TOKEN env var.
+    VERIFIER_TOKEN = os.environ.get('QBO_WEBHOOK_VERIFIER_TOKEN', '')
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+
+    def __new__(cls, *args, **kwargs):
+        if not cls.VERIFIER_TOKEN:
+            logger.warning(
+                "QBO_WEBHOOK_VERIFIER_TOKEN is not set. "
+                "Webhook signature validation will reject all requests."
+            )
+        return super().__new__(cls)
     
     def __init__(self, database: Database = None):
         self.database = database

@@ -3,6 +3,7 @@
 import hashlib
 import secrets
 import logging
+import bcrypt
 from functools import wraps
 from flask import session, request, jsonify, redirect, url_for, current_app
 from typing import Optional, Dict, List, Callable
@@ -42,18 +43,24 @@ ROLES = {
 
 
 def hash_password(password: str) -> str:
-    """Hash a password using SHA-256 with a salt."""
-    salt = secrets.token_hex(16)
-    pwd_hash = hashlib.sha256((password + salt).encode()).hexdigest()
-    return f"{salt}${pwd_hash}"
+    """Hash a password using bcrypt."""
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    """Verify a password against a hash."""
+    """Verify a password against a hash.
+
+    Supports both bcrypt hashes (new) and legacy SHA-256+salt hashes
+    (format: '<hex_salt>$<sha256_hex>') so existing accounts keep working
+    until their password is next changed.
+    """
     try:
+        if password_hash.startswith('$2b$') or password_hash.startswith('$2a$'):
+            return bcrypt.checkpw(password.encode(), password_hash.encode())
+        # Legacy SHA-256 fallback
         salt, pwd_hash = password_hash.split('$')
         new_hash = hashlib.sha256((password + salt).encode()).hexdigest()
-        return new_hash == pwd_hash
+        return secrets.compare_digest(new_hash, pwd_hash)
     except Exception as e:
         logger.error(f"Failed to verify password: {e}")
         return False

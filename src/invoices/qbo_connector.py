@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import logging
 from src.auth.qbo_auth import QBOAuth
@@ -6,6 +7,16 @@ from src.auth.qbo_auth import QBOAuth
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 2  # seconds
+
+
+def _backoff_delay(attempt: int) -> None:
+    """Sleep for exponential backoff: 2s, 4s, 8s."""
+    time.sleep(_BACKOFF_BASE ** attempt)
+
 
 class QBOConnector:
     def __init__(self, auth: QBOAuth):
@@ -21,6 +32,13 @@ class QBOConnector:
             logger.info("QBOConnector initialized for SANDBOX environment")
 
     def make_request(self, endpoint, method="GET", params=None, data=None):
+        """Make a QBO API request with retry logic.
+
+        Retries on:
+          - 401: refresh token once, then retry
+          - 429 / 5xx: exponential backoff up to _MAX_RETRIES attempts
+          - Network errors: exponential backoff up to _MAX_RETRIES attempts
+        """
         if not self.auth.access_token:
             try:
                 self.auth.refresh_access_token()
@@ -29,66 +47,70 @@ class QBOConnector:
                 return {}
 
         url = f"{self.base_url}/{self.auth.realm_id}/{endpoint}"
-
         logger.info(f"Making {method} request to {url}")
 
-        try:
-            headers = self.auth.get_headers()
-            response = requests.request(method, url, headers=headers, params=params, json=data)
-            response.raise_for_status()
-            return response.json()
+        last_exception = None
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                headers = self.auth.get_headers()
+                response = requests.request(
+                    method, url, headers=headers, params=params, json=data, timeout=30
+                )
 
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"HTTP Error: {e}")
-
-            # Handle 401 (Unauthorized) - token expired
-            if e.response.status_code == 401:
-                logger.info("Received 401, attempting to refresh token and retry...")
-                try:
+                if response.status_code == 401:
+                    logger.info("Received 401 — refreshing token and retrying once...")
                     self.auth.refresh_access_token()
                     headers = self.auth.get_headers()
-                    response = requests.request(method, url, headers=headers, params=params, json=data)
+                    response = requests.request(
+                        method, url, headers=headers, params=params, json=data, timeout=30
+                    )
                     response.raise_for_status()
                     return response.json()
-                except Exception as retry_error:
-                    logger.error(f"Retry after token refresh failed: {retry_error}")
+
+                if response.status_code == 403:
+                    logger.error(
+                        f"403 Forbidden at {url}. Attempting token refresh as last resort."
+                    )
+                    try:
+                        self.auth.refresh_access_token()
+                        headers = self.auth.get_headers()
+                        response = requests.request(
+                            method, url, headers=headers, params=params, json=data, timeout=30
+                        )
+                        response.raise_for_status()
+                        return response.json()
+                    except Exception as retry_error:
+                        logger.error(f"Token refresh did not resolve the 403: {retry_error}")
                     return {}
 
-            # Handle 403 (Forbidden)
-            elif e.response.status_code == 403:
-                error_msg = (
-                    f"403 Forbidden error when accessing QuickBooks API at {url}. "
-                    f"Please reconnect to QuickBooks via /qbo-settings"
-                )
-                logger.error(error_msg)
+                if response.status_code in _RETRYABLE_STATUS_CODES:
+                    if attempt < _MAX_RETRIES:
+                        logger.warning(
+                            f"Received {response.status_code} on attempt {attempt + 1}/"
+                            f"{_MAX_RETRIES + 1} — retrying after backoff."
+                        )
+                        _backoff_delay(attempt)
+                        continue
+                    logger.error(f"HTTP {response.status_code} after {_MAX_RETRIES} retries: {url}")
+                    return {}
 
-                # Attempt token refresh as a last resort
-                try:
-                    self.auth.refresh_access_token()
-                    headers = self.auth.get_headers()
-                    response = requests.request(method, url, headers=headers, params=params, json=data)
-                    response.raise_for_status()
-                    logger.info("Token refresh resolved the 403 error")
-                    return response.json()
-                except Exception as retry_error:
-                    logger.error(f"Token refresh did not resolve the 403 error: {retry_error}")
-                return {}
+                response.raise_for_status()
+                return response.json()
 
-            return {}
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed: {e}")
-            return {}
-        except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}")
-            return {}
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < _MAX_RETRIES:
+                    logger.warning(
+                        f"Network error on attempt {attempt + 1}/{_MAX_RETRIES + 1}: {e} — retrying."
+                    )
+                    _backoff_delay(attempt)
+                else:
+                    logger.error(f"Request failed after {_MAX_RETRIES} retries: {e}")
+
+        return {}
 
     def fetch_bank_accounts(self):
-        """
-        Fetches bank accounts from QBO to get current balances.
-
-        Returns:
-            List of bank accounts with their current balances
-        """
+        """Fetch bank accounts from QBO to get current balances."""
         try:
             query = "select * from Account where AccountType = 'Bank' and AccountSubType = 'Checking'"
             response = self.make_request("query", params={"query": query})
@@ -105,12 +127,7 @@ class QBOConnector:
             return []
 
     def fetch_bills(self):
-        """
-        Fetches unpaid bills from QBO (Accounts Payable).
-
-        Returns:
-            List of bill objects
-        """
+        """Fetch unpaid bills from QBO (Accounts Payable)."""
         try:
             query = "select * from Bill where Balance > '0'"
             response = self.make_request("query", params={"query": query})
