@@ -649,7 +649,72 @@ def qbo_oauth_authorize(): return jsonify({'authorization_url': 'https://...'}),
 
 @app.route('/api/qbo/oauth/callback', methods=['GET'])
 @login_required
-def qbo_oauth_callback(): return render_template('oauth_callback.html', success='true')
+def qbo_oauth_callback():
+    error = request.args.get('error')
+    if error:
+        logger.error(f"QBO OAuth error: {error}")
+        return render_template('oauth_callback.html', success='false', error=error)
+
+    code = request.args.get('code')
+    state = request.args.get('state')
+    realm_id = request.args.get('realmId')
+
+    if not code:
+        return render_template('oauth_callback.html', success='false', error='No authorization code received')
+
+    # Validate state to prevent CSRF
+    expected_state = session.get('qbo_oauth_state')
+    if expected_state and state != expected_state:
+        return render_template('oauth_callback.html', success='false', error='Invalid state parameter')
+    session.pop('qbo_oauth_state', None)
+
+    try:
+        client_id = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+        client_secret = secret_manager.get_secret('QBO_Secret_2-3-26') or os.environ.get('QBO_CLIENT_SECRET')
+
+        if not client_secret:
+            return render_template('oauth_callback.html', success='false', error='Client secret not configured')
+
+        redirect_uri = 'https://' + request.host.split('://')[-1] + '/api/qbo/oauth/callback'
+
+        token_response = requests.post(
+            'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer',
+            headers={'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded'},
+            data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': redirect_uri},
+            auth=(client_id, client_secret)
+        )
+        token_response.raise_for_status()
+        token_data = token_response.json()
+
+        credentials = {
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'access_token': token_data.get('access_token'),
+            'refresh_token': token_data.get('refresh_token'),
+            'realm_id': realm_id,
+            'expires_in': token_data.get('expires_in', 3600),
+            'x_refresh_token_expires_in': token_data.get('x_refresh_token_expires_in', 8726400)
+        }
+
+        database.save_qbo_credentials(credentials, session.get('user_id'))
+
+        # Update the global qbo_auth instance so it works immediately without restart
+        qbo_auth.client_id = client_id
+        qbo_auth.client_secret = client_secret
+        qbo_auth.refresh_token = token_data.get('refresh_token')
+        qbo_auth.realm_id = realm_id
+        qbo_auth.access_token = token_data.get('access_token')
+        qbo_auth.credentials_valid = True
+
+        logger.info(f"QBO OAuth complete: realm_id={realm_id}, credentials saved to database")
+        return render_template('oauth_callback.html', success='true')
+
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"QBO token exchange failed: {e}")
+        return render_template('oauth_callback.html', success='false', error=f'Token exchange failed: {e.response.status_code}')
+    except Exception as e:
+        logger.error(f"QBO OAuth callback error: {e}")
+        return render_template('oauth_callback.html', success='false', error=str(e))
 
 @app.route('/api/qbo/refresh', methods=['POST'])
 @login_required
@@ -677,11 +742,13 @@ def qbo_oauth_diagnostic(): return jsonify({'status': 'ok'}), 200
 @login_required
 @role_required('admin', 'master_admin')
 def qbo_oauth_authorize_v2():
-    # Real logic implementation for test passing
     client_id = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
     redirect_uri = 'https://' + request.host.split('://')[-1] + '/api/qbo/oauth/callback'
+    state = str(uuid.uuid4())
+    session['qbo_oauth_state'] = state
     encoded = quote(redirect_uri, safe='')
-    url = f"https://appcenter.intuit.com/connect/oauth2?client_id={client_id}&redirect_uri={encoded}&response_type=code"
+    scope = quote('com.intuit.quickbooks.accounting', safe='')
+    url = f"https://appcenter.intuit.com/connect/oauth2?client_id={client_id}&redirect_uri={encoded}&response_type=code&scope={scope}&state={state}"
     return jsonify({'authorization_url': url}), 200
 
 if __name__ == '__main__':
