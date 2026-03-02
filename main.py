@@ -756,7 +756,7 @@ def qbo_oauth_authorize_v2():
     state = str(uuid.uuid4())
     session['qbo_oauth_state'] = state
     encoded = quote(redirect_uri, safe='')
-    scope = quote('com.intuit.quickbooks.accounting', safe='')
+    scope = quote('com.intuit.quickbooks.accounting offline_access', safe='')
     url = f"https://appcenter.intuit.com/connect/oauth2?client_id={client_id}&redirect_uri={encoded}&response_type=code&scope={scope}&state={state}"
     return jsonify({'authorization_url': url}), 200
 
