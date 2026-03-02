@@ -236,7 +236,10 @@ def login():
 @app.route('/api/logout', methods=['POST'])
 @audit_log('user_logout')
 def logout():
-    session.clear()
+    session.pop('user_id', None)
+    session.pop('user_email', None)
+    session.pop('user_full_name', None)
+    session.pop('user_role', None)
     return jsonify({'message': 'Logout successful'}), 200
 
 @app.route('/api/forgot-password', methods=['POST'])
