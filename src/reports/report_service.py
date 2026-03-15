@@ -51,6 +51,19 @@ class ReportService:
              params["end_date"] = date
          return self.get_report(report_type, params)
 
+    def get_general_ledger(self, start_date=None, end_date=None, account=None, **kwargs):
+        """
+        Fetches a General Ledger report filtered to a specific account.
+        Used for drill-down on Balance Sheet and P&L account rows.
+        """
+        params = {
+            "start_date": start_date,
+            "end_date": end_date,
+        }
+        if account:
+            params["account"] = account
+        return self.get_report("GeneralLedger", params)
+
     def get_transaction_list(self, start_date=None, end_date=None,
                              sort_by="date", sort_order="desc",
                              account=None, customer=None, vendor=None,

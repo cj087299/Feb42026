@@ -483,6 +483,21 @@ function renderTransactionList(data, container) {
         return;
     }
 
+    // Flatten rows — TransactionList is flat; GeneralLedger nests data rows inside Section rows
+    const flatRows = [];
+    data.Rows.Row.forEach(row => {
+        if (row.ColData) {
+            flatRows.push(row);
+        } else if (row.Rows && row.Rows.Row) {
+            row.Rows.Row.forEach(inner => { if (inner.ColData) flatRows.push(inner); });
+        }
+    });
+
+    if (flatRows.length === 0) {
+        container.innerHTML = '<div class="drilldown-empty">No transactions found for this period.</div>';
+        return;
+    }
+
     // Detect amount-like columns (by title or ColType)
     const amountKeywords = ['amount', 'debit', 'credit', 'balance', 'total'];
     const columns = (data.Columns && data.Columns.Column) ? data.Columns.Column : [];
@@ -508,8 +523,7 @@ function renderTransactionList(data, container) {
 
     // Body
     const tbody = document.createElement('tbody');
-    data.Rows.Row.forEach(row => {
-        if (!row.ColData) return;
+    flatRows.forEach(row => {
         const tr = document.createElement('tr');
         row.ColData.forEach((cell, i) => {
             const td = document.createElement('td');

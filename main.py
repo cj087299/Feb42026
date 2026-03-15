@@ -428,9 +428,13 @@ def get_report_drilldown():
             return jsonify({"error": "QuickBooks credentials not configured"}), 400
 
         report_service = ReportService(fresh_connector)
-        # Pass request.args as kwargs
         args = {k: v for k, v in request.args.items()}
-        result = report_service.get_transaction_list(**args)
+        # Account-based drilldowns (Balance Sheet, P&L) use GeneralLedger;
+        # vendor/customer drilldowns (Aged reports) use TransactionList.
+        if 'account' in args and 'customer' not in args and 'vendor' not in args:
+            result = report_service.get_general_ledger(**args)
+        else:
+            result = report_service.get_transaction_list(**args)
         return jsonify(result), 200
     except Exception as e:
         logger.error(f"Error fetching drilldown: {e}")
