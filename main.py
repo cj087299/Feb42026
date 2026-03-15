@@ -412,7 +412,12 @@ def get_report(report_type):
 
             result = report_service.get_comparison_report(report_type, params_a, params_b)
         else:
-            result = report_service.get_report(report_type, request.args)
+            params = dict(request.args)
+            # Force 6-bucket aging (Not Due + 5 x 30-day periods) for aged reports
+            if report_type in ('AgedPayables', 'AgedReceivables'):
+                params.setdefault('aging_period', '30')
+                params.setdefault('num_periods', '5')
+            result = report_service.get_report(report_type, params)
 
         return jsonify(result), 200
     except Exception as e:
@@ -429,10 +434,15 @@ def get_report_drilldown():
 
         report_service = ReportService(fresh_connector)
         args = {k: v for k, v in request.args.items()}
-        # Account-based drilldowns (Balance Sheet, P&L) use GeneralLedger;
-        # vendor/customer drilldowns (Aged reports) use TransactionList.
         if 'account' in args and 'customer' not in args and 'vendor' not in args:
+            # Balance Sheet / P&L — show GL entries for the account
             result = report_service.get_general_ledger(**args)
+        elif 'customer' in args:
+            # Aged Receivables — show open invoices only
+            result = report_service.get_open_ar_items(**args)
+        elif 'vendor' in args:
+            # Aged Payables — show open bills only
+            result = report_service.get_open_ap_items(**args)
         else:
             result = report_service.get_transaction_list(**args)
         return jsonify(result), 200

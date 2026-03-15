@@ -92,6 +92,51 @@ class ReportService:
 
         return self.get_report("TransactionList", params)
 
+    def get_open_ar_items(self, customer=None, end_date=None, **kwargs):
+        """Get open (unpaid) invoices for a customer as of end_date."""
+        conditions = ["Balance > '0'"]
+        if customer:
+            conditions.append(f"CustomerRef = '{customer}'")
+        if end_date:
+            conditions.append(f"TxnDate <= '{end_date}'")
+        query = f"SELECT * FROM Invoice WHERE {' AND '.join(conditions)} ORDER BY TxnDate DESC MAXRESULTS 500"
+        response = self.qbo.make_request("query", params={"query": query})
+        invoices = response.get("QueryResponse", {}).get("Invoice", [])
+        return self._format_open_items(invoices, "Invoice")
+
+    def get_open_ap_items(self, vendor=None, end_date=None, **kwargs):
+        """Get open (unpaid) bills for a vendor as of end_date."""
+        conditions = ["Balance > '0'"]
+        if vendor:
+            conditions.append(f"VendorRef = '{vendor}'")
+        if end_date:
+            conditions.append(f"TxnDate <= '{end_date}'")
+        query = f"SELECT * FROM Bill WHERE {' AND '.join(conditions)} ORDER BY TxnDate DESC MAXRESULTS 500"
+        response = self.qbo.make_request("query", params={"query": query})
+        bills = response.get("QueryResponse", {}).get("Bill", [])
+        return self._format_open_items(bills, "Bill")
+
+    def _format_open_items(self, items, item_type):
+        """Transform QBO query results into the Columns/Rows format used by the frontend."""
+        doc_col = "Invoice #" if item_type == "Invoice" else "Bill #"
+        columns = [
+            {"ColTitle": "Date",         "ColType": "tx_date"},
+            {"ColTitle": doc_col,         "ColType": "doc_num"},
+            {"ColTitle": "Due Date",      "ColType": "due_date"},
+            {"ColTitle": "Total Amount",  "ColType": "Money"},
+            {"ColTitle": "Open Balance",  "ColType": "Money"},
+        ]
+        rows = []
+        for item in items:
+            rows.append({"ColData": [
+                {"value": item.get("TxnDate", "")},
+                {"value": item.get("DocNumber", "")},
+                {"value": item.get("DueDate", "")},
+                {"value": str(item.get("TotalAmt", ""))},
+                {"value": str(item.get("Balance", ""))},
+            ]})
+        return {"Columns": {"Column": columns}, "Rows": {"Row": rows}}
+
     def get_comparison_report(self, report_type, params_a, params_b):
         """
         Fetches two reports for side-by-side comparison.

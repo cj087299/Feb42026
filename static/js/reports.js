@@ -2,12 +2,6 @@
 let currentReportData = null;
 let currentReportType = 'BalanceSheet';
 
-// Multi-select filter state: selected = Set of IDs, data = [{id, name}]
-const filterState = {
-    customer: { selected: new Set(), loaded: false, loading: false, data: [] },
-    vendor:   { selected: new Set(), loaded: false, loading: false, data: [] }
-};
-
 // ── Initialisation ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
     // Default dates
@@ -50,16 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedReportsSelect = document.getElementById('savedReports');
     if (savedReportsSelect) savedReportsSelect.addEventListener('change', loadSavedReport);
 
-    // Close dropdowns when clicking outside
-    document.addEventListener('click', e => {
-        ['customer', 'vendor'].forEach(type => {
-            const container = document.getElementById(`${type}MSContainer`);
-            if (container && !container.contains(e.target)) {
-                closeFilterDropdown(type);
-            }
-        });
-    });
-
     fetchSavedReports();
 
     // Auto-run if type param present in URL
@@ -71,149 +55,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ── Multi-select filter functions ────────────────────────────
-
-function toggleFilterDropdown(type) {
-    const panel   = document.getElementById(`${type}MSPanel`);
-    const trigger = document.getElementById(`${type}MSTrigger`);
-    const isOpen  = panel.style.display !== 'none';
-
-    // Close other dropdowns
-    ['customer', 'vendor'].forEach(t => { if (t !== type) closeFilterDropdown(t); });
-
-    if (isOpen) {
-        closeFilterDropdown(type);
-    } else {
-        panel.style.display = 'block';
-        trigger.classList.add('active');
-        if (!filterState[type].loaded && !filterState[type].loading) {
-            loadFilterOptions(type);
-        }
-        const searchInput = document.getElementById(`${type}SearchInput`);
-        if (searchInput) searchInput.focus();
-    }
-}
-
-function closeFilterDropdown(type) {
-    const panel   = document.getElementById(`${type}MSPanel`);
-    const trigger = document.getElementById(`${type}MSTrigger`);
-    if (panel)   panel.style.display = 'none';
-    if (trigger) trigger.classList.remove('active');
-}
-
-async function loadFilterOptions(type) {
-    const state = filterState[type];
-    if (state.loading) return;
-    state.loading = true;
-
-    const listEl = document.getElementById(`${type}OptionsList`);
-    if (listEl) listEl.innerHTML = '<div class="ms-loading">Loading…</div>';
-
-    try {
-        const resp = await fetch(`/api/reports/${type}s`);
-        const data = await resp.json();
-        state.data   = data.results || [];
-        state.loaded = true;
-        renderFilterOptions(type);
-    } catch (e) {
-        if (listEl) listEl.innerHTML = '<div class="ms-loading">Failed to load options.</div>';
-    } finally {
-        state.loading = false;
-    }
-}
-
-function renderFilterOptions(type, search = '') {
-    const state  = filterState[type];
-    const listEl = document.getElementById(`${type}OptionsList`);
-    if (!listEl) return;
-
-    const lower    = search.toLowerCase();
-    const filtered = search
-        ? state.data.filter(item => item.name.toLowerCase().includes(lower))
-        : state.data;
-
-    if (filtered.length === 0) {
-        listEl.innerHTML = `<div class="ms-empty">No ${type}s found.</div>`;
-        return;
-    }
-
-    listEl.innerHTML = filtered.map(item => `
-        <label class="ms-option">
-            <input type="checkbox" value="${escapeHTML(item.id)}"
-                   ${state.selected.has(item.id) ? 'checked' : ''}
-                   onchange="toggleFilterOption('${type}', '${escapeHTML(item.id)}', this.checked)">
-            <span title="${escapeHTML(item.name)}">${escapeHTML(item.name)}</span>
-        </label>
-    `).join('');
-
-    updateSelectAllState(type);
-}
-
-function searchFilterOptions(type, search) {
-    renderFilterOptions(type, search);
-}
-
-function toggleFilterOption(type, id, checked) {
-    if (checked) filterState[type].selected.add(id);
-    else         filterState[type].selected.delete(id);
-    updateFilterLabel(type);
-    updateSelectAllState(type);
-}
-
-function toggleSelectAll(type, checked) {
-    const state = filterState[type];
-    if (checked) {
-        state.data.forEach(item => state.selected.add(item.id));
-    } else {
-        state.selected.clear();
-    }
-    const searchInput = document.getElementById(`${type}SearchInput`);
-    renderFilterOptions(type, searchInput ? searchInput.value : '');
-    updateFilterLabel(type);
-}
-
-function clearFilter(type) {
-    filterState[type].selected.clear();
-    const searchInput = document.getElementById(`${type}SearchInput`);
-    if (searchInput) searchInput.value = '';
-    renderFilterOptions(type);
-    updateFilterLabel(type);
-}
-
-function updateSelectAllState(type) {
-    const state     = filterState[type];
-    const selectAll = document.getElementById(`${type}SelectAll`);
-    if (!selectAll) return;
-    if (state.data.length === 0 || state.selected.size === 0) {
-        selectAll.indeterminate = false;
-        selectAll.checked = false;
-    } else if (state.selected.size >= state.data.length) {
-        selectAll.indeterminate = false;
-        selectAll.checked = true;
-    } else {
-        selectAll.indeterminate = true;
-        selectAll.checked = false;
-    }
-}
-
-function updateFilterLabel(type) {
-    const state   = filterState[type];
-    const labelEl = document.getElementById(`${type}FilterLabel`);
-    if (!labelEl) return;
-    const plural = type === 'customer' ? 'Customers' : 'Vendors';
-    const single = type === 'customer' ? 'Customer'  : 'Vendor';
-
-    if (state.selected.size === 0) {
-        labelEl.innerHTML = `All ${plural}`;
-    } else if (state.selected.size === 1) {
-        const [id]  = state.selected;
-        const item  = state.data.find(d => d.id === id);
-        labelEl.innerHTML = item ? escapeHTML(item.name) : `1 ${single} selected`;
-    } else {
-        labelEl.innerHTML = `<span class="ms-selected-badge">${state.selected.size}</span> ${plural} selected`;
-    }
-}
-
 // ── Fetch & render report ────────────────────────────────────
 
 async function fetchReport() {
@@ -224,19 +65,12 @@ async function fetchReport() {
     const startDateA = document.getElementById('startDateA').value;
     const endDateA   = document.getElementById('endDateA').value;
 
-    const selectedCustomers = Array.from(filterState.customer.selected);
-    const selectedVendors   = Array.from(filterState.vendor.selected);
-
     let params = new URLSearchParams({ start_date: startDateA, end_date: endDateA });
-    if (selectedCustomers.length > 0) params.append('customer', selectedCustomers.join(','));
-    if (selectedVendors.length   > 0) params.append('vendor',   selectedVendors.join(','));
 
     if (compare) {
         const startDateB = document.getElementById('startDateB').value;
         const endDateB   = document.getElementById('endDateB').value;
         params = new URLSearchParams({ compare: 'true', start_date_a: startDateA, end_date_a: endDateA, start_date_b: startDateB, end_date_b: endDateB });
-        if (selectedCustomers.length > 0) params.append('customer', selectedCustomers.join(','));
-        if (selectedVendors.length   > 0) params.append('vendor',   selectedVendors.join(','));
     }
 
     document.getElementById('loading').style.display = 'block';
@@ -269,6 +103,35 @@ async function fetchReport() {
     } finally {
         document.getElementById('loading').style.display = 'none';
     }
+}
+
+// ── Aged report column title mapping ─────────────────────────
+
+function mapAgedColumnTitle(title) {
+    const t = (title || '').trim().toLowerCase();
+    if (t === 'current')                              return 'Not Due';
+    if (/^1\s*[-–]\s*30/.test(t))                    return '1-30 Days';
+    if (/^31\s*[-–]\s*60/.test(t))                   return '31-60 Days';
+    if (/^61\s*[-–]\s*90/.test(t))                   return '61-90 Days';
+    if (/^91\s*[-–]\s*120/.test(t))                  return '91-120 Days';
+    if (/^(>|over|121|120\+)/.test(t) || t.includes('over')) return '120+ Days';
+    return title;
+}
+
+// ── In-table filter for aged reports ─────────────────────────
+
+function filterAgedRows(search) {
+    const lower = search.toLowerCase().trim();
+    document.querySelectorAll('#reportContainer .report-tree-node').forEach(node => {
+        // Always keep section headers and summary/total rows visible
+        if (node.querySelector('.report-section-header') || node.querySelector('.summary-row')) {
+            node.style.display = '';
+            return;
+        }
+        if (!lower) { node.style.display = ''; return; }
+        const label = (node.querySelector('.report-cell') || {}).textContent || '';
+        node.style.display = label.toLowerCase().includes(lower) ? '' : 'none';
+    });
 }
 
 // ── Report rendering ─────────────────────────────────────────
@@ -313,15 +176,25 @@ function renderReport(reportData, container, reportType) {
         labelCol.textContent = 'Account / Item';
         headerRow.appendChild(labelCol);
 
+        const isAged = (reportType === 'AgedPayables' || reportType === 'AgedReceivables');
         reportData.Columns.Column.forEach(col => {
             if (col.ColType === 'Money') {
                 const cell = document.createElement('div');
                 cell.className = 'report-cell report-cell-value';
-                cell.textContent = col.ColTitle || 'Amount';
+                cell.textContent = isAged ? mapAgedColumnTitle(col.ColTitle) : (col.ColTitle || 'Amount');
                 headerRow.appendChild(cell);
             }
         });
         treeContainer.appendChild(headerRow);
+    }
+
+    // Aged reports: add in-table search filter
+    if (reportType === 'AgedPayables' || reportType === 'AgedReceivables') {
+        const filterRow = document.createElement('div');
+        filterRow.className = 'aged-filter-row';
+        const placeholder = reportType === 'AgedPayables' ? 'Filter by vendor…' : 'Filter by customer…';
+        filterRow.innerHTML = `<input type="text" class="aged-filter-input" placeholder="${placeholder}" oninput="filterAgedRows(this.value)">`;
+        treeContainer.appendChild(filterRow);
     }
 
     // Rows
@@ -700,14 +573,6 @@ function loadSavedReport() {
         if (params.end_date_b)   document.getElementById('endDateB').value   = params.end_date_b;
     }
 
-    // Restore multi-select filters from saved IDs (comma-separated)
-    filterState.customer.selected.clear();
-    filterState.vendor.selected.clear();
-    if (params.customer) params.customer.split(',').forEach(id => filterState.customer.selected.add(id.trim()));
-    if (params.vendor)   params.vendor.split(',').forEach(id => filterState.vendor.selected.add(id.trim()));
-    updateFilterLabel('customer');
-    updateFilterLabel('vendor');
-
     fetchReport();
 }
 
@@ -732,8 +597,6 @@ async function saveCurrentView() {
         start_date_a: document.getElementById('startDateA').value,
         end_date_a:   document.getElementById('endDateA').value,
         compare,
-        customer: Array.from(filterState.customer.selected).join(','),
-        vendor:   Array.from(filterState.vendor.selected).join(',')
     };
 
     if (compare) {
