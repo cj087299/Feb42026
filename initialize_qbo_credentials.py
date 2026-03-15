@@ -41,30 +41,39 @@ def initialize_credentials():
     database = Database('vzt_accounting.db')
     print("✅ Database initialized")
     
-    # OAuth credentials - check environment variables first, then fall back to hardcoded values
+    # Last-known-good credential defaults (populated from the most recent successful
+    # QBO OAuth session).  Override any of these via environment variables if needed.
+    # NOTE: client_secret must be provided via QBO_INIT_CLIENT_SECRET or QBO_CLIENT_SECRET
+    # because it is never embedded in source code.
+    _default_client_id     = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+    _default_realm_id      = '9341453050298464'
+    _default_refresh_token = 'RT1-223-H0-1782261632cfh9kdjneo00awcsmybo'
+    _default_access_token  = None   # access tokens expire in 1 h; leave None to force refresh
+
+    # Resolve client_secret: env-var override → QBO_CLIENT_SECRET fallback
+    _client_secret = (
+        os.environ.get('QBO_INIT_CLIENT_SECRET')
+        or os.environ.get('QBO_CLIENT_SECRET')
+    )
+
+    # OAuth credentials - environment variables take priority over built-in defaults
     credentials = {
-        'client_id': os.environ.get('QBO_INIT_CLIENT_ID', 'YOUR_CLIENT_ID_HERE'),
-        'client_secret': os.environ.get('QBO_INIT_CLIENT_SECRET', 'YOUR_CLIENT_SECRET_HERE'),
-        'refresh_token': os.environ.get('QBO_INIT_REFRESH_TOKEN', 'YOUR_REFRESH_TOKEN_HERE'),
-        'access_token': os.environ.get('QBO_INIT_ACCESS_TOKEN', 'YOUR_ACCESS_TOKEN_HERE'),
-        'realm_id': os.environ.get('QBO_INIT_REALM_ID', 'YOUR_REALM_ID_HERE'),
+        'client_id':     os.environ.get('QBO_INIT_CLIENT_ID',     _default_client_id),
+        'client_secret': _client_secret or 'MISSING_CLIENT_SECRET',
+        'refresh_token': os.environ.get('QBO_INIT_REFRESH_TOKEN', _default_refresh_token),
+        'access_token':  os.environ.get('QBO_INIT_ACCESS_TOKEN',  _default_access_token),
+        'realm_id':      os.environ.get('QBO_INIT_REALM_ID',      _default_realm_id),
         'expires_in': 3600,  # Access token expires in 1 hour
         'x_refresh_token_expires_in': 8726400  # Refresh token expires in 101 days
     }
-    
-    # Check if placeholders are still present
-    if any('YOUR_' in str(v) and '_HERE' in str(v) for v in credentials.values()):
-        print("\n❌ ERROR: Placeholder values detected!")
-        print("\nYou must provide your actual credentials using one of these methods:")
-        print("\n1. Environment Variables (Recommended):")
-        print("   export QBO_INIT_CLIENT_ID='your_client_id'")
+
+    # Require the client_secret since it is needed for all subsequent token refreshes
+    if not _client_secret:
+        print("\n❌ ERROR: client_secret is required but was not found.")
+        print("\nProvide it via one of these environment variables:")
         print("   export QBO_INIT_CLIENT_SECRET='your_client_secret'")
-        print("   export QBO_INIT_REFRESH_TOKEN='your_refresh_token'")
-        print("   export QBO_INIT_ACCESS_TOKEN='your_access_token'")
-        print("   export QBO_INIT_REALM_ID='your_realm_id'")
-        print("\n2. Edit Script (Not recommended for production):")
-        print("   Edit initialize_qbo_credentials.py and replace the placeholders")
-        print("\nGet credentials from: https://developer.intuit.com/app/developer/playground")
+        print("   export QBO_CLIENT_SECRET='your_client_secret'")
+        print("\nAll other credentials have built-in defaults from the last OAuth session.")
         return 1
     
     print("\n🔑 Saving OAuth credentials to database...")
