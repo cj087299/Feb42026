@@ -1,6 +1,7 @@
 # ... imports ...
 import os
 import logging
+from datetime import datetime, timedelta
 
 # Load .env file before anything else so credentials are available
 try:
@@ -570,10 +571,32 @@ def get_invoices():
         all_metadata = database.get_all_invoice_metadata()
         metadata_map = {m['invoice_id']: m for m in all_metadata}
         for invoice in invoices:
-            invoice_id = invoice.get('id') or invoice.get('doc_number')
-            if invoice_id and invoice_id in metadata_map and 'metadata' not in invoice:
-                invoice['metadata'] = metadata_map[invoice_id]
-        
+            invoice_id = str(invoice.get('id') or invoice.get('doc_number') or '')
+            meta = metadata_map.get(invoice_id, {})
+            if meta and 'metadata' not in invoice:
+                invoice['metadata'] = meta
+
+            # Calculate projected pay date using already-fetched metadata (avoids per-invoice DB queries)
+            projected = None
+            manual = meta.get('manual_override_pay_date')
+            portal_sub = meta.get('portal_submission_date')
+            if manual:
+                try:
+                    projected = datetime.strptime(manual, '%Y-%m-%d')
+                except ValueError:
+                    pass
+            if not projected and portal_sub:
+                try:
+                    projected = datetime.strptime(portal_sub, '%Y-%m-%d') + timedelta(days=invoice.get('terms_days', 30))
+                except ValueError:
+                    pass
+            if not projected and invoice.get('due_date'):
+                try:
+                    projected = datetime.strptime(invoice['due_date'], '%Y-%m-%d')
+                except ValueError:
+                    pass
+            invoice['projected_pay_date'] = projected.strftime('%Y-%m-%d') if projected else None
+
         filtered = invoice_mgr.filter_invoices(invoices, **filters)
         sorted_inv = invoice_mgr.sort_invoices(filtered, sort_by=request.args.get('sort_by', 'due_date'), reverse=request.args.get('reverse', 'false')=='true')
         return jsonify(sorted_inv), 200

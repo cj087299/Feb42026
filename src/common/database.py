@@ -422,29 +422,44 @@ class Database:
                     now
                 ))
             else:
-                # SQLite syntax
-                cursor.execute('''
-                    INSERT INTO invoice_metadata 
-                    (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name, 
-                     portal_submission_date, manual_override_pay_date, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(invoice_id) DO UPDATE SET
-                        vzt_rep = excluded.vzt_rep,
-                        sent_to_vzt_rep_date = excluded.sent_to_vzt_rep_date,
-                        customer_portal_name = excluded.customer_portal_name,
-                        portal_submission_date = excluded.portal_submission_date,
-                        manual_override_pay_date = excluded.manual_override_pay_date,
-                        updated_at = excluded.updated_at
-                ''', (
-                    invoice_id,
-                    metadata.get('vzt_rep'),
-                    metadata.get('sent_to_vzt_rep_date'),
-                    metadata.get('customer_portal_name'),
-                    metadata.get('portal_submission_date'),
-                    metadata.get('manual_override_pay_date'),
-                    now,
-                    now
-                ))
+                # SQLite: use explicit SELECT then UPDATE or INSERT for broad version compatibility
+                cursor.execute('SELECT created_at FROM invoice_metadata WHERE invoice_id = ?', (invoice_id,))
+                existing = cursor.fetchone()
+                if existing:
+                    cursor.execute('''
+                        UPDATE invoice_metadata SET
+                            vzt_rep = ?,
+                            sent_to_vzt_rep_date = ?,
+                            customer_portal_name = ?,
+                            portal_submission_date = ?,
+                            manual_override_pay_date = ?,
+                            updated_at = ?
+                        WHERE invoice_id = ?
+                    ''', (
+                        metadata.get('vzt_rep'),
+                        metadata.get('sent_to_vzt_rep_date'),
+                        metadata.get('customer_portal_name'),
+                        metadata.get('portal_submission_date'),
+                        metadata.get('manual_override_pay_date'),
+                        now,
+                        invoice_id
+                    ))
+                else:
+                    cursor.execute('''
+                        INSERT INTO invoice_metadata
+                        (invoice_id, vzt_rep, sent_to_vzt_rep_date, customer_portal_name,
+                         portal_submission_date, manual_override_pay_date, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        invoice_id,
+                        metadata.get('vzt_rep'),
+                        metadata.get('sent_to_vzt_rep_date'),
+                        metadata.get('customer_portal_name'),
+                        metadata.get('portal_submission_date'),
+                        metadata.get('manual_override_pay_date'),
+                        now,
+                        now
+                    ))
             
             conn.commit()
             conn.close()

@@ -138,6 +138,14 @@
     <script>
         // Load invoices on page load
         window.addEventListener('DOMContentLoaded', () => {
+            // Default date range: last 6 months to today
+            const today = new Date();
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(today.getMonth() - 6);
+            const fmtDate = d => d.toISOString().split('T')[0];
+            document.getElementById('invoice_start_date').value = fmtDate(sixMonthsAgo);
+            document.getElementById('invoice_end_date').value   = fmtDate(today);
+
             loadInvoices();
             populateVztRepFilter();
             
@@ -271,6 +279,7 @@
                                     <th>Customer Portal</th>
                                     <th>Portal Submission</th>
                                     <th>Manual Pay Date</th>
+                                    <th>Projected Pay Date</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -306,6 +315,7 @@
                             <td data-label="Customer Portal">${metadata.customer_portal_name || '-'}</td>
                             <td data-label="Portal Submission" class="editable-cell" onclick="editInlineField('${invoiceId}', 'portal_submission_date', '${metadata.portal_submission_date || ''}', event)">${metadata.portal_submission_date ? formatDate(metadata.portal_submission_date) : '-'}</td>
                             <td data-label="Manual Pay Date">${metadata.manual_override_pay_date ? formatDate(metadata.manual_override_pay_date) : '-'}</td>
+                            <td data-label="Projected Pay Date">${invoice.projected_pay_date ? formatDate(invoice.projected_pay_date) : '-'}</td>
                             <td data-label="Actions"><button class="btn btn-secondary" onclick="editInvoiceMetadata('${invoiceId}')">Edit</button></td>
                         </tr>
                     `;
