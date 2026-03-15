@@ -1,7 +1,7 @@
 """Test helpers for authentication and test setup."""
 
 import unittest
-from src.auth import hash_password
+from src.auth.utils import hash_password
 
 
 class AuthenticatedTestCase(unittest.TestCase):

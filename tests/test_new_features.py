@@ -1,6 +1,8 @@
 import unittest
 import json
-from main import app, database
+from main import app
+from src.common.database import Database
+database = Database()
 from tests.test_helpers import AuthenticatedTestCase
 
 
@@ -44,8 +46,8 @@ class TestNewFeatures(AuthenticatedTestCase):
         metadata = {
             "vzt_rep": "John Doe",
             "sent_to_vzt_rep_date": "2026-02-01",
-            "customer_portal": "Portal A",
-            "customer_portal_submission_date": "2026-02-05"
+            "customer_portal_name": "Portal A",
+            "portal_submission_date": "2026-02-05"
         }
         
         response = self.client.post(
@@ -60,7 +62,7 @@ class TestNewFeatures(AuthenticatedTestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.data)
         self.assertEqual(data['vzt_rep'], "John Doe")
-        self.assertEqual(data['customer_portal'], "Portal A")
+        self.assertEqual(data['customer_portal_name'], "Portal A")
     
     def test_custom_cash_flows_api(self):
         """Test custom cash flow endpoints."""
@@ -122,17 +124,15 @@ class TestNewFeatures(AuthenticatedTestCase):
         self.assertIn('daily_projection', data)
         
         # Verify daily projection is a dictionary
-        self.assertIsInstance(data['daily_projection'], dict)
+        self.assertIsInstance(data['daily_projection'], list)
         
         # Check if at least one day exists
         self.assertGreater(len(data['daily_projection']), 0)
         
         # Verify structure of a daily entry
-        first_day = list(data['daily_projection'].values())[0]
+        first_day = data['daily_projection'][0]
         self.assertIn('date', first_day)
-        self.assertIn('balance', first_day)
-        self.assertIn('total_inflow', first_day)
-        self.assertIn('total_outflow', first_day)
+        self.assertIn('closing_balance', first_day)
         self.assertIn('net_change', first_day)
     
     def test_recurring_cash_flow(self):

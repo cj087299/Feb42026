@@ -1,0 +1,124 @@
+INFO:src.common.database:Database initialized using SQLite at vzt_accounting.db
+WARNING:src.auth.secret_manager:GOOGLE_CLOUD_PROJECT not set, using environment variables
+WARNING:src.common.email_service:SMTP credentials not configured! Email functionality requires SMTP_USER and SMTP_PASSWORD environment variables. Please configure email settings. See EMAIL_CONFIGURATION.md for instructions.
+WARNING:src.common.email_service:Email service is enabled but SMTP credentials are missing. Email sending will fail until SMTP_USER and SMTP_PASSWORD environment variables are set.
+INFO:__main__:Webhook background processor started
+WARNING:src.auth.secret_manager:Secret 'QBO_ID_2-3-26' not found in Secret Manager or environment
+WARNING:src.auth.secret_manager:Secret 'QBO_Secret_2-3-26' not found in Secret Manager or environment
+ERROR:src.auth.secret_manager:QBO credentials are not configured. Please set up credentials via the admin UI at /qbo-settings or configure environment variables.
+WARNING:src.auth.qbo_auth:QBO credentials are not configured properly. Please configure OAuth credentials at /qbo-settings or set environment variables. Current operations will fail until valid credentials are provided.
+INFO:src.invoices.qbo_connector:QBOConnector initialized for PRODUCTION environment
+WARNING:__main__:======================================================================
+WARNING:__main__:  QuickBooks credentials are NOT configured
+INFO:__main__:Checking for admin users...
+ * Serving Flask app 'main'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8080
+ * Running on http://192.168.0.2:8080
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:33] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:33] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/img/hero-desktop.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/css/mobile.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/img/feature-qbo.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/img/feature-ai.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /static/img/feature-cashflow.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:34] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:36] "GET /qbo-settings-v2 HTTP/1.1" 200 -
+INFO:__main__:QBO Credentials User Check: {'id': 2, 'email': 'admin@vzt.com', 'full_name': 'Admin', 'role': 'master_admin'}
+INFO:__main__:QBO Credentials is_admin: True
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:19:36] "[33mGET /api/qbo/credentials HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:20:54] "[32mGET / HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:20:54] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:20:54] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "[32mGET / HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/img/hero-desktop.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/css/mobile.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/img/feature-qbo.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/img/feature-cashflow.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /static/img/feature-ai.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:22:27] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "[32mGET / HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/img/hero-desktop.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/css/mobile.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/img/feature-ai.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/img/feature-qbo.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:12] "GET /static/img/feature-cashflow.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:13] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:13] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:13] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:14] "GET /qbo-settings-v2 HTTP/1.1" 200 -
+INFO:__main__:QBO Credentials User Check: {'id': 2, 'email': 'admin@vzt.com', 'full_name': 'Admin', 'role': 'master_admin'}
+INFO:__main__:QBO Credentials is_admin: True
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:14] "[33mGET /api/qbo/credentials HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "[32mGET / HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/css/mobile.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/img/hero-desktop.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/img/feature-qbo.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/img/feature-cashflow.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /static/img/feature-ai.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:30] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:31] "GET /qbo-settings-v2 HTTP/1.1" 200 -
+INFO:__main__:QBO Credentials User Check: {'id': 2, 'email': 'admin@vzt.com', 'full_name': 'Admin', 'role': 'master_admin'}
+INFO:__main__:QBO Credentials is_admin: True
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:31] "[33mGET /api/qbo/credentials HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "[32mGET / HTTP/1.1[0m" 302 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/css/style.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "POST /api/login HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET / HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "[36mGET /static/css/style.css HTTP/1.1[0m" 304 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/img/hero-desktop.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/js/common.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/js/export_utils.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/css/ai-chat.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/css/mobile.css HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/js/ai-chat.js HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/img/feature-qbo.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/img/feature-ai.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:53] "GET /static/img/feature-cashflow.png HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:54] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:54] "GET /api/me HTTP/1.1" 200 -
+INFO:werkzeug:127.0.0.1 - - [22/Feb/2026 06:23:54] "GET /api/me HTTP/1.1" 200 -

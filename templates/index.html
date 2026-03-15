@@ -1,29 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VZT Accounting - QuickBooks Cash Flow</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <header class="header">
-        <div class="container">
-            <a href="/" class="logo">💰 VZT Accounting</a>
-            <nav class="nav" id="mainNav">
-                <a href="/">Home</a>
-                <a href="/invoices">Invoices</a>
-                <a href="/cashflow">Cash Flow</a>
-                <a href="/health">Status</a>
-                <a href="#" onclick="logout(); return false;">Logout</a>
-            </nav>
-        </div>
-    </header>
+{% extends "base.html" %}
 
-    <main class="container">
+{% block title %}VZT Accounting - QuickBooks Cash Flow{% endblock %}
+
+{% block content %}
         <section class="hero">
+            <img src="/static/img/hero-desktop.png"
+                 srcset="/static/img/hero-mobile.png 400w,
+                         /static/img/hero-tablet.png 800w,
+                         /static/img/hero-desktop.png 1200w"
+                 sizes="(max-width: 400px) 100vw,
+                        (max-width: 800px) 100vw,
+                        1200px"
+                 alt="VZT Accounting Hero"
+                 class="hero-image"
+                 fetchpriority="high">
             <h1>Welcome to VZT Accounting</h1>
-            <p>Manage your QuickBooks Online invoices and project your cash flow with ease</p>
+            <p>Professional Invoice Management & Cash Flow Projections for Energy Services</p>
             <p id="userInfo" style="font-size: 0.9rem; color: var(--text-secondary);"></p>
         </section>
 
@@ -41,6 +33,20 @@
                 <p>Get AI-powered cash flow projections based on your invoices. Plan ahead with accurate financial forecasts.</p>
                 <span class="card-link">View Projections →</span>
             </a>
+
+            <a href="/liquidity" class="card">
+                <div class="card-icon">💧</div>
+                <h2>Liquidity Dashboard</h2>
+                <p>View high-level financial snapshot, liquidity ratios, and key metrics like AR, AP, and Bank Balance.</p>
+                <span class="card-link">View Dashboard →</span>
+            </a>
+
+            <a href="/reports" class="card">
+                <div class="card-icon">📈</div>
+                <h2>Financial Reports</h2>
+                <p>Generate Balance Sheet, Profit & Loss, Aging, and Transaction List reports. Compare time periods side-by-side.</p>
+                <span class="card-link">View Reports →</span>
+            </a>
             
             <a href="/audit" class="card" id="auditCard" style="display: none;">
                 <div class="card-icon">📋</div>
@@ -55,6 +61,13 @@
                 <p>Manage system users, roles, and permissions. Control access to different parts of the application.</p>
                 <span class="card-link">Manage Users →</span>
             </a>
+            
+            <a href="/qbo-settings-v2" class="card" id="qboSettingsCard" style="display: none;">
+                <div class="card-icon">⚙️</div>
+                <h2>QuickBooks Settings</h2>
+                <p>Manage QuickBooks Online credentials and connection settings. Configure API access for all users.</p>
+                <span class="card-link">QBO Settings →</span>
+            </a>
 
             <a href="/health" class="card">
                 <div class="card-icon">✅</div>
@@ -64,123 +77,67 @@
             </a>
         </div>
 
-        <!-- QBO Connection Status (visible to admin/master_admin) -->
-        <section id="qboSection" style="display:none; margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px; border: 2px solid #e2e8f0;">
-            <h2 style="margin-bottom: 1rem;">QuickBooks Online Connection</h2>
-            <div id="qboStatus" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
-                <span id="qboStatusBadge" style="padding:0.4rem 1rem; border-radius:999px; font-weight:600; font-size:0.9rem;"></span>
-                <span id="qboRealmInfo" style="color: var(--text-secondary); font-size:0.9rem;"></span>
-                <a id="qboConnectBtn" href="/qbo/auth" style="display:none; padding:0.5rem 1.2rem; background:#2563eb; color:white; border-radius:8px; text-decoration:none; font-weight:600;">Connect QBO</a>
-                <button id="qboDisconnectBtn" onclick="disconnectQBO()" style="display:none; padding:0.5rem 1.2rem; background:#dc2626; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Disconnect QBO</button>
+        <section style="margin-top: 3rem; padding: 2rem; background: white; border-radius: 12px;">
+            <h2 style="margin-bottom: 2rem; text-align: center;">Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <img src="/static/img/feature-qbo.png" alt="QuickBooks Integration" class="feature-image" loading="lazy">
+                    <h3>QBO Integration</h3>
+                    <p>Seamlessly connect to your QBO account for real-time data sync and management.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-ai.png" alt="AI Predictions" class="feature-image" loading="lazy">
+                    <h3>AI-Powered Predictions</h3>
+                    <p>Machine learning models predict payment dates to help you plan your cash flow effectively.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-cashflow.png" alt="Cash Flow" class="feature-image" loading="lazy">
+                    <h3>Cash Flow Forecasting</h3>
+                    <p>Project your cash flow for the next 30, 60, or 90 days with high accuracy.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-qbo.png" alt="Advanced Filtering" class="feature-image" loading="lazy">
+                    <h3>Advanced Filtering</h3>
+                    <p>Filter invoices by date, customer, status, amount, and region easily.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-ai.png" alt="Smart Sorting" class="feature-image" loading="lazy">
+                    <h3>Smart Sorting</h3>
+                    <p>Sort by due date, amount, or customer to prioritize your work.</p>
+                </div>
+                <div class="feature-item">
+                    <img src="/static/img/feature-cashflow.png" alt="User-Friendly" class="feature-image" loading="lazy">
+                    <h3>User-Friendly</h3>
+                    <p>Clean, modern design built for efficiency and ease of use.</p>
+                </div>
             </div>
-            <p id="qboMessage" style="margin-top:0.75rem; font-size:0.85rem; color: var(--text-secondary);"></p>
         </section>
+{% endblock %}
 
-        <section style="margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px;">
-            <h2 style="margin-bottom: 1rem;">Key Features</h2>
-            <ul style="list-style-position: inside; color: var(--text-secondary); line-height: 2;">
-                <li>🔗 <strong>QuickBooks Online Integration</strong> - Seamlessly connect to your QBO account</li>
-                <li>🤖 <strong>AI-Powered Predictions</strong> - Machine learning models predict payment dates</li>
-                <li>📈 <strong>Advanced Filtering</strong> - Filter invoices by date, customer, status, amount, and region</li>
-                <li>💡 <strong>Smart Sorting</strong> - Sort by due date, amount, or customer</li>
-                <li>📊 <strong>Cash Flow Forecasting</strong> - Project your cash flow for the next 30, 60, or 90 days</li>
-                <li>🎯 <strong>User-Friendly Interface</strong> - Clean, modern design for easy navigation</li>
-            </ul>
-        </section>
-    </main>
-
-    <script src="/static/js/common.js"></script>
+{% block extra_js %}
     <script>
         // Load user info and show/hide cards based on role
         window.addEventListener('DOMContentLoaded', async () => {
-            // Check if we just completed a QBO OAuth connection
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('qbo_connected') === '1') {
-                history.replaceState({}, document.title, '/');
-            }
-
             try {
                 const user = await fetchAPI('/api/me');
                 if (user) {
                     document.getElementById('userInfo').textContent = `Logged in as ${user.full_name || user.email} (${getRoleName(user.role)})`;
-
-                    const nav = document.getElementById('mainNav');
-
+                    
                     // Show audit log link for admins
                     if (user.role === 'admin' || user.role === 'master_admin') {
                         document.getElementById('auditCard').style.display = 'block';
-                        const auditLink = document.createElement('a');
-                        auditLink.href = '/audit';
-                        auditLink.textContent = 'Audit Log';
-                        nav.insertBefore(auditLink, nav.lastElementChild);
+                        document.getElementById('qboSettingsCard').style.display = 'block';
                     }
-
-                    // Show users link for master admin
+                    
+                    // Show users and logs links for master admin
                     if (user.role === 'master_admin') {
                         document.getElementById('usersCard').style.display = 'block';
-                        const usersLink = document.createElement('a');
-                        usersLink.href = '/users';
-                        usersLink.textContent = 'Users';
-                        nav.insertBefore(usersLink, nav.lastElementChild);
-                    }
-
-                    // Show QBO section for admin and master_admin
-                    if (user.role === 'admin' || user.role === 'master_admin') {
-                        document.getElementById('qboSection').style.display = 'block';
-                        await loadQBOStatus();
                     }
                 }
             } catch (error) {
                 console.error('Failed to load user info:', error);
             }
         });
-
-        async function loadQBOStatus() {
-            try {
-                const status = await fetchAPI('/api/qbo/status');
-                const badge = document.getElementById('qboStatusBadge');
-                const realmInfo = document.getElementById('qboRealmInfo');
-                const connectBtn = document.getElementById('qboConnectBtn');
-                const disconnectBtn = document.getElementById('qboDisconnectBtn');
-                const msg = document.getElementById('qboMessage');
-
-                if (status.connected) {
-                    badge.textContent = 'Connected';
-                    badge.style.background = '#dcfce7';
-                    badge.style.color = '#166534';
-                    realmInfo.textContent = status.realm_id ? `Realm ID: ${status.realm_id}` : '';
-                    connectBtn.style.display = 'none';
-                    disconnectBtn.style.display = 'inline-block';
-                    msg.textContent = 'QBO is connected and active. The connection persists across user logouts and app restarts.';
-                } else {
-                    badge.textContent = 'Not Connected';
-                    badge.style.background = '#fee2e2';
-                    badge.style.color = '#991b1b';
-                    realmInfo.textContent = '';
-                    connectBtn.style.display = 'inline-block';
-                    disconnectBtn.style.display = 'none';
-                    msg.textContent = 'Click "Connect QBO" to authorize this app with QuickBooks Online.';
-                }
-            } catch (error) {
-                console.error('Failed to load QBO status:', error);
-            }
-        }
-
-        async function disconnectQBO() {
-            if (!confirm('Are you sure you want to disconnect from QuickBooks Online? You will need to re-authorize to reconnect.')) return;
-            try {
-                const resp = await fetch('/qbo/disconnect', { method: 'POST' });
-                if (resp.ok) {
-                    await loadQBOStatus();
-                } else {
-                    const data = await resp.json();
-                    alert('Disconnect failed: ' + (data.error || 'Unknown error'));
-                }
-            } catch (error) {
-                console.error('Disconnect failed:', error);
-                alert('Disconnect failed. See console for details.');
-            }
-        }
         
         function getRoleName(role) {
             const roleNames = {
@@ -192,16 +149,5 @@
             };
             return roleNames[role] || role;
         }
-        
-        async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-                window.location.href = '/login';
-            } catch (error) {
-                console.error('Logout failed:', error);
-                window.location.href = '/login';
-            }
-        }
     </script>
-</body>
-</html>
+{% endblock %}

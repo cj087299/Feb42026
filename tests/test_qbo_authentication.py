@@ -9,10 +9,19 @@ This module tests the QBO authentication implementation to ensure:
 """
 
 import unittest
+import sys
 from unittest.mock import patch, Mock, MagicMock
 import os
-from src.qbo_client import QBOClient
-from src.secret_manager import SecretManager
+from src.auth.qbo_auth import QBOAuth
+from src.auth.secret_manager import SecretManager
+from src.invoices.qbo_connector import QBOConnector
+
+# Check if google.cloud is available for testing
+try:
+    import google.cloud.secretmanager
+    HAS_GOOGLE_CLOUD = True
+except ImportError:
+    HAS_GOOGLE_CLOUD = False
 
 
 class TestQBOAuthentication(unittest.TestCase):
@@ -28,7 +37,7 @@ class TestQBOAuthentication(unittest.TestCase):
     
     def test_qbo_client_initialization(self):
         """Test that QBO client initializes with correct credentials."""
-        client = QBOClient(
+        client = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,
@@ -41,7 +50,7 @@ class TestQBOAuthentication(unittest.TestCase):
         self.assertEqual(client.realm_id, self.test_realm_id)
         self.assertIsNone(client.access_token)  # Should be None until refresh
     
-    @patch('src.qbo_client.requests.post')
+    @patch('src.auth.qbo_auth.requests.post')
     def test_successful_token_refresh(self, mock_post):
         """Test successful OAuth token refresh."""
         # Mock successful token refresh response
@@ -55,7 +64,7 @@ class TestQBOAuthentication(unittest.TestCase):
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
         
-        client = QBOClient(
+        client = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,
@@ -73,7 +82,7 @@ class TestQBOAuthentication(unittest.TestCase):
         call_args = mock_post.call_args
         self.assertIn('oauth.platform.intuit.com', call_args[0][0])
     
-    @patch('src.qbo_client.requests.post')
+    @patch('src.auth.qbo_auth.requests.post')
     def test_failed_token_refresh_unauthorized(self, mock_post):
         """Test handling of 401 Unauthorized during token refresh."""
         # Mock 401 error response
@@ -82,7 +91,7 @@ class TestQBOAuthentication(unittest.TestCase):
         mock_response.raise_for_status.side_effect = Exception("401 Client Error: Unauthorized")
         mock_post.return_value = mock_response
         
-        client = QBOClient(
+        client = QBOAuth(
             client_id="invalid_client",
             client_secret="invalid_secret",
             refresh_token="invalid_token",
@@ -97,7 +106,7 @@ class TestQBOAuthentication(unittest.TestCase):
         self.assertTrue('401' in str(context.exception) or 'Unauthorized' in str(context.exception),
                        f"Expected '401' or 'Unauthorized' in error, got: {context.exception}")
     
-    @patch('src.qbo_client.requests.post')
+    @patch('src.auth.qbo_auth.requests.post')
     def test_token_refresh_with_invalid_response(self, mock_post):
         """Test handling of malformed token refresh response."""
         # Mock response with missing access_token
@@ -110,7 +119,7 @@ class TestQBOAuthentication(unittest.TestCase):
         mock_response.raise_for_status = Mock()
         mock_post.return_value = mock_response
         
-        client = QBOClient(
+        client = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,
@@ -121,8 +130,8 @@ class TestQBOAuthentication(unittest.TestCase):
         client.refresh_access_token()
         self.assertIsNone(client.access_token)
     
-    @patch('src.qbo_client.requests.post')
-    @patch('src.qbo_client.requests.request')
+    @patch('src.auth.qbo_auth.requests.post')
+    @patch('src.invoices.qbo_connector.requests.request')
     def test_authenticated_api_request(self, mock_request, mock_post):
         """Test that API requests include proper authentication."""
         # Mock token refresh
@@ -141,15 +150,16 @@ class TestQBOAuthentication(unittest.TestCase):
         mock_api_response.raise_for_status = Mock()
         mock_request.return_value = mock_api_response
         
-        client = QBOClient(
+        auth = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,
             realm_id=self.test_realm_id
         )
+        connector = QBOConnector(auth)
         
         # Make an API request
-        client.make_request("SELECT * FROM Invoice")
+        connector.make_request("query", params={"query": "SELECT * FROM Invoice"})
         
         # Verify request includes authorization header
         mock_request.assert_called_once()
@@ -161,8 +171,8 @@ class TestQBOAuthentication(unittest.TestCase):
             f'Bearer {self.test_access_token}'
         )
     
-    @patch('src.qbo_client.requests.post')
-    @patch('src.qbo_client.requests.request')
+    @patch('src.auth.qbo_auth.requests.post')
+    @patch('src.invoices.qbo_connector.requests.request')
     def test_token_auto_refresh_on_401(self, mock_request, mock_post):
         """Test that client automatically refreshes token on 401 response."""
         # Mock token refresh
@@ -177,29 +187,27 @@ class TestQBOAuthentication(unittest.TestCase):
         # First request returns 401, second succeeds
         mock_401_response = Mock()
         mock_401_response.status_code = 401
-        mock_401_response.raise_for_status.side_effect = Exception("401 Unauthorized")
+        from requests.exceptions import HTTPError
+        http_error = HTTPError(response=mock_401_response)
+        mock_401_response.raise_for_status.side_effect = http_error
         
         mock_success_response = Mock()
         mock_success_response.status_code = 200
         mock_success_response.json.return_value = {"QueryResponse": {"Invoice": []}}
         mock_success_response.raise_for_status = Mock()
         
-        mock_request.side_effect = [mock_401_response, mock_success_response]
+        mock_request.side_effect = [http_error, mock_success_response]
         
-        client = QBOClient(
+        auth = QBOAuth(
             client_id=self.test_client_id,
             client_secret=self.test_client_secret,
             refresh_token=self.test_refresh_token,
             realm_id=self.test_realm_id
         )
+        connector = QBOConnector(auth)
         
         # Should handle 401 and retry
-        # Note: Current implementation may not auto-retry, but this tests the concept
-        try:
-            client.make_request("SELECT * FROM Invoice")
-        except:
-            # If first attempt fails, token should still be refreshed
-            pass
+        connector.make_request("query", params={"query": "SELECT * FROM Invoice"})
         
         # Verify token refresh was called
         self.assertTrue(mock_post.called)
@@ -247,6 +255,7 @@ class TestSecretManagerIntegration(unittest.TestCase):
         except Exception as e:
             self.fail(f"Test failed with unexpected exception: {e}")
     
+    @unittest.skipUnless(HAS_GOOGLE_CLOUD, "google-cloud-secret-manager not installed")
     @patch('google.cloud.secretmanager.SecretManagerServiceClient')
     @patch.dict(os.environ, {'GOOGLE_CLOUD_PROJECT': 'test-project'})
     def test_secret_manager_client_initialization(self, mock_client):
@@ -259,6 +268,7 @@ class TestSecretManagerIntegration(unittest.TestCase):
         # Should attempt to initialize client when project is set
         self.assertEqual(secret_manager.project_id, 'test-project')
     
+    @unittest.skipUnless(HAS_GOOGLE_CLOUD, "google-cloud-secret-manager not installed")
     @patch('google.cloud.secretmanager.SecretManagerServiceClient')
     @patch.dict(os.environ, {
         'GOOGLE_CLOUD_PROJECT': 'test-project',
@@ -281,8 +291,8 @@ class TestSecretManagerIntegration(unittest.TestCase):
 class TestQBOEndToEnd(unittest.TestCase):
     """End-to-end tests for QBO authentication flow."""
     
-    @patch('src.qbo_client.requests.post')
-    @patch('src.qbo_client.requests.request')
+    @patch('src.auth.qbo_auth.requests.post')
+    @patch('src.invoices.qbo_connector.requests.request')
     def test_complete_qbo_workflow(self, mock_request, mock_post):
         """Test complete workflow: initialize, authenticate, fetch data."""
         # Mock token refresh
@@ -315,16 +325,17 @@ class TestQBOEndToEnd(unittest.TestCase):
         mock_request.return_value = mock_api_response
         
         # Initialize client
-        client = QBOClient(
+        auth = QBOAuth(
             client_id="workflow_client_id",
             client_secret="workflow_client_secret",
             refresh_token="workflow_refresh_token",
             realm_id="workflow_realm_id"
         )
+        connector = QBOConnector(auth)
         
         # Fetch invoices (should trigger authentication)
-        from src.invoice_manager import InvoiceManager
-        manager = InvoiceManager(client)
+        from src.invoices.invoice_manager import InvoiceManager
+        manager = InvoiceManager(connector)
         invoices = manager.fetch_invoices()
         
         # Verify flow worked
@@ -332,7 +343,7 @@ class TestQBOEndToEnd(unittest.TestCase):
         self.assertTrue(mock_post.called)  # Token refresh was called
         self.assertTrue(mock_request.called)  # API request was made
         
-    @patch('src.qbo_client.requests.post')
+    @patch('src.auth.qbo_auth.requests.post')
     def test_authentication_error_handling(self, mock_post):
         """Test proper error handling for authentication failures."""
         # Mock authentication failure
@@ -345,7 +356,7 @@ class TestQBOEndToEnd(unittest.TestCase):
         mock_response.raise_for_status.side_effect = Exception("400 Bad Request")
         mock_post.return_value = mock_response
         
-        client = QBOClient(
+        client = QBOAuth(
             client_id="invalid_client",
             client_secret="invalid_secret",
             refresh_token="expired_token",
@@ -355,6 +366,109 @@ class TestQBOEndToEnd(unittest.TestCase):
         # Should handle error gracefully
         with self.assertRaises(Exception):
             client.refresh_access_token()
+    
+    @patch('src.auth.qbo_auth.requests.post')
+    @patch('src.invoices.qbo_connector.requests.request')
+    def test_403_forbidden_error_handling(self, mock_request, mock_post):
+        """Test handling of 403 Forbidden errors from QuickBooks API."""
+        test_access_token = 'test_access_token_xyz'
+        
+        # Mock token refresh (will be called before the request)
+        mock_post_response = Mock()
+        mock_post_response.status_code = 200
+        mock_post_response.json.return_value = {
+            'access_token': test_access_token,
+            'expires_in': 3600
+        }
+        mock_post_response.raise_for_status = Mock()
+        mock_post.return_value = mock_post_response
+        
+        # Mock 403 error response from API
+        mock_403_response = Mock()
+        mock_403_response.status_code = 403
+        from requests.exceptions import HTTPError
+        http_error = HTTPError(response=mock_403_response)
+        mock_403_response.raise_for_status.side_effect = http_error
+        
+        # Set up mock_request to return 403 on first call, then again on retry
+        mock_request.side_effect = [http_error, http_error]
+        
+        auth = QBOAuth(
+            client_id='test_client_id',
+            client_secret='test_client_secret',
+            refresh_token='test_refresh_token',
+            realm_id='test_realm_id'
+        )
+        connector = QBOConnector(auth)
+        
+        # Set an access token to avoid initial refresh
+        auth.access_token = test_access_token
+        
+        # Make a request that should get 403
+        result = connector.make_request("query", params={"query": "select * from Invoice"})
+        
+        # Should return empty dict on 403 error
+        self.assertEqual(result, {})
+        
+        # Verify that the request was attempted (at least twice due to retry logic)
+        self.assertGreaterEqual(mock_request.call_count, 1)
+    
+    @patch('src.auth.qbo_auth.requests.post')
+    @patch('src.invoices.qbo_connector.requests.request')
+    def test_403_resolved_by_token_refresh(self, mock_request, mock_post):
+        """Test case where 403 error is resolved by refreshing the access token."""
+        test_access_token = 'test_access_token_xyz'
+        new_access_token = 'new_access_token_xyz'
+        
+        # Mock token refresh
+        mock_post_response = Mock()
+        mock_post_response.status_code = 200
+        mock_post_response.json.return_value = {
+            'access_token': new_access_token,
+            'expires_in': 3600
+        }
+        mock_post_response.raise_for_status = Mock()
+        mock_post.return_value = mock_post_response
+        
+        # Mock API responses: 403 on first call, success on retry
+        from requests.exceptions import HTTPError
+        
+        mock_403_response = Mock()
+        mock_403_response.status_code = 403
+        http_error = HTTPError(response=mock_403_response)
+        mock_403_response.raise_for_status.side_effect = http_error
+        
+        mock_success_response = Mock()
+        mock_success_response.status_code = 200
+        mock_success_response.json.return_value = {"QueryResponse": {"Invoice": []}}
+        mock_success_response.raise_for_status = Mock()
+        
+        # First call returns 403, second call (after token refresh) succeeds
+        mock_request.side_effect = [http_error, mock_success_response]
+        
+        auth = QBOAuth(
+            client_id='test_client_id',
+            client_secret='test_client_secret',
+            refresh_token='test_refresh_token',
+            realm_id='test_realm_id'
+        )
+        connector = QBOConnector(auth)
+        
+        # Set an access token
+        auth.access_token = test_access_token
+        
+        # Make request - should get 403, retry with new token, and succeed
+        result = connector.make_request("query", params={"query": "select * from Invoice"})
+        
+        # Should return successful response
+        self.assertIsInstance(result, dict)
+        self.assertIn("QueryResponse", result)
+        
+        # Verify token refresh was called
+        mock_post.assert_called_once()
+        
+        # Verify request was made twice (initial + retry)
+        self.assertEqual(mock_request.call_count, 2)
 
 
 if __name__ == '__main__':

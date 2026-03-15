@@ -1,18 +1,50 @@
 import unittest
 from unittest.mock import patch, Mock
-from src.qbo_client import QBOClient
+import os
+from src.invoices.qbo_connector import QBOConnector
+from src.auth.qbo_auth import QBOAuth
 
 
-class TestQBOClient(unittest.TestCase):
+class TestQBOConnector(unittest.TestCase):
     def setUp(self):
-        self.client = QBOClient("id", "secret", "refresh", "realm")
+        self.client = QBOConnector(QBOAuth("id", "secret", "refresh", "realm"))
 
     def test_init(self):
-        self.assertEqual(self.client.client_id, "id")
-        self.assertEqual(self.client.realm_id, "realm")
+        self.assertEqual(self.client.auth.client_id, "id")
+        self.assertEqual(self.client.auth.realm_id, "realm")
+    
+    @patch.dict(os.environ, {}, clear=True)
+    def test_default_environment_is_production(self):
+        """Test that production is used when QBO_ENVIRONMENT is not set"""
+        client = QBOConnector(QBOAuth("id", "secret", "refresh", "realm"))
+        self.assertEqual(client.base_url, "https://quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'sandbox'})
+    def test_sandbox_environment(self):
+        """Test that sandbox URL is used when QBO_ENVIRONMENT is 'sandbox'"""
+        client = QBOConnector(QBOAuth("id", "secret", "refresh", "realm"))
+        self.assertEqual(client.base_url, "https://sandbox-quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'production'})
+    def test_production_environment(self):
+        """Test that production URL is used when QBO_ENVIRONMENT is 'production'"""
+        client = QBOConnector(QBOAuth("id", "secret", "refresh", "realm"))
+        self.assertEqual(client.base_url, "https://quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'PRODUCTION'})
+    def test_production_environment_case_insensitive(self):
+        """Test that environment variable is case-insensitive"""
+        client = QBOConnector(QBOAuth("id", "secret", "refresh", "realm"))
+        self.assertEqual(client.base_url, "https://quickbooks.api.intuit.com/v3/company")
+    
+    @patch.dict(os.environ, {'QBO_ENVIRONMENT': 'invalid_value'})
+    def test_invalid_environment_defaults_to_sandbox(self):
+        """Test that invalid environment values default to sandbox"""
+        client = QBOConnector(QBOAuth("id", "secret", "refresh", "realm"))
+        self.assertEqual(client.base_url, "https://sandbox-quickbooks.api.intuit.com/v3/company")
 
-    @patch('src.qbo_client.requests.post')
-    @patch('src.qbo_client.requests.request')
+    @patch('src.invoices.qbo_connector.requests.post')
+    @patch('src.invoices.qbo_connector.requests.request')
     def test_make_request(self, mock_request, mock_post):
         # Mock token refresh
         mock_post.return_value = Mock(
@@ -30,7 +62,7 @@ class TestQBOClient(unittest.TestCase):
         response = self.client.make_request("query")
         self.assertIsInstance(response, dict)
     
-    @patch('src.qbo_client.requests.post')
+    @patch('src.invoices.qbo_connector.requests.post')
     def test_fetch_bank_accounts(self, mock_post):
         # Mock token refresh
         mock_post.return_value = Mock(
@@ -38,17 +70,39 @@ class TestQBOClient(unittest.TestCase):
             json=lambda: {"access_token": "test_token"}
         )
         
-        with patch('src.qbo_client.requests.request') as mock_request:
-            # Mock API request for bank accounts
+        with patch('src.invoices.qbo_connector.requests.request') as mock_request:
+            # Mock API request for bank accounts with realistic balances
             mock_request.return_value = Mock(
                 status_code=200,
                 json=lambda: {
                     "QueryResponse": {
                         "Account": [
                             {
-                                "Id": "1",
-                                "Name": "Checking Account",
-                                "CurrentBalance": 5000.0
+                                "Id": "35",
+                                "Name": "Business Checking Account",
+                                "AcctNum": "****4567",
+                                "CurrentBalance": 45789.32,
+                                "AccountType": "Bank",
+                                "AccountSubType": "Checking",
+                                "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
+                            },
+                            {
+                                "Id": "42",
+                                "Name": "Savings Account",
+                                "AcctNum": "****8901",
+                                "CurrentBalance": 125000.00,
+                                "AccountType": "Bank",
+                                "AccountSubType": "Savings",
+                                "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
+                            },
+                            {
+                                "Id": "58",
+                                "Name": "Payroll Account",
+                                "AcctNum": "****2345",
+                                "CurrentBalance": 28456.78,
+                                "AccountType": "Bank",
+                                "AccountSubType": "Checking",
+                                "CurrencyRef": {"value": "USD", "name": "United States Dollar"}
                             }
                         ]
                     }
@@ -58,8 +112,14 @@ class TestQBOClient(unittest.TestCase):
             
             accounts = self.client.fetch_bank_accounts()
             self.assertIsInstance(accounts, list)
-            self.assertEqual(len(accounts), 1)
-            self.assertEqual(accounts[0]['Name'], "Checking Account")
+            self.assertEqual(len(accounts), 3)
+            self.assertEqual(accounts[0]['Name'], "Business Checking Account")
+            self.assertEqual(accounts[0]['CurrentBalance'], 45789.32)
+            self.assertEqual(accounts[1]['CurrentBalance'], 125000.00)
+            self.assertEqual(accounts[2]['CurrentBalance'], 28456.78)
+            # Verify total balance across all accounts
+            total_balance = sum(acc['CurrentBalance'] for acc in accounts)
+            self.assertEqual(total_balance, 199246.10)
 
 
 if __name__ == '__main__':

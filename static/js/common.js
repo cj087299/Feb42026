@@ -76,3 +76,17 @@ function getStatusClass(status) {
     if (statusLower.includes('overdue')) return 'status-overdue';
     return 'status-pending';
 }
+
+// Escape HTML to prevent XSS
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/[&<>"']/g, function(match) {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+        }
+    });
+}

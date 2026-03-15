@@ -24,16 +24,41 @@ This project provides comprehensive tools for managing QuickBooks Online invoice
 
 ## New Features in VZT Accounting
 
-### 1. Branding Update
+### 1. QuickBooks Online OAuth 2.0 Authentication (New!)
+- **One-Click Connection**: Admin clicks "Connect to QuickBooks" and logs in with their QBO username/password
+- **Automatic Token Management**: Tokens are automatically exchanged, stored, and refreshed
+- **Shared Access**: One admin connects, all users can access QBO for 101 days
+- **Secure Flow**: Full OAuth 2.0 implementation with CSRF protection
+- **No Manual Token Entry Required**: Just connect and go!
+- **Credential Validation**: Automatic detection of invalid or expired credentials with helpful error messages
+- **Health Check**: Use `check_oauth_health.py` to diagnose OAuth issues
+- See `QBO_OAUTH_FLOW.md` for step-by-step instructions
+- See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for troubleshooting OAuth errors
+- **NEW**: QuickBooks Settings v2 available at `/qbo-settings-v2` with simplified one-click OAuth flow
+
+### 2. Centralized QBO Token Management
+- **Admin-Configured Credentials**: Master admin and admin users can configure QuickBooks Online credentials once for all users
+- **Automatic Token Refresh**: Access tokens automatically refresh before expiration
+- **Token Expiration Tracking**: Visual indicators show token status and expiration times
+- **Credential Validation**: System validates credentials before use and provides actionable error messages
+- **Secure Storage**: Credentials stored in database with audit logging
+- **Easy Setup**: Web-based UI at `/qbo-settings` for credential management
+- **Simplified v2**: New `/qbo-settings-v2` page with one-click OAuth (recommended)
+- **Long-Lived Sessions**: Refresh tokens valid for 101 days
+- **Manual Entry Option**: Can still manually enter tokens if preferred
+- See `QBO_TOKEN_MANAGEMENT.md` for detailed documentation
+
+### 3. Branding Update
 - Application rebranded as "VZT Accounting"
 - Updated all templates and API responses with new branding
 
-### 2. Google Secret Manager Integration
+### 3. Google Secret Manager Integration
 - Secure credential storage for QuickBooks Online API credentials
 - Automatically retrieves `QBO_ID_2-3-26` and `QBO_Secret_2-3-26` from Google Cloud Secret Manager
 - Falls back to environment variables if Secret Manager is not available
+- **NOTE**: Database-stored credentials (configured via admin UI) take priority
 
-### 3. Enhanced Invoice Management
+### 4. Enhanced Invoice Management
 Track additional metadata for each invoice:
 - **VZT Rep**: Name of the VZT representative handling the invoice
 - **Sent to VZT Rep Date**: Date when invoice was sent to the VZT rep
@@ -76,12 +101,33 @@ The calendar uses intelligent payment date calculation:
 pip install -r requirements.txt
 ```
 
+### QuickBooks OAuth Setup
+
+**IMPORTANT**: Before running the application, you must configure valid QuickBooks OAuth credentials.
+
+#### Quick Setup (For Development/Testing)
+
+If you have credentials from QuickBooks OAuth 2.0 Playground:
+
+```bash
+# Edit initialize_qbo_credentials.py with your credentials
+python3 initialize_qbo_credentials.py
+```
+
+This initializes the database with valid credentials. The application will use these automatically.
+
+#### Production Setup
+
+Use the web UI at `/qbo-settings` to connect to QuickBooks via OAuth 2.0 flow. See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for details.
+
 ### Environment Variables
 
 The application supports the following environment variables:
 
 ```bash
-# QuickBooks Online Credentials (fallback if Secret Manager not available)
+# QuickBooks Online Credentials (fallback if not configured via admin UI)
+# NOTE: It's recommended to configure QBO credentials via the admin UI at /qbo-settings
+# Environment variables are used as fallback only
 QBO_CLIENT_ID=your_client_id
 QBO_CLIENT_SECRET=your_client_secret
 QBO_REFRESH_TOKEN=your_refresh_token
@@ -96,7 +142,23 @@ CLOUD_SQL_CONNECTION_NAME=project-df2be397-d2f7-4b71-944:us-south1:companydataba
 CLOUD_SQL_DATABASE_NAME=accounting_app  # Database name in Cloud SQL
 CLOUD_SQL_USER=root                    # Database user
 CLOUD_SQL_PASSWORD=your_password        # Database password
+
+# Email Configuration (REQUIRED for password reset functionality)
+BASE_URL=https://your-domain.com       # Your application's base URL (required for reset links)
+SMTP_HOST=smtp.gmail.com               # SMTP server hostname
+SMTP_PORT=587                          # SMTP port (587 for TLS)
+SMTP_USER=your-email@gmail.com         # SMTP username - REQUIRED
+SMTP_PASSWORD=your-app-password        # SMTP password - REQUIRED
+FROM_EMAIL=your-email@gmail.com        # Email address in "From" field
+FROM_NAME=VZT Accounting               # Name in "From" field
+
+# Optional: Disable email (not recommended for production)
+# EMAIL_ENABLED=false                  # Set to 'false' only for testing
 ```
+
+⚠️ **IMPORTANT**: Email configuration is now mandatory. The application requires valid SMTP credentials (SMTP_USER and SMTP_PASSWORD) to start. Without these, users cannot reset passwords.
+
+See `EMAIL_CONFIGURATION.md` for detailed email setup instructions.
 
 ### Database Configuration
 
@@ -119,6 +181,30 @@ python main.py
 ```
 
 The application will start on `http://localhost:8080`
+
+### Cloud Run Deployment
+
+To deploy this application to Google Cloud Run:
+
+```bash
+gcloud builds submit --config cloudbuild.yaml
+```
+
+**Important**: After deploying to Cloud Run, you MUST configure QuickBooks credentials. The application will log warnings on startup until credentials are configured. To fix the "QBO credentials not configured" errors:
+
+1. **Option 1 (RECOMMENDED)**: Use the Web UI
+   - Access your Cloud Run URL
+   - Log in with admin credentials (admin@vzt.com / admin1234)
+   - Navigate to `/qbo-settings`
+   - Click "Connect to QuickBooks"
+
+2. **Option 2**: Use Google Secret Manager
+   - See `CLOUDRUN_DEPLOYMENT_GUIDE.md` for detailed instructions
+
+3. **Option 3**: Set environment variables
+   - See `CLOUDRUN_DEPLOYMENT_GUIDE.md` for detailed instructions
+
+**📖 For complete Cloud Run deployment instructions, credential configuration, and troubleshooting**, see `CLOUDRUN_DEPLOYMENT_GUIDE.md`.
 
 ### Using the Web Interface
 
@@ -156,6 +242,12 @@ The application provides comprehensive REST API endpoints:
 - `GET /api/custom-cash-flows/<id>` - Get specific custom cash flow
 - `PUT /api/custom-cash-flows/<id>` - Update custom cash flow
 - `DELETE /api/custom-cash-flows/<id>` - Delete custom cash flow
+
+#### Webhook APIs
+- `GET /api/qbo/webhook` - Webhook verification endpoint
+- `POST /api/qbo/webhook` - Receive QuickBooks Online webhook events (CloudEvents format)
+
+See `QBO_WEBHOOKS_SETUP.md` for detailed webhook configuration.
 
 #### System APIs
 - `GET /health` - Health check
@@ -207,19 +299,42 @@ python -m unittest tests.test_new_features -v
 
 ## Authentication and User Management
 
-### Initial Setup
+### Automatic Admin Initialization
 
-The application includes a complete user authentication and role-based access control system. To set up the first admin user:
+The application includes a complete user authentication and role-based access control system. **Admin users are automatically created when the server starts** if they don't already exist.
+
+The following master admin users are automatically initialized on first startup:
+
+**User 1:**
+- **Email**: admin@vzt.com
+- **Password**: admin1234
+
+**User 2:**
+- **Email**: cjones@vztsolutions.com
+- **Password**: admin1234
+
+**⚠️ IMPORTANT**: Change these default passwords immediately after first login!
+
+**📖 For detailed information**, including Cloud Run deployment, troubleshooting, and security best practices, see `ADMIN_INITIALIZATION.md`.
+
+### Manual Admin Initialization (Optional)
+
+If you need to manually create admin users (e.g., to reset to defaults), you can run:
 
 ```bash
 python init_admin.py
 ```
 
-This creates a master admin user with:
-- **Email**: admin@vzt.com
-- **Password**: admin123
+This script is idempotent - it checks if users already exist before creating them.
 
-**⚠️ IMPORTANT**: Change the password immediately after first login!
+### Password Reset and Username Recovery
+
+The system includes email-based password reset and username reminder functionality:
+
+- **Forgot Password**: Users can request a password reset link via email
+- **Forgot Username**: Users can request a username reminder via email
+
+⚠️ **REQUIRED**: Email must be configured for password reset to work. Set SMTP credentials as described in `EMAIL_CONFIGURATION.md`. The application will not start without valid SMTP configuration.
 
 ### User Roles
 
@@ -286,6 +401,41 @@ Routes are protected based on permissions:
 - `/audit` - Requires 'view_audit_log' permission
 - Invoice metadata editing - Requires 'edit_invoice_metadata' permission
 - Custom cash flows - Requires specific permissions based on flow type
+
+## Troubleshooting
+
+### QuickBooks OAuth Issues
+
+If you encounter OAuth-related errors (such as "401 Unauthorized" when refreshing tokens):
+
+1. **Check Credential Status**:
+   ```bash
+   python3 check_oauth_health.py
+   ```
+   This diagnostic script will check your OAuth configuration and provide recommendations.
+
+2. **Common Error: "Failed to refresh access token: 401 Unauthorized"**
+   - This means your OAuth credentials are invalid, expired, or not configured
+   - **Solution**: Reconfigure credentials at `/qbo-settings` by connecting to QuickBooks
+   - See `OAUTH_CREDENTIAL_SETUP_GUIDE.md` for detailed troubleshooting steps
+
+3. **Credentials Not Configured**:
+   - The application uses dummy placeholder values by default
+   - **Solution**: Configure credentials via the admin UI at `/qbo-settings` or set environment variables
+   - Priority: Database > Google Secret Manager > Environment Variables
+
+4. **Token Expired (after 101 days)**:
+   - Refresh tokens expire after 101 days
+   - **Solution**: Reconnect to QuickBooks at `/qbo-settings`
+
+For detailed OAuth troubleshooting, see `OAUTH_CREDENTIAL_SETUP_GUIDE.md`.
+
+### Email Configuration Issues
+
+If password reset emails are not working:
+- Check SMTP configuration in environment variables
+- See `EMAIL_CONFIGURATION.md` for setup instructions
+- Verify SMTP credentials are correct
 
 ## Future Enhancements
 
