@@ -90,7 +90,7 @@ class QBOConnector:
             List of bank accounts with their current balances
         """
         try:
-            query = "select * from Account where AccountType = 'Bank' and AccountSubType = 'Checking'"
+            query = "select * from Account where AccountType = 'Bank'"
             response = self.make_request("query", params={"query": query})
 
             if response and "QueryResponse" in response:

@@ -621,8 +621,15 @@ def get_liquidity_metrics():
 @app.route('/api/bank-accounts', methods=['GET'])
 @login_required
 def get_bank_accounts():
-    # ...
-    return jsonify({"accounts": []}), 200
+    try:
+        fresh_connector, credentials_valid = get_fresh_qbo_connector()
+        if not credentials_valid:
+            return jsonify({"accounts": [], "error": "QBO not connected"}), 200
+        accounts = fresh_connector.fetch_bank_accounts()
+        return jsonify({"accounts": accounts}), 200
+    except Exception as e:
+        logger.error(f"Error fetching bank accounts: {e}")
+        return jsonify({"accounts": [], "error": str(e)}), 500
 
 @app.route('/api/custom-cash-flows', methods=['GET', 'POST'])
 @login_required
