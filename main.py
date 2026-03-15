@@ -89,6 +89,65 @@ webhook_processor_thread = threading.Thread(target=process_webhook_queue, daemon
 webhook_processor_thread.start()
 logger.info("Webhook background processor started")
 
+# --- QBO credential seeding and long-lived session support ---
+
+# Hardcoded fallback credentials (populated from last known-good QBO OAuth session).
+# These are used ONLY when no credentials exist in the database.  Once a successful
+# OAuth callback has run, the database copy takes priority (see SecretManager priority
+# order), so these values act purely as a bootstrap / disaster-recovery default.
+_BOOTSTRAP_CLIENT_ID     = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
+_BOOTSTRAP_REALM_ID      = os.environ.get('QBO_REALM_ID',      '9341453050298464')
+_BOOTSTRAP_REFRESH_TOKEN = os.environ.get('QBO_REFRESH_TOKEN', 'RT1-223-H0-1782261632cfh9kdjneo00awcsmybo')
+_BOOTSTRAP_ACCESS_TOKEN  = os.environ.get('QBO_ACCESS_TOKEN',  None)
+
+
+def _seed_qbo_credentials_if_needed():
+    """Seed the database with bootstrap QBO credentials when the DB is empty.
+
+    This ensures the app stays authenticated across restarts without requiring
+    anyone to re-enter credentials from the QBO developer portal, as long as
+    the refresh token is still valid (or has been rotated via normal use).
+    """
+    try:
+        existing = database.get_qbo_credentials()
+        if existing and existing.get('refresh_token') not in (None, '', 'dummy_refresh'):
+            logger.info("QBO credentials already present in database – skipping bootstrap seed")
+            return
+
+        # We need the client_secret to be able to refresh tokens later.
+        client_secret = (
+            secret_manager.get_secret('QBO_Secret_2-3-26')
+            or os.environ.get('QBO_CLIENT_SECRET')
+        )
+        if not client_secret:
+            logger.warning(
+                "Bootstrap QBO seed skipped: client_secret not available in "
+                "Secret Manager (QBO_Secret_2-3-26) or QBO_CLIENT_SECRET env var."
+            )
+            return
+
+        credentials = {
+            'client_id':     _BOOTSTRAP_CLIENT_ID,
+            'client_secret': client_secret,
+            'refresh_token': _BOOTSTRAP_REFRESH_TOKEN,
+            'access_token':  _BOOTSTRAP_ACCESS_TOKEN,
+            'realm_id':      _BOOTSTRAP_REALM_ID,
+            'expires_in':    3600,
+            'x_refresh_token_expires_in': 8726400,
+        }
+        if database.save_qbo_credentials(credentials):
+            logger.info(
+                f"Bootstrap QBO credentials seeded to database "
+                f"(realm_id={_BOOTSTRAP_REALM_ID})"
+            )
+        else:
+            logger.error("Failed to seed bootstrap QBO credentials to database")
+    except Exception as exc:
+        logger.error(f"Error during QBO credential bootstrap seed: {exc}")
+
+
+_seed_qbo_credentials_if_needed()
+
 # Initialize QBO client
 qbo_credentials = secret_manager.get_qbo_credentials()
 
@@ -114,6 +173,33 @@ if not qbo_auth.credentials_valid:
     logger.warning("  QuickBooks credentials are NOT configured")
 else:
     logger.info("✓ QuickBooks credentials are configured and valid")
+
+
+def _proactive_token_refresh_worker():
+    """Background daemon that refreshes the QBO access token every 45 minutes.
+
+    Benefits:
+    - Keeps the access token (1-hour TTL) perpetually valid so the first API
+      request after a quiet period never hits an expired-token error.
+    - Each refresh also rotates the refresh token, effectively resetting its
+      101-day expiry clock as long as the app is running.
+    """
+    import time
+    while True:
+        time.sleep(45 * 60)   # sleep 45 minutes between refreshes
+        try:
+            if qbo_auth.credentials_valid:
+                qbo_auth.refresh_access_token()
+                logger.info("Proactive QBO token refresh completed successfully")
+            else:
+                logger.debug("Proactive token refresh skipped – credentials not valid")
+        except Exception as exc:
+            logger.warning(f"Proactive QBO token refresh failed (will retry in 45 min): {exc}")
+
+
+_refresh_thread = threading.Thread(target=_proactive_token_refresh_worker, daemon=True)
+_refresh_thread.start()
+logger.info("QBO proactive token refresh background worker started (interval: 45 min)")
 
 
 def initialize_admin_users():
