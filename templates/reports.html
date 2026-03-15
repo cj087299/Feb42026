@@ -389,6 +389,23 @@
         margin-top: -2px;
     }
     .modal-close:hover { color: #374151; }
+    .modal-export-btns {
+        display: flex;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+    .modal-export-btns button {
+        padding: 4px 10px;
+        font-size: 12px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.15s, color 0.15s;
+    }
+    .modal-export-btns button:hover { background: #f1f5f9; color: #1e293b; }
 
     /* ── Drill-down table ───────────────────────────────── */
     .drilldown-table {
@@ -609,6 +626,11 @@
     <div class="modal-content">
         <div class="modal-header">
             <h3 id="modalTitle">Transaction Details</h3>
+            <div class="modal-export-btns" id="drillDownExportBtns" style="display:none;">
+                <button onclick="exportDrillDown('csv')">CSV</button>
+                <button onclick="exportDrillDown('excel')">Excel</button>
+                <button onclick="exportDrillDown('pdf')">PDF</button>
+            </div>
             <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
         </div>
         <div class="modal-body" id="modalContent">

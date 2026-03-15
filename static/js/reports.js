@@ -453,7 +453,10 @@ async function showDrillDown(entityId, startDate, endDate, entityName, drilldown
     // Build a readable title
     const typeLabel = drilldownType === 'vendor' ? 'Vendor' : drilldownType === 'customer' ? 'Customer' : 'Account';
     const datePart  = startDate && endDate ? ` · ${startDate} – ${endDate}` : endDate ? ` · As of ${endDate}` : '';
-    modalTitle.textContent = `${entityName}${datePart}`;
+    const title     = `${entityName}${datePart}`;
+    modalTitle.textContent = title;
+    currentDrillDownTitle  = title;
+    document.getElementById('drillDownExportBtns').style.display = 'none';
     modalBody.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">Loading transactions…</div>';
     modal.style.display = 'block';
 
@@ -471,6 +474,7 @@ async function showDrillDown(entityId, startDate, endDate, entityName, drilldown
         }
 
         renderTransactionList(data, modalBody);
+        document.getElementById('drillDownExportBtns').style.display = 'flex';
     } catch (e) {
         console.error(e);
         modalBody.innerHTML = '<div style="color:#dc2626;padding:20px;">Error loading transactions.</div>';
@@ -556,6 +560,18 @@ function formatReportValue(val) {
     if (isNaN(num)) return val;
     const abs = Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return num < 0 ? `(${abs})` : abs;
+}
+
+let currentDrillDownTitle = 'Transactions';
+
+function exportDrillDown(format) {
+    const table = document.querySelector('#modalContent .drilldown-table');
+    if (!table) { alert('No data to export.'); return; }
+    // Sanitize title for use as a filename
+    const filename = currentDrillDownTitle.replace(/[^\w\s–-]/g, '').replace(/\s+/g, '_');
+    if (format === 'csv')   exportTableToCSV(table, filename);
+    else if (format === 'excel') exportTableToExcel(table, filename);
+    else if (format === 'pdf')   exportTableToPDF(table, filename);
 }
 
 function closeModal() {
