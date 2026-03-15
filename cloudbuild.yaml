@@ -34,7 +34,7 @@ steps:
       - '--region=us-central1'
       - '--platform=managed'
       - '--allow-unauthenticated'
-      - '--set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - '--set-env-vars=GOOGLE_CLOUD_PROJECT=$PROJECT_ID,QBO_ENVIRONMENT=production,QBO_REALM_ID=9341453050298464'
       - '--set-secrets=QBO_CLIENT_ID=QBO_ID_2-3-26:latest,QBO_CLIENT_SECRET=QBO_Secret_2-3-26:latest'
 
 timeout: '1200s'
