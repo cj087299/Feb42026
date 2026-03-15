@@ -436,6 +436,64 @@ def get_report_drilldown():
         logger.error(f"Error fetching drilldown: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/reports/customers', methods=['GET'])
+@login_required
+def get_report_filter_customers():
+    """Get customers list for report filter dropdowns (accessible to all logged-in users)."""
+    try:
+        fresh_connector, valid = get_fresh_qbo_connector()
+        if not valid:
+            return jsonify({"error": "QuickBooks credentials not configured"}), 400
+
+        search_term = request.args.get('q', '')
+        page_size = 150
+
+        base_query = "SELECT Id, DisplayName FROM Customer WHERE Active = true"
+        if search_term:
+            escaped = search_term.replace('\\', '\\\\').replace("'", "\\'")
+            base_query += f" AND DisplayName LIKE '%{escaped}%'"
+        query = f"{base_query} ORDERBY DisplayName MAXRESULTS {page_size}"
+
+        response = fresh_connector.make_request("query", params={"query": query})
+        customers = []
+        if response and "QueryResponse" in response:
+            for c in response["QueryResponse"].get("Customer", []):
+                customers.append({'id': c.get('Id'), 'name': c.get('DisplayName')})
+
+        return jsonify({"results": customers}), 200
+    except Exception as e:
+        logger.error(f"Error fetching report customers: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/reports/vendors', methods=['GET'])
+@login_required
+def get_report_filter_vendors():
+    """Get vendors list for report filter dropdowns (accessible to all logged-in users)."""
+    try:
+        fresh_connector, valid = get_fresh_qbo_connector()
+        if not valid:
+            return jsonify({"error": "QuickBooks credentials not configured"}), 400
+
+        search_term = request.args.get('q', '')
+        page_size = 150
+
+        base_query = "SELECT Id, DisplayName FROM Vendor WHERE Active = true"
+        if search_term:
+            escaped = search_term.replace('\\', '\\\\').replace("'", "\\'")
+            base_query += f" AND DisplayName LIKE '%{escaped}%'"
+        query = f"{base_query} ORDERBY DisplayName MAXRESULTS {page_size}"
+
+        response = fresh_connector.make_request("query", params={"query": query})
+        vendors = []
+        if response and "QueryResponse" in response:
+            for v in response["QueryResponse"].get("Vendor", []):
+                vendors.append({'id': v.get('Id'), 'name': v.get('DisplayName')})
+
+        return jsonify({"results": vendors}), 200
+    except Exception as e:
+        logger.error(f"Error fetching report vendors: {e}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/reports/saved', methods=['GET', 'POST'])
 @login_required
 def saved_reports():

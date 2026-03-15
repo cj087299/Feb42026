@@ -4,144 +4,633 @@
 
 {% block extra_css %}
 <style>
-    .reports-page-container { display: flex; gap: 20px; padding: 20px 0; }
-    .reports-sidebar { width: 300px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd; flex-shrink: 0; }
-    .reports-main { flex: 1; padding: 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd; overflow-x: auto; min-height: 500px; }
-    .form-group { margin-bottom: 15px; }
-    .form-control { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-    .btn { padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; width: 100%; }
-    .btn:hover { background-color: #0056b3; }
+    /* ── Layout ─────────────────────────────────────────── */
+    .reports-page-container {
+        display: flex;
+        gap: 0;
+        padding: 20px 0;
+        min-height: calc(100vh - 140px);
+    }
+    .reports-sidebar {
+        width: 272px;
+        flex-shrink: 0;
+        background: #fff;
+        border-right: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+    .sidebar-inner { padding: 20px 16px; flex: 1; }
+    .reports-main {
+        flex: 1;
+        padding: 24px;
+        background: #f8fafc;
+        overflow-x: auto;
+    }
 
-    /* Basic styles for reports tree */
-    .report-tree-node { }
-    .report-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #eee; }
-    .report-row:hover { background-color: #f9f9f9; }
-    .report-header-row { font-weight: bold; background-color: #f0f0f0; padding: 8px 5px; }
-    .report-section-header { font-weight: bold; padding-top: 10px; }
-    .report-indent { margin-left: 20px; border-left: 1px solid #eee; padding-left: 5px; }
+    /* ── Sidebar sections ───────────────────────────────── */
+    .sidebar-section {
+        margin-bottom: 18px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .sidebar-section:last-child { border-bottom: none; margin-bottom: 0; }
+    .sidebar-section-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #94a3b8;
+        margin-bottom: 10px;
+    }
 
-    .report-cell { flex: 1; }
-    .report-cell-value { text-align: right; min-width: 100px; }
+    /* ── Form elements ──────────────────────────────────── */
+    .form-group { margin-bottom: 12px; }
+    .form-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 5px;
+    }
+    .form-control {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        color: #374151;
+        box-sizing: border-box;
+        background: #fff;
+    }
+    .form-control:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    .form-check-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #374151;
+        cursor: pointer;
+    }
 
-    .report-value-link { cursor: pointer; color: #007bff; text-decoration: none; }
-    .report-value-link:hover { text-decoration: underline; }
+    /* ── Buttons ────────────────────────────────────────── */
+    .btn {
+        padding: 9px 14px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        width: 100%;
+        text-align: center;
+        transition: background 0.15s;
+    }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn-secondary:hover { background: #4b5563; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-success:hover { background: #059669; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-danger:hover { background: #dc2626; }
 
-    .comparison-container { display: flex; gap: 20px; }
-    .report-column { flex: 1; border: 1px solid #eee; padding: 10px; border-radius: 5px; }
+    /* ── Multi-select pivot filter ──────────────────────── */
+    .multi-select-container { position: relative; }
+    .multi-select-trigger {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 7px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        cursor: pointer;
+        background: #fff;
+        font-size: 13px;
+        color: #374151;
+        user-select: none;
+        min-height: 34px;
+        transition: border-color 0.15s;
+    }
+    .multi-select-trigger:hover { border-color: #94a3b8; }
+    .multi-select-trigger.active {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+    .ms-trigger-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-arrow {
+        font-size: 10px;
+        color: #94a3b8;
+        margin-left: 6px;
+        flex-shrink: 0;
+        transition: transform 0.15s;
+    }
+    .multi-select-trigger.active .ms-arrow { transform: rotate(180deg); }
+    .multi-select-panel {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        z-index: 200;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        overflow: hidden;
+    }
+    .ms-search {
+        padding: 8px;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .ms-search input {
+        width: 100%;
+        padding: 7px 10px;
+        border: 1px solid #e2e8f0;
+        border-radius: 5px;
+        font-size: 12px;
+        outline: none;
+        box-sizing: border-box;
+    }
+    .ms-search input:focus { border-color: #3b82f6; }
+    .ms-selectall {
+        padding: 6px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        background: #f8fafc;
+    }
+    .ms-selectall label {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+        cursor: pointer;
+    }
+    .ms-options-list {
+        max-height: 196px;
+        overflow-y: auto;
+        padding: 4px 0;
+    }
+    .ms-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: #374151;
+        cursor: pointer;
+        transition: background 0.1s;
+    }
+    .ms-option:hover { background: #f1f5f9; }
+    .ms-option input[type=checkbox] { cursor: pointer; accent-color: #3b82f6; }
+    .ms-option span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-loading, .ms-empty {
+        padding: 14px;
+        text-align: center;
+        font-size: 12px;
+        color: #94a3b8;
+    }
+    .ms-selected-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #3b82f6;
+        color: white;
+        border-radius: 10px;
+        padding: 1px 7px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-right: 4px;
+    }
+    .ms-footer {
+        padding: 6px 10px;
+        border-top: 1px solid #f1f5f9;
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        background: #f8fafc;
+    }
+    .ms-btn {
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #374151;
+    }
+    .ms-btn:hover { background: #e2e8f0; }
+    .ms-btn.ms-btn-clear { color: #ef4444; border-color: #fecaca; }
+    .ms-btn.ms-btn-clear:hover { background: #fef2f2; }
 
-    /* Modal styles */
-    .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
-    .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 1000px; border-radius: 8px; max-height: 90vh; overflow-y: auto; }
-    .close { color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
-    .close:hover, .close:focus { color: black; text-decoration: none; cursor: pointer; }
+    /* ── Report area ────────────────────────────────────── */
+    .report-view-area {
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        border: 1px solid #e2e8f0;
+        padding: 28px;
+        min-height: 400px;
+    }
+    .report-header-block { margin-bottom: 20px; }
+    .report-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 4px;
+    }
+    .report-period {
+        font-size: 13px;
+        color: #64748b;
+    }
+    .report-tree { font-size: 13px; margin-top: 8px; }
 
-    table.drilldown-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    table.drilldown-table th, table.drilldown-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    table.drilldown-table th { background-color: #f2f2f2; }
+    /* ── Report rows ────────────────────────────────────── */
+    .report-row {
+        display: flex;
+        align-items: center;
+        padding: 6px 10px;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.1s;
+    }
+    .report-row:nth-child(even) { background: #fafbfc; }
+    .report-row:hover { background: #eff6ff !important; }
+    .report-row.summary-row {
+        background: #f1f5f9 !important;
+        font-weight: 700;
+        border-top: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .report-row.summary-row:hover { background: #e2e8f0 !important; }
+    .report-header-row {
+        display: flex;
+        background: #1e293b;
+        color: white;
+        padding: 9px 10px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .report-section-header {
+        font-weight: 700;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #1e40af;
+        padding: 10px 10px 8px;
+        border-left: 3px solid #3b82f6;
+        background: #eff6ff;
+        margin-top: 14px;
+        margin-bottom: 2px;
+        border-radius: 0 4px 4px 0;
+    }
+    .report-cell { flex: 1; color: #374151; }
+    .report-cell-value {
+        text-align: right;
+        min-width: 120px;
+        font-variant-numeric: tabular-nums;
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        font-size: 12px;
+        color: #1e293b;
+    }
+    .report-cell-value.is-negative { color: #dc2626; }
+    .report-value-link {
+        cursor: pointer;
+        color: #2563eb;
+        text-decoration: none;
+        border-bottom: 1px dashed #93c5fd;
+        padding-bottom: 1px;
+        font-weight: 500;
+        transition: color 0.1s;
+    }
+    .report-value-link:hover { color: #1d4ed8; border-bottom-color: #3b82f6; }
+    .report-indent { margin-left: 20px; padding-left: 8px; border-left: 1px solid #e2e8f0; }
+
+    /* ── Comparison layout ──────────────────────────────── */
+    .comparison-container { display: flex; gap: 16px; }
+    .report-column {
+        flex: 1;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 16px;
+        overflow: hidden;
+    }
+    .comparison-label {
+        background: #3b82f6;
+        color: white;
+        padding: 6px 12px;
+        text-align: center;
+        font-weight: 600;
+        font-size: 12px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+    }
+    .comparison-label.period-b { background: #7c3aed; }
+
+    /* ── Drill-down modal ───────────────────────────────── */
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        inset: 0;
+        background: rgba(15,23,42,0.5);
+        backdrop-filter: blur(2px);
+    }
+    .modal-content {
+        background: #fff;
+        margin: 4% auto;
+        border-radius: 12px;
+        width: 92%;
+        max-width: 1020px;
+        max-height: 88vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        background: #f8fafc;
+        border-radius: 12px 12px 0 0;
+    }
+    .modal-header h3 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.4;
+    }
+    .modal-body {
+        padding: 20px 24px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        color: #94a3b8;
+        line-height: 1;
+        padding: 0;
+        flex-shrink: 0;
+        margin-top: -2px;
+    }
+    .modal-close:hover { color: #374151; }
+
+    /* ── Drill-down table ───────────────────────────────── */
+    .drilldown-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .drilldown-table thead th {
+        background: #1e293b;
+        color: #fff;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+    }
+    .drilldown-table thead th.col-amount { text-align: right; }
+    .drilldown-table tbody tr { transition: background 0.1s; }
+    .drilldown-table tbody tr:nth-child(even) { background: #f8fafc; }
+    .drilldown-table tbody tr:hover { background: #eff6ff; }
+    .drilldown-table tbody td {
+        padding: 8px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        color: #374151;
+    }
+    .drilldown-table tbody td.col-amount {
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+    .drilldown-table tbody td.col-amount.is-negative { color: #dc2626; }
+    .drilldown-empty {
+        text-align: center;
+        padding: 40px;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+
+    /* ── Save view modal ────────────────────────────────── */
+    .modal-content.modal-sm { max-width: 480px; }
+
+    /* ── Loading state ──────────────────────────────────── */
+    .report-loading {
+        text-align: center;
+        padding: 60px 20px;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+    .report-placeholder {
+        text-align: center;
+        color: #94a3b8;
+        padding: 60px 20px;
+        font-size: 14px;
+    }
+
+    /* ── Export buttons row ─────────────────────────────── */
+    .export-row { display: flex; gap: 8px; }
+    .export-row .btn { width: auto; flex: 1; }
+
+    /* ── Scrollbar styling ──────────────────────────────── */
+    .ms-options-list::-webkit-scrollbar { width: 5px; }
+    .ms-options-list::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="reports-page-container">
+
+    <!-- ── Sidebar ─────────────────────────────────────── -->
     <div class="reports-sidebar">
-        <h2>Reports</h2>
-        <div class="form-group">
-            <label for="savedReports">Saved Views</label>
-            <select id="savedReports" class="form-control">
-                <option value="">-- Select Saved View --</option>
-            </select>
-        </div>
+        <div class="sidebar-inner">
 
-        <hr style="border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
-
-        <div class="form-group">
-            <label for="reportType">Report Type</label>
-            <select id="reportType" class="form-control">
-                <option value="BalanceSheet">Balance Sheet</option>
-                <option value="ProfitAndLoss">Profit & Loss</option>
-                <option value="AgedPayables">Aged Payables</option>
-                <option value="AgedReceivables">Aged Receivables</option>
-                <option value="TransactionList">Transaction List</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>
-                <input type="checkbox" id="compareToggle"> Compare Periods
-            </label>
-        </div>
-
-        <div id="reportAControls" class="report-controls">
-            <h3 id="reportATitle">Report Period</h3>
-            <div class="form-group">
-                <label>Start Date</label>
-                <input type="date" id="startDateA" class="form-control">
+            <!-- Saved Views -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Saved Views</div>
+                <div class="form-group">
+                    <select id="savedReports" class="form-control">
+                        <option value="">— Select a saved view —</option>
+                    </select>
+                </div>
             </div>
-            <div class="form-group">
-                <label>End Date</label>
-                <input type="date" id="endDateA" class="form-control">
+
+            <!-- Report Configuration -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Report</div>
+                <div class="form-group">
+                    <label for="reportType">Report Type</label>
+                    <select id="reportType" class="form-control">
+                        <option value="BalanceSheet">Balance Sheet</option>
+                        <option value="ProfitAndLoss">Profit &amp; Loss</option>
+                        <option value="AgedPayables">Aged Payables</option>
+                        <option value="AgedReceivables">Aged Receivables</option>
+                        <option value="TransactionList">Transaction List</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-check-label">
+                        <input type="checkbox" id="compareToggle">
+                        Compare Periods
+                    </label>
+                </div>
             </div>
-        </div>
 
-        <div id="reportBControls" class="report-controls" style="display: none;">
-            <h3>Comparison Period</h3>
-            <div class="form-group">
-                <label>Start Date</label>
-                <input type="date" id="startDateB" class="form-control">
+            <!-- Date Range -->
+            <div class="sidebar-section">
+                <div id="reportAControls">
+                    <div class="sidebar-section-label" id="reportATitle">Report Period</div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="startDateA" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="endDateA" class="form-control">
+                    </div>
+                </div>
+
+                <div id="reportBControls" style="display:none; margin-top:12px;">
+                    <div class="sidebar-section-label">Comparison Period</div>
+                    <div class="form-group">
+                        <label>Start Date</label>
+                        <input type="date" id="startDateB" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>End Date</label>
+                        <input type="date" id="endDateB" class="form-control">
+                    </div>
+                </div>
             </div>
-            <div class="form-group">
-                <label>End Date</label>
-                <input type="date" id="endDateB" class="form-control">
+
+            <!-- Filters -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Filters</div>
+
+                <div class="form-group">
+                    <label>Customer</label>
+                    <div class="multi-select-container" id="customerMSContainer">
+                        <div class="multi-select-trigger" id="customerMSTrigger" onclick="toggleFilterDropdown('customer')">
+                            <span class="ms-trigger-label" id="customerFilterLabel">All Customers</span>
+                            <span class="ms-arrow">▾</span>
+                        </div>
+                        <div class="multi-select-panel" id="customerMSPanel" style="display:none">
+                            <div class="ms-search">
+                                <input type="text" id="customerSearchInput" placeholder="Search customers…" oninput="searchFilterOptions('customer', this.value)">
+                            </div>
+                            <div class="ms-selectall">
+                                <label><input type="checkbox" id="customerSelectAll" onchange="toggleSelectAll('customer', this.checked)"> Select All</label>
+                            </div>
+                            <div class="ms-options-list" id="customerOptionsList">
+                                <div class="ms-loading">Loading customers…</div>
+                            </div>
+                            <div class="ms-footer">
+                                <button class="ms-btn ms-btn-clear" onclick="clearFilter('customer')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Vendor</label>
+                    <div class="multi-select-container" id="vendorMSContainer">
+                        <div class="multi-select-trigger" id="vendorMSTrigger" onclick="toggleFilterDropdown('vendor')">
+                            <span class="ms-trigger-label" id="vendorFilterLabel">All Vendors</span>
+                            <span class="ms-arrow">▾</span>
+                        </div>
+                        <div class="multi-select-panel" id="vendorMSPanel" style="display:none">
+                            <div class="ms-search">
+                                <input type="text" id="vendorSearchInput" placeholder="Search vendors…" oninput="searchFilterOptions('vendor', this.value)">
+                            </div>
+                            <div class="ms-selectall">
+                                <label><input type="checkbox" id="vendorSelectAll" onchange="toggleSelectAll('vendor', this.checked)"> Select All</label>
+                            </div>
+                            <div class="ms-options-list" id="vendorOptionsList">
+                                <div class="ms-loading">Loading vendors…</div>
+                            </div>
+                            <div class="ms-footer">
+                                <button class="ms-btn ms-btn-clear" onclick="clearFilter('vendor')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="form-group">
-             <label for="filterCustomer">Customer (Name)</label>
-             <input type="text" id="filterCustomer" class="form-control" placeholder="Optional">
-        </div>
-         <div class="form-group">
-             <label for="filterVendor">Vendor (Name)</label>
-             <input type="text" id="filterVendor" class="form-control" placeholder="Optional">
-        </div>
+            <!-- Actions -->
+            <div class="sidebar-section">
+                <button id="runReportBtn" class="btn btn-primary">Run Report</button>
+                <button id="saveViewBtn" class="btn btn-secondary" style="margin-top:8px;">Save as Custom View</button>
+            </div>
 
-        <button id="runReportBtn" class="btn">Run Report</button>
-        <button id="saveViewBtn" class="btn btn-secondary" style="margin-top: 10px; background-color: #6c757d;">Save as Custom View</button>
+            <!-- Export -->
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Export</div>
+                <div class="export-row">
+                    <button id="exportExcelBtn" class="btn btn-success">Excel</button>
+                    <button id="exportPDFBtn" class="btn btn-danger">PDF</button>
+                </div>
+            </div>
 
-        <div class="export-buttons" style="margin-top: 20px; border-top: 1px solid #ddd; padding-top: 20px;">
-            <button id="exportExcelBtn" class="btn" style="background-color: #28a745; margin-bottom: 10px;">Export to Excel</button>
-            <button id="exportPDFBtn" class="btn" style="background-color: #dc3545;">Export to PDF</button>
         </div>
     </div>
 
+    <!-- ── Main Report Area ─────────────────────────────── -->
     <div class="reports-main">
-        <div id="loading" style="display: none; text-align: center; padding: 20px;">Loading report data...</div>
+        <div id="loading" style="display:none;" class="report-loading">Loading report data…</div>
         <div id="reportContainer" class="report-view-area">
-             <div class="placeholder-text" style="text-align: center; color: #666; padding-top: 50px;">Select a report type and date range, then click Run Report.</div>
+            <div class="report-placeholder">Select a report type and date range, then click <strong>Run Report</strong>.</div>
         </div>
     </div>
 </div>
 
-<!-- Drill Down Modal -->
+<!-- ── Drill-Down Modal ─────────────────────────────────── -->
 <div id="drillDownModal" class="modal">
     <div class="modal-content">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <h3 id="modalTitle">Transaction Details</h3>
-        <div id="modalContent">
-            <!-- Transaction list table -->
+        <div class="modal-header">
+            <h3 id="modalTitle">Transaction Details</h3>
+            <button class="modal-close" onclick="closeModal()" title="Close">&times;</button>
+        </div>
+        <div class="modal-body" id="modalContent">
+            <!-- Transaction table injected here -->
         </div>
     </div>
 </div>
 
-<!-- Save View Modal -->
+<!-- ── Save View Modal ──────────────────────────────────── -->
 <div id="saveViewModal" class="modal">
-    <div class="modal-content" style="max-width: 500px;">
-        <span class="close" onclick="closeSaveModal()">&times;</span>
-        <h3>Save Custom View</h3>
-        <div class="form-group">
-            <label for="saveViewName">View Name</label>
-            <input type="text" id="saveViewName" class="form-control" placeholder="e.g. Monthly P&L Comparison">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3>Save Custom View</h3>
+            <button class="modal-close" onclick="closeSaveModal()">&times;</button>
         </div>
-        <button id="confirmSaveViewBtn" class="btn btn-success">Save</button>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="saveViewName">View Name</label>
+                <input type="text" id="saveViewName" class="form-control" placeholder="e.g. Monthly P&amp;L Comparison">
+            </div>
+            <button id="confirmSaveViewBtn" class="btn btn-success">Save View</button>
+        </div>
     </div>
 </div>
 {% endblock %}
