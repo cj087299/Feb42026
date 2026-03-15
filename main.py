@@ -105,7 +105,7 @@ logger.info("Webhook background processor started")
 # order), so these values act purely as a bootstrap / disaster-recovery default.
 _BOOTSTRAP_CLIENT_ID     = 'AB224ne26KUlOjJebeDLMIwgIZcTRQkb6AieFqwJQg0sWCzXXA'
 _BOOTSTRAP_REALM_ID      = os.environ.get('QBO_REALM_ID',      '9341453050298464')
-_BOOTSTRAP_REFRESH_TOKEN = os.environ.get('QBO_REFRESH_TOKEN', 'RT1-223-H0-1782261632cfh9kdjneo00awcsmybo')
+_BOOTSTRAP_REFRESH_TOKEN = os.environ.get('QBO_REFRESH_TOKEN', 'RT1-174-H0-1782270874c7bnn2krnl0dt268u9ej')
 _BOOTSTRAP_ACCESS_TOKEN  = os.environ.get('QBO_ACCESS_TOKEN',  None)
 
 
