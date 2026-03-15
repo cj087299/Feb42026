@@ -1,6 +1,8 @@
 // ── Global state ────────────────────────────────────────────
 let currentReportData = null;
 let currentReportType = 'BalanceSheet';
+let agedPivotAllLabels = [];
+let agedPivotChecked   = new Set();
 
 // ── Initialisation ──────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -45,6 +47,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedReportsSelect) savedReportsSelect.addEventListener('change', loadSavedReport);
 
     fetchSavedReports();
+
+    // Close aged pivot dropdown when clicking outside it
+    document.addEventListener('click', () => {
+        const dd = document.getElementById('agedPivotDropdown');
+        if (dd) dd.style.display = 'none';
+    });
 
     // Auto-run if type param present in URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -118,19 +126,118 @@ function mapAgedColumnTitle(title) {
     return title;
 }
 
-// ── In-table filter for aged reports ─────────────────────────
+// ── Aged pivot filter ─────────────────────────────────────────
 
-function filterAgedRows(search) {
-    const lower = search.toLowerCase().trim();
+function buildAgedPivotDropdown(treeContainer) {
+    // Collect labels from rendered data rows (skip section headers and totals)
+    const labels = [];
+    treeContainer.querySelectorAll('.report-tree-node').forEach(node => {
+        if (node.querySelector('.report-section-header') || node.querySelector('.summary-row')) return;
+        const cell = node.querySelector('.report-cell');
+        if (cell) { const t = cell.textContent.trim(); if (t) labels.push(t); }
+    });
+    agedPivotAllLabels = labels;
+    agedPivotChecked   = new Set(labels);
+
+    const existing = document.getElementById('agedPivotDropdown');
+    if (existing) existing.remove();
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'agedPivotDropdown';
+    dropdown.className = 'aged-pivot-dropdown';
+    dropdown.style.display = 'none';
+    dropdown.addEventListener('click', e => e.stopPropagation());
+
+    // Search input
+    const searchDiv = document.createElement('div');
+    searchDiv.className = 'aged-pivot-search';
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.id = 'agedPivotSearch';
+    searchInput.placeholder = 'Search…';
+    searchInput.addEventListener('input', () => renderAgedPivotOptions(searchInput.value));
+    searchDiv.appendChild(searchInput);
+    dropdown.appendChild(searchDiv);
+
+    // Select All row
+    const saDiv = document.createElement('div');
+    saDiv.className = 'aged-pivot-selectall';
+    const saLabel = document.createElement('label');
+    const saCb = document.createElement('input');
+    saCb.type = 'checkbox'; saCb.id = 'agedPivotSelectAll'; saCb.checked = true;
+    saCb.addEventListener('change', () => toggleAgedPivotAll(saCb.checked));
+    saLabel.appendChild(saCb);
+    saLabel.appendChild(document.createTextNode(' Select All'));
+    saDiv.appendChild(saLabel);
+    dropdown.appendChild(saDiv);
+
+    // Options list
+    const optsList = document.createElement('div');
+    optsList.id = 'agedPivotList';
+    optsList.className = 'aged-pivot-list';
+    dropdown.appendChild(optsList);
+
+    const trigger = treeContainer.querySelector('.aged-filter-trigger');
+    if (trigger) trigger.appendChild(dropdown);
+
+    renderAgedPivotOptions('');
+}
+
+function toggleAgedPivotDropdown() {
+    const dd = document.getElementById('agedPivotDropdown');
+    if (!dd) return;
+    dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function renderAgedPivotOptions(search) {
+    const list = document.getElementById('agedPivotList');
+    if (!list) return;
+    const lower    = search.toLowerCase().trim();
+    const filtered = lower ? agedPivotAllLabels.filter(l => l.toLowerCase().includes(lower)) : agedPivotAllLabels;
+    list.innerHTML = '';
+    filtered.forEach(label => {
+        const opt = document.createElement('label');
+        opt.className = 'aged-pivot-option';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = agedPivotChecked.has(label);
+        cb.addEventListener('change', () => {
+            if (cb.checked) agedPivotChecked.add(label);
+            else            agedPivotChecked.delete(label);
+            applyAgedPivotFilter();
+            updateAgedPivotSelectAll();
+        });
+        const span = document.createElement('span');
+        span.textContent = label; span.title = label;
+        opt.appendChild(cb); opt.appendChild(span);
+        list.appendChild(opt);
+    });
+    updateAgedPivotSelectAll();
+}
+
+function toggleAgedPivotAll(checked) {
+    if (checked) agedPivotAllLabels.forEach(l => agedPivotChecked.add(l));
+    else         agedPivotChecked.clear();
+    const si = document.getElementById('agedPivotSearch');
+    renderAgedPivotOptions(si ? si.value : '');
+    applyAgedPivotFilter();
+}
+
+function updateAgedPivotSelectAll() {
+    const sa = document.getElementById('agedPivotSelectAll');
+    if (!sa) return;
+    const n = agedPivotAllLabels.filter(l => agedPivotChecked.has(l)).length;
+    if (n === 0)                          { sa.indeterminate = false; sa.checked = false; }
+    else if (n >= agedPivotAllLabels.length) { sa.indeterminate = false; sa.checked = true;  }
+    else                                  { sa.indeterminate = true; }
+}
+
+function applyAgedPivotFilter() {
     document.querySelectorAll('#reportContainer .report-tree-node').forEach(node => {
-        // Always keep section headers and summary/total rows visible
-        if (node.querySelector('.report-section-header') || node.querySelector('.summary-row')) {
-            node.style.display = '';
-            return;
-        }
-        if (!lower) { node.style.display = ''; return; }
-        const label = (node.querySelector('.report-cell') || {}).textContent || '';
-        node.style.display = label.toLowerCase().includes(lower) ? '' : 'none';
+        if (node.querySelector('.report-section-header') || node.querySelector('.summary-row')) return;
+        const cell = node.querySelector('.report-cell');
+        if (!cell) return;
+        node.style.display = agedPivotChecked.has(cell.textContent.trim()) ? '' : 'none';
     });
 }
 
@@ -171,12 +278,18 @@ function renderReport(reportData, container, reportType) {
         const headerRow = document.createElement('div');
         headerRow.className = 'report-header-row';
 
+        const isAged = (reportType === 'AgedPayables' || reportType === 'AgedReceivables');
         const labelCol = document.createElement('div');
-        labelCol.className = 'report-cell';
-        labelCol.textContent = 'Account / Item';
+        if (isAged) {
+            labelCol.className = 'report-cell aged-filter-trigger';
+            labelCol.innerHTML = 'Account / Item <span class="aged-filter-arrow">&#9660;</span>';
+            labelCol.addEventListener('click', e => { e.stopPropagation(); toggleAgedPivotDropdown(); });
+        } else {
+            labelCol.className = 'report-cell';
+            labelCol.textContent = 'Account / Item';
+        }
         headerRow.appendChild(labelCol);
 
-        const isAged = (reportType === 'AgedPayables' || reportType === 'AgedReceivables');
         reportData.Columns.Column.forEach(col => {
             if (col.ColType === 'Money') {
                 const cell = document.createElement('div');
@@ -188,18 +301,14 @@ function renderReport(reportData, container, reportType) {
         treeContainer.appendChild(headerRow);
     }
 
-    // Aged reports: add in-table search filter
-    if (reportType === 'AgedPayables' || reportType === 'AgedReceivables') {
-        const filterRow = document.createElement('div');
-        filterRow.className = 'aged-filter-row';
-        const placeholder = reportType === 'AgedPayables' ? 'Filter by vendor…' : 'Filter by customer…';
-        filterRow.innerHTML = `<input type="text" class="aged-filter-input" placeholder="${placeholder}" oninput="filterAgedRows(this.value)">`;
-        treeContainer.appendChild(filterRow);
-    }
-
     // Rows
     if (reportData.Rows && reportData.Rows.Row) {
         renderRows(reportData.Rows.Row, treeContainer, 0, reportData.Header, reportType);
+    }
+
+    // Aged reports: build pivot filter dropdown after rows exist in DOM
+    if (reportType === 'AgedPayables' || reportType === 'AgedReceivables') {
+        buildAgedPivotDropdown(treeContainer);
     }
 
     container.appendChild(treeContainer);
