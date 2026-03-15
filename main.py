@@ -861,6 +861,12 @@ def qbo_settings_v2_page(): return render_template('qbo_settings_v2.html', is_ad
 @login_required
 def qbo_disconnect():
     secret_manager.delete_qbo_secrets()
+    # Reset the global in-memory auth instance so the background refresh
+    # worker and any API calls immediately reflect the disconnected state.
+    qbo_auth.access_token = None
+    qbo_auth.refresh_token = DUMMY_QBO_REFRESH_TOKEN
+    qbo_auth.realm_id = DUMMY_QBO_REALM_ID
+    qbo_auth.credentials_valid = False
     return jsonify({'success': True}), 200
 
 @app.route('/api/qbo/oauth/diagnostic', methods=['GET'])

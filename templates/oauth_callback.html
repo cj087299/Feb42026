@@ -71,10 +71,12 @@
     </div>
 
     <script>
-        // Get success/error status from URL parameters
+        // Status injected by Flask. Fall back to URL params for direct navigation.
+        const _flaskSuccess = '{{ success | default("") }}';
+        const _flaskError   = '{{ error   | default("") }}';
         const urlParams = new URLSearchParams(window.location.search);
-        const success = urlParams.get('success') === 'true';
-        const error = urlParams.get('error');
+        const success = _flaskSuccess ? (_flaskSuccess === 'true') : (urlParams.get('success') === 'true');
+        const error   = _flaskError   || urlParams.get('error') || null;
         
         const messageBox = document.getElementById('messageBox');
         
