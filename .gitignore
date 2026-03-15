@@ -1,3 +1,5 @@
 __pycache__/
 *.pyc
 *.db
+.env
+qbo_local_config.json

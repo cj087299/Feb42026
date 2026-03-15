@@ -29,9 +29,10 @@ ROLES = {
     'admin': {
         'name': 'Admin',
         'description': 'Can manage all accounting functions and view audit logs',
-        'permissions': ['view_invoices', 'view_cashflow', 'view_reports', 'manage_ar', 'manage_ap', 
-                       'edit_invoice_metadata', 'add_custom_inflows', 'add_custom_outflows', 
-                       'edit_custom_flows', 'delete_custom_flows', 'view_audit_log']
+        'permissions': ['view_invoices', 'view_cashflow', 'view_reports', 'manage_ar', 'manage_ap',
+                       'edit_invoice_metadata', 'add_custom_inflows', 'add_custom_outflows',
+                       'edit_custom_flows', 'delete_custom_flows', 'view_audit_log',
+                       'manage_qbo_credentials']
     },
     'master_admin': {
         'name': 'Master Admin',

@@ -64,7 +64,19 @@
             </a>
         </div>
 
-        <section style="margin-top: 3rem; padding: 2rem; background: white; border-radius: 12px;">
+        <!-- QBO Connection Status (visible to admin/master_admin) -->
+        <section id="qboSection" style="display:none; margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px; border: 2px solid #e2e8f0;">
+            <h2 style="margin-bottom: 1rem;">QuickBooks Online Connection</h2>
+            <div id="qboStatus" style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
+                <span id="qboStatusBadge" style="padding:0.4rem 1rem; border-radius:999px; font-weight:600; font-size:0.9rem;"></span>
+                <span id="qboRealmInfo" style="color: var(--text-secondary); font-size:0.9rem;"></span>
+                <a id="qboConnectBtn" href="/qbo/auth" style="display:none; padding:0.5rem 1.2rem; background:#2563eb; color:white; border-radius:8px; text-decoration:none; font-weight:600;">Connect QBO</a>
+                <button id="qboDisconnectBtn" onclick="disconnectQBO()" style="display:none; padding:0.5rem 1.2rem; background:#dc2626; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Disconnect QBO</button>
+            </div>
+            <p id="qboMessage" style="margin-top:0.75rem; font-size:0.85rem; color: var(--text-secondary);"></p>
+        </section>
+
+        <section style="margin-top: 2rem; padding: 2rem; background: white; border-radius: 12px;">
             <h2 style="margin-bottom: 1rem;">Key Features</h2>
             <ul style="list-style-position: inside; color: var(--text-secondary); line-height: 2;">
                 <li>🔗 <strong>QuickBooks Online Integration</strong> - Seamlessly connect to your QBO account</li>
@@ -81,13 +93,19 @@
     <script>
         // Load user info and show/hide cards based on role
         window.addEventListener('DOMContentLoaded', async () => {
+            // Check if we just completed a QBO OAuth connection
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('qbo_connected') === '1') {
+                history.replaceState({}, document.title, '/');
+            }
+
             try {
                 const user = await fetchAPI('/api/me');
                 if (user) {
                     document.getElementById('userInfo').textContent = `Logged in as ${user.full_name || user.email} (${getRoleName(user.role)})`;
-                    
+
                     const nav = document.getElementById('mainNav');
-                    
+
                     // Show audit log link for admins
                     if (user.role === 'admin' || user.role === 'master_admin') {
                         document.getElementById('auditCard').style.display = 'block';
@@ -96,7 +114,7 @@
                         auditLink.textContent = 'Audit Log';
                         nav.insertBefore(auditLink, nav.lastElementChild);
                     }
-                    
+
                     // Show users link for master admin
                     if (user.role === 'master_admin') {
                         document.getElementById('usersCard').style.display = 'block';
@@ -105,11 +123,64 @@
                         usersLink.textContent = 'Users';
                         nav.insertBefore(usersLink, nav.lastElementChild);
                     }
+
+                    // Show QBO section for admin and master_admin
+                    if (user.role === 'admin' || user.role === 'master_admin') {
+                        document.getElementById('qboSection').style.display = 'block';
+                        await loadQBOStatus();
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load user info:', error);
             }
         });
+
+        async function loadQBOStatus() {
+            try {
+                const status = await fetchAPI('/api/qbo/status');
+                const badge = document.getElementById('qboStatusBadge');
+                const realmInfo = document.getElementById('qboRealmInfo');
+                const connectBtn = document.getElementById('qboConnectBtn');
+                const disconnectBtn = document.getElementById('qboDisconnectBtn');
+                const msg = document.getElementById('qboMessage');
+
+                if (status.connected) {
+                    badge.textContent = 'Connected';
+                    badge.style.background = '#dcfce7';
+                    badge.style.color = '#166534';
+                    realmInfo.textContent = status.realm_id ? `Realm ID: ${status.realm_id}` : '';
+                    connectBtn.style.display = 'none';
+                    disconnectBtn.style.display = 'inline-block';
+                    msg.textContent = 'QBO is connected and active. The connection persists across user logouts and app restarts.';
+                } else {
+                    badge.textContent = 'Not Connected';
+                    badge.style.background = '#fee2e2';
+                    badge.style.color = '#991b1b';
+                    realmInfo.textContent = '';
+                    connectBtn.style.display = 'inline-block';
+                    disconnectBtn.style.display = 'none';
+                    msg.textContent = 'Click "Connect QBO" to authorize this app with QuickBooks Online.';
+                }
+            } catch (error) {
+                console.error('Failed to load QBO status:', error);
+            }
+        }
+
+        async function disconnectQBO() {
+            if (!confirm('Are you sure you want to disconnect from QuickBooks Online? You will need to re-authorize to reconnect.')) return;
+            try {
+                const resp = await fetch('/qbo/disconnect', { method: 'POST' });
+                if (resp.ok) {
+                    await loadQBOStatus();
+                } else {
+                    const data = await resp.json();
+                    alert('Disconnect failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Disconnect failed:', error);
+                alert('Disconnect failed. See console for details.');
+            }
+        }
         
         function getRoleName(role) {
             const roleNames = {

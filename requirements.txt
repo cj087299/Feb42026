@@ -6,3 +6,7 @@ gunicorn
 google-cloud-secret-manager
 cloud-sql-python-connector
 pymysql
+redis
+DBUtils
+tenacity
+python-dotenv
