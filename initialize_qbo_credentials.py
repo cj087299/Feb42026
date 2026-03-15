@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.database import Database
+from src.common.database import Database
 
 def initialize_credentials():
     """
@@ -80,7 +80,8 @@ def initialize_credentials():
     print(f"   Client ID: {credentials['client_id'][:20]}...")
     print(f"   Client Secret: {'*' * 40}")
     print(f"   Refresh Token: {credentials['refresh_token'][:20]}...")
-    print(f"   Access Token: {credentials['access_token'][:50]}...")
+    access_token_preview = (credentials['access_token'] or '')[:50] or '(none – will be obtained on first API call)'
+    print(f"   Access Token: {access_token_preview}")
     print(f"   Realm ID: {credentials['realm_id']}")
     
     # Calculate expiration times

@@ -43,7 +43,38 @@ DUMMY_QBO_REFRESH_TOKEN = 'dummy_refresh'
 DUMMY_QBO_REALM_ID = 'dummy_realm'
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24))
+def _get_stable_secret_key() -> bytes:
+    """Return a stable Flask secret key that persists across restarts and workers.
+
+    Priority:
+    1. SECRET_KEY environment variable (recommended for production)
+    2. Key stored in .flask_secret_key file (auto-generated on first boot)
+    """
+    env_key = os.environ.get('SECRET_KEY')
+    if env_key:
+        return env_key.encode() if isinstance(env_key, str) else env_key
+
+    key_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.flask_secret_key')
+    try:
+        if os.path.exists(key_file):
+            with open(key_file, 'rb') as fh:
+                key = fh.read()
+            if key:
+                return key
+    except Exception:
+        pass
+
+    # First boot: generate and persist a key so all workers/restarts share it.
+    key = os.urandom(32)
+    try:
+        with open(key_file, 'wb') as fh:
+            fh.write(key)
+    except Exception as exc:
+        logger.warning(f"Could not persist Flask secret key to {key_file}: {exc}. "
+                       "Set SECRET_KEY env var for a stable key across restarts.")
+    return key
+
+app.secret_key = _get_stable_secret_key()
 
 # Initialize Database
 database = Database()
